@@ -7,6 +7,7 @@ pub mod inspect;
 pub mod json;
 pub mod known;
 pub mod map;
+pub mod packages;
 pub mod report;
 pub mod rules;
 pub mod scan;
@@ -109,7 +110,7 @@ fn finder_candidates(opts: &ScanOptions, repos: &[PathBuf], env: &Env) -> Vec<sc
 }
 
 /// The first line a tool prints, if it's installed and succeeds.
-fn tool_output(program: &str, args: &[&str]) -> Option<String> {
+pub(crate) fn tool_output(program: &str, args: &[&str]) -> Option<String> {
     let out = std::process::Command::new(program).args(args).stderr(std::process::Stdio::null()).output().ok()?;
     let line = String::from_utf8_lossy(&out.stdout).lines().next()?.trim().to_string();
     (out.status.success() && !line.is_empty()).then_some(line)

@@ -34,6 +34,8 @@ enum Cmd {
     Inspect(InspectArgs),
     /// Show what uninstalling an app would remove, or remove it (to the Trash).
     Uninstall(UninstallArgs),
+    /// Homebrew packages and global npm, uv and pipx tools; remove one with its manager.
+    Packages(PackagesArgs),
     /// Files of apps that aren't installed anymore.
     Leftovers(LeftoversArgs),
     /// Say what Roomy's list of known folders knows about folders (they don't have to exist).
@@ -53,6 +55,65 @@ struct UninstallArgs {
     /// With --remove: what to remove (default: the app and all its files).
     #[arg(last = true)]
     paths: Vec<PathBuf>,
+}
+
+#[derive(Args)]
+struct PackagesArgs {
+    /// Remove a package: --remove <manager> <name> (brew, cask, npm, uv or pipx).
+    #[arg(long, num_args = 2, value_names = ["MANAGER", "NAME"])]
+    remove: Option<Vec<String>>,
+    /// Remove Homebrew dependencies nothing needs anymore (brew autoremove).
+    #[arg(long)]
+    autoremove: bool,
+    #[arg(long)]
+    json: bool,
+}
+
+fn run_packages(a: PackagesArgs, home: &std::path::Path) -> ExitCode {
+    use roomy::clean::{CommandResult, run_command};
+    use roomy::packages;
+    let command = if a.autoremove {
+        Some(vec!["brew".to_string(), "autoremove".to_string()])
+    } else if let Some(r) = &a.remove {
+        match packages::uninstall_command(&r[0], &r[1]) {
+            Some(c) => Some(c),
+            None => {
+                eprintln!("error: can't remove {} {}", r[0], r[1]);
+                return ExitCode::FAILURE;
+            }
+        }
+    } else {
+        None
+    };
+    let Some(command) = command else {
+        let list = packages::list();
+        if a.json {
+            println!("{}", serde_json::to_string(&list).unwrap());
+        } else {
+            for p in &list.packages {
+                let needs = if p.needed_by.is_empty() { String::new() } else { format!("  (needed by {})", p.needed_by.join(", ")) };
+                println!("{:>9}  {:5} {}{}{}", human_bytes(p.bytes), p.manager, p.name, if p.requested { "" } else { "  (dependency)" }, needs);
+            }
+            if !list.autoremove.is_empty() {
+                println!("\nNothing needs these anymore (roomy packages --autoremove): {}", list.autoremove.join(", "));
+            }
+        }
+        return ExitCode::SUCCESS;
+    };
+    let result = run_command(&command.join(" "), home, std::time::Duration::from_secs(600));
+    let (ok, error) = match result {
+        CommandResult::Ok => (true, None),
+        CommandResult::NotFound => (false, Some(format!("{} isn't installed", command[0]))),
+        CommandResult::Failed(e) => (false, Some(e)),
+    };
+    if a.json {
+        println!("{}", serde_json::json!({ "command": command.join(" "), "ok": ok, "error": error }));
+    } else if let Some(e) = &error {
+        eprintln!("error: {e}");
+    } else {
+        println!("done: {}", command.join(" "));
+    }
+    if ok || a.json { ExitCode::SUCCESS } else { ExitCode::FAILURE }
 }
 
 #[derive(Args)]
@@ -460,6 +521,7 @@ fn main() -> ExitCode {
         Cmd::Known(a) => run_known(a, &home),
         Cmd::Uninstall(a) => run_uninstall(a, &home),
         Cmd::Leftovers(a) => run_leftovers(a, &home),
+        Cmd::Packages(a) => run_packages(a, &home),
     }
 }
 
