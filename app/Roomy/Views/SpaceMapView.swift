@@ -193,6 +193,7 @@ private struct MapBrowser: View {
     let map: DiskMap
     @Binding var trail: [MapNode]
     @Binding var inspected: MapNode?
+    @State private var showSystem = false
 
     private var unexplained: Set<String> { Set(map.unexplained(limit: 50).map(\.id)) }
 
@@ -219,7 +220,9 @@ private struct MapBrowser: View {
                 SwiftUI.Section {
                     rowsView(rows, biggest: biggest, flagged: flagged)
                     if let sys = map.systemBytes, sys > 0 {
-                        SystemRow(bytes: sys, biggest: biggest)
+                        Button { showSystem = true } label: { SystemRow(bytes: sys, biggest: biggest) }
+                            .buttonStyle(.plain)
+                            .sheet(isPresented: $showSystem) { SystemDataView(bytes: sys) }
                     }
                 } header: {
                     sectionHeader("Everything", "Click a folder to look inside.")
@@ -447,7 +450,7 @@ private struct SystemRow: View {
                 .background(Color.gray.gradient, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
             VStack(alignment: .leading, spacing: 5) {
                 Text("macOS & system data").fontWeight(.medium)
-                Text("macOS itself, swap, Time Machine snapshots and what other users store. macOS manages it.")
+                Text("macOS itself, swap, Time Machine snapshots and what other users store. Click to see what's in it.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
@@ -455,9 +458,10 @@ private struct SystemRow: View {
             Spacer(minLength: 8)
             Text(formatBytes(bytes)).fontWeight(.semibold).monospacedDigit()
                 .frame(minWidth: 96, alignment: .trailing)
-            Image(systemName: "chevron.right").font(.caption).opacity(0)
+            Image(systemName: "info.circle").foregroundStyle(.secondary)
         }
         .padding(.vertical, 3)
+        .contentShape(Rectangle())
     }
 }
 

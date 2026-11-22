@@ -58,6 +58,18 @@ final class FixtureEngine: CleanEngine, @unchecked Sendable {
     func clean(paths: [String], trash: Bool) -> AsyncThrowingStream<CleanEvent, Error> {
         AsyncThrowingStream { $0.finish() }
     }
+    func uninstallPlan(app: String) async throws -> UninstallPlan {
+        let id = "com.tinyspeck.slackmacgap"
+        return UninstallPlan(app: app, name: "Slack", bundleId: id, appBytes: 512_000_000, running: false, items: [
+            AppFile(path: "/Users/you/Library/Application Support/Slack", bytes: 1_240_000_000, what: "Support files", admin: false),
+            AppFile(path: "/Users/you/Library/Caches/\(id).ShipIt", bytes: 218_000_000, what: "Caches", admin: false),
+            AppFile(path: "/Users/you/Library/Containers/\(id)", bytes: 4_200_000, what: "Sandbox container", admin: false),
+            AppFile(path: "/Users/you/Library/Logs/Slack", bytes: 2_100_000, what: "Logs", admin: false),
+            AppFile(path: "/Users/you/Library/Saved Application State/\(id).savedState", bytes: 61_000, what: "Saved windows", admin: false),
+            AppFile(path: "/Users/you/Library/Preferences/\(id).plist", bytes: 8_000, what: "Settings", admin: false),
+            AppFile(path: "/Library/LaunchDaemons/\(id).helper.plist", bytes: 4_000, what: "Background service", admin: true),
+        ])
+    }
 }
 
 @MainActor
@@ -157,4 +169,23 @@ struct SnapAdvisor: FolderAdvisor {
     await store.runAIScan()
     try Snap.render("ai-scan", AIScanView().environment(store), size: CGSize(width: 900, height: 1100))
     try Snap.render("ai-scan", AIScanView().environment(store), size: CGSize(width: 900, height: 1100), dark: true)
+}
+
+
+@MainActor @Test func snapshotUninstallAndSystemData() async throws {
+    let apps = [("Slack", 1_976_000_000), ("Xcode", 4_010_000_000), ("Microsoft Word", 2_950_000_000), ("Spotify", 460_000_000), ("Figma", 520_000_000)]
+    let u = Uninstaller(engine: try FixtureEngine(), listApps: {
+        apps.map { InstalledApp(path: "/Applications/\($0.0).app", name: $0.0, bundleId: nil, bytes: Int64($0.1)) }
+    })
+    await u.loadApps()
+    await u.select("/Applications/Slack.app")
+    u.selectedApp = nil  // a selected row renders black off screen
+    for dark in [false, true] {
+        try Snap.render("uninstall", UninstallView(uninstaller: u), size: CGSize(width: 900, height: 620), dark: dark)
+    }
+    var f = SystemData.Facts()
+    f.snapshots = [Date(timeIntervalSinceNow: -7_200), Date(timeIntervalSinceNow: -3_600)]
+    f.purgeable = 6_400_000_000
+    f.swap = 2_150_000_000
+    try Snap.render("system-data", SystemDataView(bytes: 41_700_000_000, facts: f), size: CGSize(width: 560, height: 640))
 }

@@ -9,6 +9,20 @@ protocol CleanEngine: Sendable {
     /// Clues about one folder (`inspect --json`). Read-only.
     func inspect(path: String) async throws -> FolderClues
     func clean(paths: [String], trash: Bool) -> AsyncThrowingStream<CleanEvent, Error>
+    /// What uninstalling an app would remove. Read-only.
+    func uninstallPlan(app: String) async throws -> UninstallPlan
+    /// Move the app and/or its files to the Trash.
+    func uninstall(app: String, paths: [String]) async throws -> [RemovedFile]
+    /// Files of apps that aren't installed. Read-only.
+    func leftovers() async throws -> [Orphan]
+    func removeLeftovers(paths: [String]) async throws -> [RemovedFile]
+}
+
+extension CleanEngine {
+    func uninstallPlan(app: String) async throws -> UninstallPlan { throw EngineError.failed("not supported") }
+    func uninstall(app: String, paths: [String]) async throws -> [RemovedFile] { throw EngineError.failed("not supported") }
+    func leftovers() async throws -> [Orphan] { [] }
+    func removeLeftovers(paths: [String]) async throws -> [RemovedFile] { [] }
 }
 
 /// Runs the Rust engine as a program and reads its JSON. Arguments go to it
@@ -43,6 +57,22 @@ struct Engine: CleanEngine {
 
     func inspect(path: String) async throws -> FolderClues {
         try await Engine.json(binary, ["inspect", "--json", path], FolderClues.decode)
+    }
+
+    func uninstallPlan(app: String) async throws -> UninstallPlan {
+        try await Engine.json(binary, ["uninstall", "--json", app], UninstallPlan.decode)
+    }
+
+    func uninstall(app: String, paths: [String]) async throws -> [RemovedFile] {
+        try await Engine.json(binary, ["uninstall", "--json", "--remove", app, "--"] + paths, RemovedFile.decodeList)
+    }
+
+    func leftovers() async throws -> [Orphan] {
+        try await Engine.json(binary, ["leftovers", "--json"], Orphan.decodeList)
+    }
+
+    func removeLeftovers(paths: [String]) async throws -> [RemovedFile] {
+        try await Engine.json(binary, ["leftovers", "--json", "--remove", "--"] + paths, RemovedFile.decodeList)
     }
 
     /// Run the engine once and decode what it prints. Blocking reads run on

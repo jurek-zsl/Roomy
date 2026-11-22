@@ -140,6 +140,8 @@ final class CleanerStore {
     /// stays in the section it was made in.
     private var choices: [String: Choice] = [:]
     @ObservationIgnored private let engine: any CleanEngine
+    /// The Uninstall tab.
+    @ObservationIgnored let uninstaller: Uninstaller
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private var busy = false
     @ObservationIgnored private var freeTask: Task<Void, Never>?
@@ -148,6 +150,7 @@ final class CleanerStore {
     init(engine: any CleanEngine, defaults: UserDefaults = .standard, notify: @escaping @Sendable (String) -> Void = { _ in },
          advisors: [any FolderAdvisor] = CLIAdvisor.all, userRules: UserRules = .standard) {
         self.engine = engine
+        self.uninstaller = Uninstaller(engine: engine)
         self.advisors = advisors
         advisorID = defaults.string(forKey: Keys.advisor)
             ?? (advisors.first { $0.status() == .ready } ?? advisors[0]).id

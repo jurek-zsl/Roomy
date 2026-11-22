@@ -119,6 +119,37 @@ The first launch walks you through it:
 
 Both are in Settings too, under the gear button next to Scan Again.
 
+### Uninstall apps completely
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/uninstall-dark.png">
+    <img src="docs/images/uninstall.png" width="640" alt="Uninstall tab: a searchable list of apps by size, and Slack with its support files, caches, container, logs, saved windows and settings, each with a checkbox, and an Uninstall 2.0 GB button">
+  </picture>
+</p>
+
+Dragging an app to the Trash leaves its files behind: support files, caches, sandbox containers, settings, saved windows, logs and login items. The **Uninstall** tab finds them all, matched by the app's bundle id and exact name, never by a loose guess.
+
+- Pick an app to see everything it keeps and how big it is. Untick anything you want to keep, then **Uninstall**. It all goes to the Trash.
+- An app that's open has to be quit first (Roomy can ask it to quit).
+- Files in the shared `/Library` (background services, helper tools) are listed but left for you, because removing them needs an administrator.
+- **Leftovers of removed apps** finds files named after apps that aren't on the Mac anymore. Apps are found through Spotlight, wherever they are. Apple's own files, building blocks other apps share, login items and anything from a company that still has an app installed are skipped.
+- Apple's apps are never offered.
+
+### What's in System Data
+
+<p align="center">
+  <img src="docs/images/system-data.png" width="420" alt="System data panel: Time Machine local snapshots with a Delete button, Time Machine backups, purgeable space, and swap">
+</p>
+
+Click **macOS & system data** at the bottom of the Space Map to see what it holds:
+
+- **Time Machine local snapshots.** When your backup disk isn't connected, Time Machine keeps hourly snapshots on your Mac. They can hold many GB, and macOS never shows their size. Roomy lists them and can delete them; macOS asks for your password. Backups on your backup disk aren't touched.
+- **Time Machine backups:** whether a backup disk is set up, with a button to its settings.
+- **Purgeable space:** what macOS frees by itself when it needs room. There's nothing to do about it.
+- **Swap and the sleep image:** memory macOS moved to disk. Restarting shrinks swap.
+- **macOS itself:** a sealed, read-only volume with one snapshot for updates. It can't be removed.
+
 ### Menu bar
 
 <p align="center">
@@ -198,6 +229,9 @@ cargo build --release
 ./target/release/roomy clean --safe --trash     # move to the Trash instead of deleting
 ./target/release/roomy inspect ~/.cache/foo     # facts about one folder: owner, types, last change
 ./target/release/roomy known ~/.cache/uv        # what Roomy's list of known folders says it is
+./target/release/roomy uninstall /Applications/Slack.app           # the app and every file it keeps
+./target/release/roomy uninstall /Applications/Slack.app --remove  # move them to the Trash
+./target/release/roomy leftovers                # files of apps that are already gone
 ./target/release/roomy rules                    # list every rule
 ```
 
@@ -273,8 +307,40 @@ xcodebuild test -project Roomy.xcodeproj -scheme Snapshots -destination 'platfor
 
 The `Snapshots` scheme renders every screen, light and dark, to `app/build/snapshots/` without opening a window. The screenshots above come from it, using made-up sample data.
 
+## Teach Roomy new folders
+
+Roomy knows the folders on the Macs it was tested on. Every Mac has different apps, so the best way to fill the gaps is to let an AI agent look at yours and send what it finds back. Paste this into Claude Code, Codex, Gemini or any agent that can run commands:
+
+```text
+You're helping improve Roomy, an open-source Mac cleaner (https://github.com/jurek-zsl/Roomy).
+Roomy ships a list of known folders in rules/known.toml. Find big folders on this Mac
+that the list doesn't know yet, and add them. Don't delete or change anything on this Mac.
+
+1. Clone the repo and build the engine:
+   git clone https://github.com/jurek-zsl/Roomy && cd Roomy && cargo build --release
+2. Map the disk: ./target/release/roomy map --json > /tmp/roomy-map.json
+   (Give your terminal Full Disk Access first, or many folders stay hidden.)
+3. Take every folder of 100 MB or more from the map and run
+   ./target/release/roomy known <paths...>
+   Keep the folders that print "not on the list", and those only matched by a general
+   entry ("An app's data", "An app's cache", "A tool's cache", "An app's sandbox").
+4. For each one, find out what it really is: run ./target/release/roomy inspect <path>,
+   look at the app or tool it belongs to, and check that tool's documentation or website.
+   Don't guess. Never open, read or copy the contents of the person's own files.
+5. Add an entry to rules/known.toml in the right section, using the format at the top
+   of that file: path (~ for home, never a username), name, owner, what (one or two plain
+   sentences ending with a period), kind, regrows, and how if the tool has its own clean
+   command. Be honest about kind: anything a person would miss (chats, saves, projects,
+   settings) is appData or userFiles, never cache.
+6. Run cargo test, and check that ./target/release/roomy known <path> now names each folder.
+7. Open a pull request listing each folder you added, its typical size, and the source
+   you checked. Leave out usernames, personal file names and anything private.
+```
+
+Your pull request helps every Mac that has the same apps.
+
 ## Roadmap
 
 - **Shared knowledge:** turn folders an AI explained into entries of the known-folders list, so every Mac gets the answer without AI.
-- A signed and notarized download.
 - Rules for more apps and tools. Contributions welcome!
+- Duplicate files and similar photos.
