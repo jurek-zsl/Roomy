@@ -58,6 +58,20 @@ final class FixtureEngine: CleanEngine, @unchecked Sendable {
     func clean(paths: [String], trash: Bool) -> AsyncThrowingStream<CleanEvent, Error> {
         AsyncThrowingStream { $0.finish() }
     }
+    func packages() async throws -> PackageList {
+        func p(_ m: String, _ n: String, _ v: String, _ d: String, _ b: Int64, req: Bool = true, needs: [String] = [], used: Int64? = nil) -> Package {
+            Package(manager: m, name: n, version: v, description: d, path: "/opt/homebrew/Cellar/\(n)", bytes: b, requested: req, neededBy: needs, lastUsedDays: used)
+        }
+        return PackageList(packages: [
+            p("brew", "llvm", "23.1.4", "Next-gen compiler infrastructure", 1_880_000_000, req: false, needs: ["rust"]),
+            p("uv", "docling", "", "Commands: docling, docling-tools", 1_190_000_000, used: 112),
+            p("npm", "@slidev/cli", "", "Commands: slidev", 565_000_000, used: 19),
+            p("brew", "rust", "1.99.1", "Safe, concurrent, practical language", 426_000_000),
+            p("brew", "openjdk", "27.0.1", "Development kit for the Java programming language", 392_000_000),
+            p("cask", "dotnet-sdk", "10.0.403", ".NET developer platform", 226_000_000),
+            p("brew", "pandoc", "3.13", "Swiss-army knife of markup format conversion", 291_000_000),
+        ], autoremove: ["libtorrent-rasterbar", "boost-python3", "qtwebview"])
+    }
     func uninstallPlan(app: String) async throws -> UninstallPlan {
         let id = "com.tinyspeck.slackmacgap"
         return UninstallPlan(app: app, name: "Slack", bundleId: id, appBytes: 512_000_000, running: false, items: [
@@ -183,6 +197,8 @@ struct SnapAdvisor: FolderAdvisor {
     for dark in [false, true] {
         try Snap.render("uninstall", UninstallView(uninstaller: u), size: CGSize(width: 900, height: 620), dark: dark)
     }
+    await u.loadPackages()
+    try Snap.render("packages", PackagesView(uninstaller: u).environment(\.colorScheme, .light), size: CGSize(width: 640, height: 640))
     var f = SystemData.Facts()
     f.snapshots = [Date(timeIntervalSinceNow: -7_200), Date(timeIntervalSinceNow: -3_600)]
     f.purgeable = 6_400_000_000

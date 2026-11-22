@@ -16,6 +16,10 @@ protocol CleanEngine: Sendable {
     /// Files of apps that aren't installed. Read-only.
     func leftovers() async throws -> [Orphan]
     func removeLeftovers(paths: [String]) async throws -> [RemovedFile]
+    /// Homebrew packages and global tools. Read-only.
+    func packages() async throws -> PackageList
+    func removePackage(manager: String, name: String) async throws -> CommandOutcome
+    func brewAutoremove() async throws -> CommandOutcome
 }
 
 extension CleanEngine {
@@ -23,6 +27,9 @@ extension CleanEngine {
     func uninstall(app: String, paths: [String]) async throws -> [RemovedFile] { throw EngineError.failed("not supported") }
     func leftovers() async throws -> [Orphan] { [] }
     func removeLeftovers(paths: [String]) async throws -> [RemovedFile] { [] }
+    func packages() async throws -> PackageList { PackageList(packages: [], autoremove: []) }
+    func removePackage(manager: String, name: String) async throws -> CommandOutcome { throw EngineError.failed("not supported") }
+    func brewAutoremove() async throws -> CommandOutcome { throw EngineError.failed("not supported") }
 }
 
 /// Runs the Rust engine as a program and reads its JSON. Arguments go to it
@@ -73,6 +80,18 @@ struct Engine: CleanEngine {
 
     func removeLeftovers(paths: [String]) async throws -> [RemovedFile] {
         try await Engine.json(binary, ["leftovers", "--json", "--remove", "--"] + paths, RemovedFile.decodeList)
+    }
+
+    func packages() async throws -> PackageList {
+        try await Engine.json(binary, ["packages", "--json"], PackageList.decode)
+    }
+
+    func removePackage(manager: String, name: String) async throws -> CommandOutcome {
+        try await Engine.json(binary, ["packages", "--json", "--remove", manager, name], CommandOutcome.decode)
+    }
+
+    func brewAutoremove() async throws -> CommandOutcome {
+        try await Engine.json(binary, ["packages", "--json", "--autoremove"], CommandOutcome.decode)
     }
 
     /// Run the engine once and decode what it prints. Blocking reads run on

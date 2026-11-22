@@ -7,7 +7,8 @@ struct UninstallView: View {
     @Bindable var uninstaller: Uninstaller
     @State private var search = ""
     @State private var sort: Sort = .size
-    @State private var showLeftovers = false
+    /// "leftovers" or "packages" when one of those is picked instead of an app.
+    @State private var special: String?
     @State private var confirming = false
 
     enum Sort: String, CaseIterable { case size = "Size", name = "Name" }
@@ -40,7 +41,7 @@ struct UninstallView: View {
             }
             .padding(10)
             Divider()
-            List(selection: Binding(get: { showLeftovers ? "leftovers" : uninstaller.selectedApp },
+            List(selection: Binding(get: { special ?? uninstaller.selectedApp },
                                     set: { pick($0) })) {
                 Label {
                     VStack(alignment: .leading, spacing: 1) {
@@ -51,6 +52,15 @@ struct UninstallView: View {
                     Image(systemName: "shippingbox.and.arrow.backward.fill").foregroundStyle(.brown)
                 }
                 .tag("leftovers")
+                Label {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Homebrew & command-line tools").fontWeight(.medium)
+                        Text("Packages from Homebrew, npm, uv and pipx").font(.caption).foregroundStyle(.secondary)
+                    }
+                } icon: {
+                    Image(systemName: "terminal.fill").foregroundStyle(.orange)
+                }
+                .tag("packages")
                 SwiftUI.Section("Apps") {
                     ForEach(shown) { app in
                         HStack(spacing: 10) {
@@ -73,12 +83,12 @@ struct UninstallView: View {
     }
 
     private func pick(_ id: String?) {
-        if id == "leftovers" {
-            showLeftovers = true
+        if id == "leftovers" || id == "packages" {
+            special = id
             uninstaller.selectedApp = nil
-            if uninstaller.orphanState == .idle { Task { await uninstaller.loadOrphans() } }
+            if id == "leftovers", uninstaller.orphanState == .idle { Task { await uninstaller.loadOrphans() } }
         } else {
-            showLeftovers = false
+            special = nil
             Task { await uninstaller.select(id) }
         }
     }
@@ -86,8 +96,10 @@ struct UninstallView: View {
     // MARK: Detail
 
     @ViewBuilder private var detail: some View {
-        if showLeftovers {
+        if special == "leftovers" {
             LeftoversView(uninstaller: uninstaller)
+        } else if special == "packages" {
+            PackagesView(uninstaller: uninstaller)
         } else {
             switch uninstaller.planState {
             case .idle:

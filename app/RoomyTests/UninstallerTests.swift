@@ -16,6 +16,13 @@ private final class AppEngine: CleanEngine, @unchecked Sendable {
         return paths.map { RemovedFile(path: $0, trashed: "/T/x", error: nil) }
     }
     func leftovers() async throws -> [Orphan] { orphanList }
+    var packageList = PackageList(packages: [], autoremove: [])
+    func packages() async throws -> PackageList { packageList }
+    func removePackage(manager: String, name: String) async throws -> CommandOutcome {
+        removed.append([manager, name])
+        packageList = PackageList(packages: packageList.packages.filter { $0.name != name }, autoremove: packageList.autoremove)
+        return CommandOutcome(command: "brew uninstall \(name)", ok: true, error: nil)
+    }
     func removeLeftovers(paths: [String]) async throws -> [RemovedFile] {
         removed.append(paths)
         orphanList = []
@@ -75,4 +82,32 @@ private func plan(running: Bool = false) -> UninstallPlan {
     await u.removeOrphans()
     #expect(engine.removed == [["/h/Library/Caches/com.gone.app"]])
     #expect(u.orphans.isEmpty)
+}
+
+
+private func pkg(_ name: String, neededBy: [String] = []) -> Package {
+    Package(manager: "brew", name: name, version: "1", description: nil, path: "/opt/homebrew/Cellar/\(name)", bytes: 10,
+            requested: true, neededBy: neededBy, lastUsedDays: nil)
+}
+
+@Test func decodesPackages() throws {
+    let list = try PackageList.decode(Data(#"""
+    {"packages":[{"manager":"cask","name":"iterm2","version":"3.6","description":"iTerm2","path":"/opt/homebrew/Caskroom/iterm2",
+      "bytes":5,"requested":true,"needed_by":[],"last_used_days":null,"apps":["/Applications/iTerm.app"]}],"autoremove":["z3"]}
+    """#.utf8))
+    #expect(list.packages[0].command == "brew uninstall --cask iterm2")
+    #expect(list.autoremove == ["z3"])
+}
+
+@MainActor @Test func packagesOthersNeedStay() async {
+    let engine = AppEngine(plan: plan())
+    engine.packageList = PackageList(packages: [pkg("llvm"), pkg("z3", neededBy: ["llvm"])], autoremove: [])
+    let u = Uninstaller(engine: engine, listApps: { [] })
+    await u.loadPackages()
+    await u.remove(pkg("z3", neededBy: ["llvm"]))
+    #expect(engine.removed.isEmpty, "llvm needs it")
+    await u.remove(pkg("llvm"))
+    #expect(engine.removed == [["brew", "llvm"]])
+    #expect(u.packages?.packages.map(\.name) == ["z3"])
+    #expect(u.report == "Removed llvm with brew uninstall llvm.")
 }

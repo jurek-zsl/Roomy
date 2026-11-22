@@ -41,6 +41,54 @@ struct RemovedFile: Decodable, Sendable, Equatable {
     static func decodeList(_ data: Data) throws -> [RemovedFile] { try engineDecoder().decode([RemovedFile].self, from: data) }
 }
 
+/// Something a package manager installed (`packages --json`).
+struct Package: Decodable, Sendable, Equatable, Identifiable {
+    var id: String { manager + "/" + name }
+    let manager: String
+    let name: String
+    let version: String?
+    let description: String?
+    let path: String
+    let bytes: Int64
+    let requested: Bool
+    let neededBy: [String]
+    let lastUsedDays: Int64?
+
+    var managerTitle: String {
+        switch manager {
+        case "brew": "Homebrew"
+        case "cask": "Homebrew app"
+        case "npm": "npm"
+        case "uv": "uv tool"
+        case "pipx": "pipx"
+        default: manager
+        }
+    }
+    /// The command that removes it, as Roomy will run it.
+    var command: String {
+        switch manager {
+        case "brew": "brew uninstall \(name)"
+        case "cask": "brew uninstall --cask \(name)"
+        case "npm": "npm uninstall -g \(name)"
+        case "uv": "uv tool uninstall \(name)"
+        default: "pipx uninstall \(name)"
+        }
+    }
+}
+
+struct PackageList: Decodable, Sendable, Equatable {
+    let packages: [Package]
+    let autoremove: [String]
+    static func decode(_ data: Data) throws -> PackageList { try engineDecoder().decode(PackageList.self, from: data) }
+}
+
+struct CommandOutcome: Decodable, Sendable, Equatable {
+    let command: String
+    let ok: Bool
+    let error: String?
+    static func decode(_ data: Data) throws -> CommandOutcome { try engineDecoder().decode(CommandOutcome.self, from: data) }
+}
+
 /// An app on this Mac, for the list.
 struct InstalledApp: Identifiable, Equatable, Sendable {
     var id: String { path }
@@ -104,6 +152,10 @@ final class Uninstaller {
     /// Files of the selected app to remove; the app itself is `removeApp`.
     var chosen: Set<String> = []
     var removeApp = true
+    private(set) var packages: PackageList?
+    private(set) var packageState: Load = .idle
+    /// The package being removed right now.
+    private(set) var removing: Package.ID?
     private(set) var orphans: [Orphan] = []
     private(set) var orphanState: Load = .idle
     var chosenOrphans: Set<String> = []
@@ -172,6 +224,44 @@ final class Uninstaller {
             }
         } catch {
             report = "Couldn't uninstall: \(error.localizedDescription)"
+        }
+    }
+
+    func loadPackages() async {
+        packageState = .loading
+        do {
+            packages = try await engine.packages()
+            packageState = .ready
+        } catch {
+            packageState = .failed(error.localizedDescription)
+        }
+    }
+
+    /// Remove one package with its manager's own uninstall command.
+    func remove(_ p: Package) async {
+        guard removing == nil, p.neededBy.isEmpty else { return }
+        removing = p.id
+        defer { removing = nil }
+        do {
+            let r = try await engine.removePackage(manager: p.manager, name: p.name)
+            report = r.ok ? "Removed \(p.name) with \(r.command)." : "\(r.command) didn't work: \(r.error ?? "unknown error")"
+            if r.ok { await loadPackages() }
+        } catch {
+            report = "Couldn't remove \(p.name): \(error.localizedDescription)"
+        }
+    }
+
+    /// `brew autoremove`: dependencies nothing needs anymore.
+    func autoremove() async {
+        guard removing == nil else { return }
+        removing = "autoremove"
+        defer { removing = nil }
+        do {
+            let r = try await engine.brewAutoremove()
+            report = r.ok ? "Removed \(packages?.autoremove.count ?? 0) dependencies nothing needed." : "brew autoremove didn't work: \(r.error ?? "unknown error")"
+            await loadPackages()
+        } catch {
+            report = "brew autoremove didn't work: \(error.localizedDescription)"
         }
     }
 
