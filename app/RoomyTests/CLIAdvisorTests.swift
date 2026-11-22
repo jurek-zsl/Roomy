@@ -97,3 +97,13 @@ private func script(_ body: String, in dir: URL, name: String = "claude") -> URL
         try CLIAdvisor.parse(.gemini, Data(#"{"status":"TIMEOUT","response":""}"#.utf8))
     }
 }
+
+@Test func eachToolUsesItsAppsIcon() {
+    #expect(CLIAdvisor.Tool.claude.appIDs == ["com.anthropic.claudefordesktop"])
+    #expect(CLIAdvisor.Tool.codex.appIDs.contains("com.openai.codex"))
+    #expect(CLIAdvisor.Tool.codex.appIDs.contains("com.openai.chat"))
+    #expect(CLIAdvisor.Tool.gemini.appIDs == ["com.google.GeminiMacOS", "com.google.antigravity"])
+    let installed = ["com.google.antigravity": "/Applications/Antigravity.app"]
+    #expect(ToolIcons.appPath(for: .gemini) { installed[$0] } == "/Applications/Antigravity.app", "falls back to the next app")
+    #expect(ToolIcons.appPath(for: .claude) { installed[$0] } == nil)
+}

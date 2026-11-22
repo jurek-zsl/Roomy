@@ -24,6 +24,14 @@ struct CLIAdvisor: FolderAdvisor {
             case .gemini: "the Antigravity CLI"
             }
         }
+        /// The company's Mac apps, for their icon: first one installed wins.
+        var appIDs: [String] {
+            switch self {
+            case .claude: ["com.anthropic.claudefordesktop"]
+            case .codex: ["com.openai.codex", "com.openai.chat"]
+            case .gemini: ["com.google.GeminiMacOS", "com.google.antigravity"]
+            }
+        }
         var company: String {
             switch self {
             case .claude: "Anthropic"

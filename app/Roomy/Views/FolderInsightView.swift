@@ -51,9 +51,12 @@ struct FolderInsightView: View {
 
     @ViewBuilder private func aiCard(_ clues: FolderClues, _ advice: FolderAdvice?) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label(store.advisor.name, systemImage: "sparkles")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+            HStack(spacing: 6) {
+                ToolIcon(tool: (store.advisor as? CLIAdvisor)?.tool, size: 16)
+                Text(store.advisor.name)
+            }
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
             if let advice {
                 Text(advice.summary).fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 6) {

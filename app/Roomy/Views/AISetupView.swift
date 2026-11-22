@@ -30,11 +30,7 @@ struct AISetupView: View {
         let state = states[tool]
         let inUse = store.advisorID == tool.rawValue && (state == .ready || state == .installed)
         return HStack(spacing: 12) {
-            Image(systemName: "sparkles")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(width: 32, height: 32)
-                .background(color(tool).gradient, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            ToolIcon(tool: tool, size: 32)
             VStack(alignment: .leading, spacing: 2) {
                 Text(tool.title).font(.headline)
                 Text(caption(tool, state)).font(.caption).foregroundStyle(.secondary)
@@ -67,14 +63,6 @@ struct AISetupView: View {
         case .signedOut?: return "\(what). Installed; sign in with your account."
         case .installed?: return "\(what). Installed. If it asks you to sign in, click Sign In."
         case .ready?: return "\(what). Signed in and ready."
-        }
-    }
-
-    private func color(_ tool: CLIAdvisor.Tool) -> Color {
-        switch tool {
-        case .claude: .orange
-        case .codex: .gray
-        case .gemini: .blue
         }
     }
 }

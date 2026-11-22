@@ -55,6 +55,7 @@ struct AIScanView: View {
                 SettingsLink { Text("Set Up AI…") }
             } else {
                 HStack(spacing: 12) {
+                    ToolIcon(tool: tool, size: 28)
                     Picker("Ask", selection: $store.advisorID) {
                         ForEach(installed, id: \.id) { Text($0.name).tag($0.id) }
                     }
@@ -129,9 +130,12 @@ struct AIScanView: View {
         let review = scan.suggestions.filter { $0.advice.verdict == .review }
         let keep = scan.suggestions.filter { $0.advice.verdict == .keep }
         VStack(alignment: .leading, spacing: 8) {
-            Label("\(scan.advisor)'s overview", systemImage: "sparkles")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+            HStack(spacing: 6) {
+                ToolIcon(tool: CLIAdvisor.Tool.allCases.first { $0.title == scan.advisor }, size: 16)
+                Text("\(scan.advisor)'s overview")
+            }
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
             Text(scan.overview).fixedSize(horizontal: false, vertical: true)
         }
         if scan.suggestions.isEmpty {
