@@ -104,6 +104,7 @@ struct ContentView: View {
             .inspector(isPresented: inspectorShown) {
                 if let f = result.findings.first(where: { $0.id == selection }) {
                     DetailView(finding: f)
+                        .closablePanel { selection = nil }
                         .inspectorColumnWidth(min: 260, ideal: 300, max: 380)
                 }
             }

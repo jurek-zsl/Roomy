@@ -21,6 +21,7 @@ struct SpaceMapView: View {
                 .inspector(isPresented: Binding(get: { inspected != nil }, set: { if !$0 { inspected = nil } })) {
                     if let node = inspected {
                         FolderInsightView(node: node)
+                            .closablePanel { inspected = nil }
                             .inspectorColumnWidth(min: 280, ideal: 320, max: 420)
                     }
                 }
