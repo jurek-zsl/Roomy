@@ -36,11 +36,8 @@ struct ContentView: View {
             .toolbar {
                 if store.hasSeenIntro {
                     ToolbarItem(placement: .principal) {
-                        Picker("View", selection: $tab) {
-                            ForEach(MainTab.allCases, id: \.self) { Text($0.title).tag($0) }
-                        }
-                        .pickerStyle(.segmented)
-                        .frame(width: 420)
+                        TabBar(selection: $tab)
+                            .frame(width: 440)
                     }
                 }
                 ToolbarItem(placement: .primaryAction) {
