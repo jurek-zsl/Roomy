@@ -28,6 +28,74 @@ enum Cmd {
     Rules(RulesArgs),
     /// Clean what the scanner found. Shows the plan and asks first.
     Clean(CleanArgs),
+    /// Show where your disk space goes, and how much of each folder can be freed.
+    Map(MapArgs),
+}
+
+#[derive(Args)]
+struct MapArgs {
+    /// Print JSON instead of a tree (for the app).
+    #[arg(long)]
+    json: bool,
+    /// How many levels the text tree shows.
+    #[arg(long, default_value_t = 3)]
+    depth: usize,
+}
+
+/// Where apps are installed. `MAC_CLEANER_APPS_DIR` overrides it for tests.
+fn apps_dir() -> PathBuf {
+    std::env::var_os("MAC_CLEANER_APPS_DIR").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("/Applications"))
+}
+
+fn disk_space(path: &std::path::Path) -> Option<(u64, u64)> {
+    use std::os::unix::ffi::OsStrExt;
+    let c = std::ffi::CString::new(path.as_os_str().as_bytes()).ok()?;
+    let mut st: libc::statfs = unsafe { std::mem::zeroed() };
+    // SAFETY: valid C string and a zeroed statfs struct to fill.
+    if unsafe { libc::statfs(c.as_ptr(), &mut st) } != 0 {
+        return None;
+    }
+    Some((st.f_blocks * st.f_bsize as u64, st.f_bavail * st.f_bsize as u64))
+}
+
+fn run_map(a: MapArgs, home: &std::path::Path) -> ExitCode {
+    use mac_cleaner::map;
+    let rules = match load_rules(None) {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("error: {e}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let start = Instant::now();
+    if !a.json {
+        eprintln!("Mapping your disk (this can take a minute)...");
+    }
+    let apps = apps_dir();
+    let findings = run(&ScanOptions { home: home.to_path_buf(), rules, walk: walk_options(home, &[]), apps_dir: apps.clone() });
+    let mut roots = vec![home.to_path_buf(), apps];
+    for extra in ["/opt/homebrew", "/usr/local", "/Library"] {
+        if std::env::var_os("MAC_CLEANER_APPS_DIR").is_none() && std::path::Path::new(extra).is_dir() {
+            roots.push(PathBuf::from(extra));
+        }
+    }
+    let nodes = map::build(&roots, &findings, &map::MapOptions::new(home));
+    let space = disk_space(home);
+    let doc = map::MapDocument {
+        total_bytes: space.map(|s| s.0),
+        used_bytes: space.map(|(t, f)| t.saturating_sub(f)),
+        free_bytes: space.map(|s| s.1),
+        mapped_bytes: nodes.iter().map(|n| n.bytes).sum(),
+        cleanable_bytes: nodes.iter().map(|n| n.cleanable).sum(),
+        elapsed_ms: start.elapsed().as_millis() as u64,
+        roots: nodes,
+    };
+    if a.json {
+        println!("{}", serde_json::to_string(&doc).unwrap());
+    } else {
+        print!("{}", map::render(&doc, home, a.depth));
+    }
+    ExitCode::SUCCESS
 }
 
 #[derive(Args)]
@@ -147,6 +215,7 @@ fn main() -> ExitCode {
                         Target::Paths { patterns, .. } => patterns.join(", "),
                         Target::Project { dir_name, sibling } if sibling.is_empty() => format!("{dir_name}/ anywhere"),
                         Target::Project { dir_name, sibling } => format!("{dir_name}/ next to {}", sibling.join(" | ")),
+                        Target::Finder { kind, .. } => format!("finder: {kind:?}"),
                     };
                     println!("{:<26} {:<14} {:<8} {}", r.id, r.category, format!("{:?}", r.risk).to_lowercase(), target);
                 }
@@ -168,7 +237,7 @@ fn main() -> ExitCode {
             let walk = walk_options(&home, &a.root);
             let roots = walk.roots.clone();
             let start = Instant::now();
-            let opts = ScanOptions { home: home.clone(), rules, walk };
+            let opts = ScanOptions { home: home.clone(), rules, walk, apps_dir: apps_dir() };
             let findings = run(&opts);
             if a.json {
                 let doc = json::scan_document(&findings, &opts.rules, free_space(&home), start.elapsed().as_millis() as u64);
@@ -186,6 +255,7 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         Cmd::Clean(a) => run_clean(a, &home),
+        Cmd::Map(a) => run_map(a, &home),
     }
 }
 
@@ -216,7 +286,12 @@ fn prepare_clean(a: &CleanArgs, home: &std::path::Path) -> Result<Prepared, Stri
     let scan_rules: Vec<rules::Rule> =
         rules.iter().filter(|r| !only_ids || a.targets.contains(&r.id)).cloned().collect();
     eprintln!("Scanning...");
-    let findings = run(&ScanOptions { home: home.to_path_buf(), rules: scan_rules, walk: walk_options(home, &a.root) });
+    let findings = run(&ScanOptions {
+        home: home.to_path_buf(),
+        rules: scan_rules,
+        walk: walk_options(home, &a.root),
+        apps_dir: apps_dir(),
+    });
     let cwd = std::env::current_dir().unwrap_or_else(|_| home.to_path_buf());
     let plan = clean::select(&findings, &ids, &a.targets, a.safe, home, &cwd);
     Ok(Prepared { rules, findings, plan })
@@ -229,6 +304,7 @@ fn clean_options(a: &CleanArgs, home: &std::path::Path) -> CleanOptions {
         force_trash: a.trash,
         timeout: Duration::from_secs(a.timeout),
         tmp_root: rules::user_tmp_root(),
+        apps_dir: apps_dir(),
     }
 }
 
@@ -352,7 +428,7 @@ fn run_clean(a: CleanArgs, home: &std::path::Path) -> ExitCode {
                 small.push(i);
                 continue;
             }
-            let how = match clean::choose_method(f, rule_of(&f.rule).clean.as_deref(), a.trash) {
+            let how = match clean::choose_method(f, Some(rule_of(&f.rule)), a.trash) {
                 Method::Delete => String::new(),
                 m => format!("   → {}", m.label().replace(&home_s, "~")),
             };

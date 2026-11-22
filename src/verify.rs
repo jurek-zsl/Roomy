@@ -3,7 +3,7 @@
 use crate::rules::{Check, expand_home};
 use serde::Serialize;
 use std::collections::HashSet;
-use std::fs::File;
+use std::fs::{self, File};
 use std::os::fd::AsRawFd;
 use std::path::Path;
 use std::process::{Command, Stdio};
@@ -42,7 +42,7 @@ pub struct Env {
     /// Lowercased executable names.
     names: HashSet<String>,
     /// Full command lines.
-    args: Vec<String>,
+    pub args: Vec<String>,
 }
 
 impl Env {
@@ -108,6 +108,21 @@ pub fn verify(checks: &[Check], path: &Path, env: &Env, home: &Path) -> Verdict 
                     return Verdict::blocked(format!("`{pkg}` from here is running"));
                 }
             }
+            Check::ProjectIdle(days) => {
+                if let Some(ago) = project_last_touched(path).and_then(|t| t.elapsed().ok()) {
+                    let d = ago.as_secs() / 86400;
+                    if d < *days {
+                        let when = match d {
+                            0 => "today".to_string(),
+                            1 => "yesterday".to_string(),
+                            n => format!("{n} days ago"),
+                        };
+                        review.get_or_insert(Verdict::review(format!(
+                            "you worked on this project {when}, so it would just be rebuilt"
+                        )));
+                    }
+                }
+            }
             Check::GitIgnored => match git_state(path) {
                 GitState::Ignored => {}
                 GitState::NoRepo => note = Some("not in a git repo".to_string()),
@@ -121,6 +136,46 @@ pub fn verify(checks: &[Check], path: &Path, env: &Env, home: &Path) -> Verdict 
         }
     }
     review.unwrap_or(Verdict::ready(note))
+}
+
+/// Folders that say nothing about when you last worked on a project.
+const NOT_WORK: &[&str] = &[".git", "node_modules", "target", ".build", "build", "dist", ".next", ".venv", "venv", "Pods", ".gradle", ".godot", ".turbo", "__pycache__"];
+
+/// When the project holding this build folder was last worked on: the newest
+/// change among its files two levels down (skipping build output), and git's
+/// index and HEAD log. The project is the nearest folder above with `.git`,
+/// or the build folder's parent.
+pub fn project_last_touched(build_dir: &Path) -> Option<std::time::SystemTime> {
+    let parent = build_dir.parent()?;
+    let root = parent.ancestors().take(6).find(|a| a.join(".git").exists()).unwrap_or(parent);
+    let mut newest = None;
+    let mut see = |p: &Path| {
+        if let Ok(t) = fs::symlink_metadata(p).and_then(|m| m.modified()) {
+            newest = newest.max(Some(t));
+        }
+    };
+    for g in [".git/index", ".git/logs/HEAD"] {
+        see(&root.join(g));
+    }
+    let mut dirs = vec![(root.to_path_buf(), 0)];
+    if parent != root {
+        dirs.push((parent.to_path_buf(), 0));
+    }
+    while let Some((dir, depth)) = dirs.pop() {
+        see(&dir);
+        let Ok(rd) = fs::read_dir(&dir) else { continue };
+        for e in rd.flatten() {
+            let p = e.path();
+            if p == build_dir || NOT_WORK.contains(&e.file_name().to_string_lossy().as_ref()) {
+                continue;
+            }
+            see(&p);
+            if depth < 1 && e.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+                dirs.push((p, depth + 1));
+            }
+        }
+    }
+    newest
 }
 
 /// `.../Application Support/Notion/Partitions/...` → "Notion".
@@ -301,5 +356,32 @@ mod tests {
         assert_eq!(verify(&c, p, &idle, Path::new("/h")).status, Status::Ready);
         // No app folder in the path: can't tell, so the user decides.
         assert_eq!(verify(&c, Path::new("/h/x/Cache"), &idle, Path::new("/h")).status, Status::Review);
+    }
+
+    fn age(p: &Path, days: u64) {
+        let t = std::time::SystemTime::now() - std::time::Duration::from_secs(days * 86400);
+        fs::File::options().read(true).open(p).unwrap().set_modified(t).unwrap();
+    }
+
+    #[test]
+    fn project_idle_reviews_recent_projects() {
+        let d = tempfile::tempdir().unwrap();
+        let app = d.path().join("app");
+        fs::create_dir_all(app.join("src")).unwrap();
+        fs::create_dir_all(app.join("node_modules/x")).unwrap();
+        fs::write(app.join("package.json"), "{}").unwrap();
+        fs::write(app.join("src/index.js"), "1").unwrap();
+        let env = Env::from_parts(&[], &[]);
+        let checks = [Check::ProjectIdle(7)];
+
+        let v = verify(&checks, &app.join("node_modules"), &env, d.path());
+        assert_eq!(v.status, Status::Review, "just edited");
+        assert!(v.reason.unwrap().contains("rebuilt"));
+
+        for p in [app.join("package.json"), app.join("src/index.js"), app.join("src"), app.clone()] {
+            age(&p, 30);
+        }
+        let v = verify(&checks, &app.join("node_modules"), &env, d.path());
+        assert_eq!(v.status, Status::Ready, "idle for a month");
     }
 }

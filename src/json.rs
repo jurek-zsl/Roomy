@@ -35,7 +35,7 @@ pub fn scan_document<'a>(findings: &'a [Finding], rules: &'a [Rule], free_bytes:
                 finding: f,
                 name: display_name(rule, f),
                 section: f.section(),
-                method: choose_method(f, rule.and_then(|r| r.clean.as_deref()), false),
+                method: choose_method(f, rule, false),
             }
         })
         .collect();
@@ -44,6 +44,9 @@ pub fn scan_document<'a>(findings: &'a [Finding], rules: &'a [Rule], free_bytes:
 
 /// The rule's name, with the app in front for per-app rules ("Claude web cache").
 pub fn display_name(rule: Option<&Rule>, f: &Finding) -> String {
+    if let Some(label) = &f.label {
+        return label.clone();
+    }
     let Some(rule) = rule else { return f.rule.clone() };
     if rule.checks.contains(&crate::rules::Check::AppNotRunning)
         && let Some(app) = crate::verify::app_owner(&f.path)
@@ -89,8 +92,9 @@ mod tests {
             risk,
             explain: "e".into(),
             clean: Some(clean.into()),
-            target: Target::Paths { patterns: vec![], keep_newest: None },
+            target: Target::Paths { patterns: vec![], keep_newest: None, older_than_days: None },
             checks: vec![],
+            command_only: false,
         }
     }
 
@@ -107,6 +111,8 @@ mod tests {
             files: 1,
             clean: r.clean.as_deref().map(|t| fill_command(t, Path::new(path))),
             explain: r.explain.clone(),
+            detail: None,
+            label: None,
         }
     }
 

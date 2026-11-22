@@ -11,6 +11,7 @@ fn json_clean_reports_unmatched_paths_as_skipped() {
         .args(["clean", "--json", "--root", h, &gone])
         .env("HOME", h)
         .env("TMPDIR", h)
+        .env("MAC_CLEANER_APPS_DIR", format!("{h}/Applications"))
         .output()
         .unwrap();
     assert!(out.status.success(), "exit {:?}: {}", out.status, String::from_utf8_lossy(&out.stderr));
@@ -38,6 +39,7 @@ fn json_scan_is_a_document() {
         .args(["scan", "--json", "--root", h])
         .env("HOME", h)
         .env("TMPDIR", h)
+        .env("MAC_CLEANER_APPS_DIR", format!("{h}/Applications"))
         .output()
         .unwrap();
     assert!(out.status.success());
@@ -48,4 +50,30 @@ fn json_scan_is_a_document() {
     assert_eq!(f["name"], "Bun cache");
     assert_eq!(f["section"], "safe-now");
     assert_eq!(f["method"]["command"], "bun pm cache rm");
+}
+
+#[test]
+fn json_map_shows_folders_and_what_can_be_freed() {
+    let home = tempfile::tempdir().unwrap();
+    let h = home.path().to_str().unwrap();
+    std::fs::create_dir_all(format!("{h}/.bun/install/cache")).unwrap();
+    std::fs::write(format!("{h}/.bun/install/cache/x"), vec![1u8; 60_000_000]).unwrap();
+    std::fs::create_dir_all(format!("{h}/Applications/Tool.app")).unwrap();
+    let out = Command::new(env!("CARGO_BIN_EXE_mac-cleaner"))
+        .args(["map", "--json"])
+        .env("HOME", h)
+        .env("TMPDIR", h)
+        .env("MAC_CLEANER_APPS_DIR", format!("{h}/Applications"))
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert!(v["used_bytes"].as_u64().unwrap() > 0);
+    let home_node = &v["roots"][0];
+    assert_eq!(home_node["path"], h);
+    assert!(home_node["cleanable"].as_u64().unwrap() >= 60_000_000, "{home_node}");
+    let bun = home_node["children"].as_array().unwrap().iter().find(|c| c["name"] == ".bun").expect("lists .bun");
+    assert_eq!(bun["kind"], "folder");
+    assert_eq!(bun["cleanable"], bun["children"][0]["cleanable"]);
+    assert_eq!(v["roots"].as_array().unwrap().len(), 2, "home and the apps folder only, in tests");
 }

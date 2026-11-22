@@ -1,10 +1,16 @@
-# Mac Cleaner built-in rules.
+# Roomy built-in rules.
 #
 # Each rule finds one kind of junk.
-#   match.path      a fixed location or a list of them (~ and * allowed)
+#   match.path      a fixed location or a list of them (~ and * allowed,
+#                   $USERTMP/ is your per-user temp folder)
 #   match.dir_name  a folder name found while walking your folders, with
 #   match.sibling   a marker file next to it (any one of them)
 #   match.keep_newest  for version folders: keep the N newest, report the rest
+#   match.older_than_days  only files and folders not changed for N days
+#   match.finder    built-in code for what a pattern can't find:
+#                   unused-apps, stale-projects, git-garbage,
+#                   simulator-runtimes, simulator-devices
+#                   (with idle_days = N and min_mb = N)
 #
 # risk:   safe | quit-app | review
 # verify: checks run before anything is called "safe now"
@@ -12,7 +18,12 @@
 #   not-running:NAME   process NAME must not be running (else: blocked)
 #   lock-free:PATH     no other process may hold a lock on PATH (else: blocked)
 #   npx-idle           no running process uses a package from this npx folder
-# clean:  the command to run. {path} and {parent} are filled in.
+#   app-not-running    the app owning this Application Support folder is closed
+#   project-idle:N     the project wasn't worked on in N days (else: review,
+#                      because it would just be rebuilt)
+# clean:  the command to run. {path}, {parent} and a finder's {id} are filled in.
+# command_only = true: always use the command, never delete or trash it
+#   (for a .git folder or a simulator runtime).
 
 # ---------------------------------------------------------------------------
 # A. Package manager caches
@@ -200,7 +211,7 @@ category = "build-output"
 risk = "safe"
 explain = "Rust build output. The next build is slower."
 match = { dir_name = "target", sibling = ["Cargo.toml"] }
-verify = ["git-ignored", "not-running:cargo"]
+verify = ["git-ignored", "not-running:cargo", "project-idle:7"]
 clean = "cargo clean --manifest-path {parent}/Cargo.toml"
 
 [[rule]]
@@ -210,7 +221,7 @@ category = "build-output"
 risk = "safe"
 explain = "Installed JavaScript packages. Run your package manager's install to get them back."
 match = { dir_name = "node_modules", sibling = ["package.json"] }
-verify = ["git-ignored"]
+verify = ["git-ignored", "project-idle:7"]
 clean = "rm -rf {path}"
 
 [[rule]]
@@ -220,7 +231,7 @@ category = "build-output"
 risk = "safe"
 explain = "Next.js build output and cache."
 match = { dir_name = ".next", sibling = ["package.json"] }
-verify = ["git-ignored"]
+verify = ["git-ignored", "project-idle:7"]
 clean = "rm -rf {path}"
 
 [[rule]]
@@ -240,7 +251,7 @@ category = "build-output"
 risk = "safe"
 explain = "Nuxt build output."
 match = { dir_name = ".nuxt", sibling = ["package.json"] }
-verify = ["git-ignored"]
+verify = ["git-ignored", "project-idle:7"]
 clean = "rm -rf {path}"
 
 [[rule]]
@@ -250,7 +261,7 @@ category = "build-output"
 risk = "safe"
 explain = "SvelteKit build output."
 match = { dir_name = ".svelte-kit", sibling = ["package.json"] }
-verify = ["git-ignored"]
+verify = ["git-ignored", "project-idle:7"]
 clean = "rm -rf {path}"
 
 [[rule]]
@@ -270,7 +281,7 @@ category = "build-output"
 risk = "safe"
 explain = "Built files. Rebuilt by your build command."
 match = { dir_name = "dist", sibling = ["package.json", "pyproject.toml", "setup.py"] }
-verify = ["git-ignored"]
+verify = ["git-ignored", "project-idle:7"]
 clean = "rm -rf {path}"
 
 [[rule]]
@@ -280,7 +291,7 @@ category = "build-output"
 risk = "safe"
 explain = "Built files. Rebuilt by your build command."
 match = { dir_name = "build", sibling = ["package.json", "build.gradle", "build.gradle.kts", "CMakeLists.txt", "Makefile", "pubspec.yaml", "project.godot", "setup.py"] }
-verify = ["git-ignored"]
+verify = ["git-ignored", "project-idle:7"]
 clean = "rm -rf {path}"
 
 [[rule]]
@@ -290,7 +301,7 @@ category = "build-output"
 risk = "safe"
 explain = "Python virtual environment. Recreate it with your install command."
 match = { dir_name = ".venv", sibling = ["pyproject.toml", "requirements.txt", "setup.py", "uv.lock"] }
-verify = ["git-ignored"]
+verify = ["git-ignored", "project-idle:7"]
 clean = "rm -rf {path}"
 
 [[rule]]
@@ -300,7 +311,7 @@ category = "build-output"
 risk = "safe"
 explain = "Python virtual environment. Recreate it with your install command."
 match = { dir_name = "venv", sibling = ["pyproject.toml", "requirements.txt", "setup.py"] }
-verify = ["git-ignored"]
+verify = ["git-ignored", "project-idle:7"]
 clean = "rm -rf {path}"
 
 [[rule]]
@@ -319,7 +330,7 @@ category = "build-output"
 risk = "safe"
 explain = "Swift Package Manager build output."
 match = { dir_name = ".build", sibling = ["Package.swift"] }
-verify = ["git-ignored"]
+verify = ["git-ignored", "project-idle:7"]
 clean = "swift package --package-path {parent} clean"
 
 [[rule]]
@@ -329,7 +340,7 @@ category = "build-output"
 risk = "safe"
 explain = "Gradle project cache."
 match = { dir_name = ".gradle", sibling = ["build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts", "gradlew"] }
-verify = ["git-ignored"]
+verify = ["git-ignored", "project-idle:7"]
 clean = "rm -rf {path}"
 
 [[rule]]
@@ -339,7 +350,7 @@ category = "build-output"
 risk = "safe"
 explain = "Installed CocoaPods. `pod install` brings them back."
 match = { dir_name = "Pods", sibling = ["Podfile"] }
-verify = ["git-ignored"]
+verify = ["git-ignored", "project-idle:7"]
 clean = "rm -rf {path}"
 
 [[rule]]
@@ -349,7 +360,7 @@ category = "build-output"
 risk = "safe"
 explain = "Godot import cache. Godot re-imports assets on next open."
 match = { dir_name = ".godot", sibling = ["project.godot"] }
-verify = ["git-ignored", "not-running:Godot"]
+verify = ["git-ignored", "not-running:Godot", "project-idle:7"]
 clean = "rm -rf {path}"
 
 # ---------------------------------------------------------------------------
@@ -526,4 +537,132 @@ category = "temp"
 risk = "review"
 explain = "Folders Python apps made with PyInstaller unpack into. They are left behind when such an app crashes; a running one still uses its folder."
 match = { path = "$USERTMP/T/_MEI*" }
+clean = "rm -rf {path}"
+
+# ---------------------------------------------------------------------------
+# G. Projects and git
+# ---------------------------------------------------------------------------
+
+[[rule]]
+id = "stale-project"
+name = "Old project"
+category = "project"
+risk = "review"
+explain = "A whole project you haven't touched in six months. Every file is committed and every commit is pushed, so `git clone` brings it back exactly as it was. It goes to the Trash first, so you can still change your mind."
+match = { finder = "stale-projects", idle_days = 180 }
+
+[[rule]]
+id = "git-garbage"
+name = "Unpacked git objects"
+category = "git"
+risk = "safe"
+explain = "Git saves each change as its own file until it packs them. `git gc` packs them together and drops leftovers. Your history and branches stay exactly the same."
+match = { finder = "git-garbage", min_mb = 100 }
+clean = "git -C {parent} gc --quiet"
+command_only = true
+
+# ---------------------------------------------------------------------------
+# H. Apps and Xcode simulators
+# ---------------------------------------------------------------------------
+
+[[rule]]
+id = "unused-app"
+name = "Unused app"
+category = "app"
+risk = "review"
+explain = "An app you haven't opened in four months, going by the last-opened date macOS keeps. It goes to the Trash; its settings stay, so installing it again brings it back as it was."
+match = { finder = "unused-apps", idle_days = 120 }
+
+[[rule]]
+id = "simulator-runtime"
+name = "Simulator runtime"
+category = "xcode"
+risk = "review"
+explain = "A whole iOS, watchOS, tvOS or visionOS system for the Simulator, usually 5 to 10 GB. Xcode downloads it again when a project needs it."
+match = { finder = "simulator-runtimes", idle_days = 90 }
+verify = ["not-running:Simulator"]
+clean = "xcrun simctl runtime delete {id}"
+command_only = true
+
+[[rule]]
+id = "broken-simulator"
+name = "Broken simulator"
+category = "xcode"
+risk = "safe"
+explain = "A simulator for a system version that isn't installed anymore, so it can never start again."
+match = { finder = "simulator-devices" }
+verify = ["not-running:Simulator"]
+clean = "xcrun simctl delete {id}"
+command_only = true
+
+# ---------------------------------------------------------------------------
+# I. Downloads and browsers
+# ---------------------------------------------------------------------------
+
+[[rule]]
+id = "old-installer"
+name = "Old installer"
+category = "download"
+risk = "review"
+explain = "An installer in Downloads that is more than two weeks old. Once the app is installed, the installer isn't needed."
+match = { path = ["~/Downloads/*.dmg", "~/Downloads/*.pkg", "~/Downloads/*.xip", "~/Downloads/*.iso"], older_than_days = 14 }
+
+[[rule]]
+id = "chrome-cache"
+name = "Chrome web cache"
+category = "browser"
+risk = "safe"
+explain = "Copies of web pages and images Chrome keeps to load sites faster. Chrome refills it as you browse. Logins, history and tabs are not here."
+match = { path = ["~/Library/Caches/Google/Chrome/*/Cache", "~/Library/Caches/Google/Chrome/*/Code Cache"] }
+verify = ["not-running:Google Chrome"]
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "brave-cache"
+name = "Brave web cache"
+category = "browser"
+risk = "safe"
+explain = "Copies of web pages and images Brave keeps to load sites faster. Brave refills it as you browse. Logins, history and tabs are not here."
+match = { path = ["~/Library/Caches/BraveSoftware/Brave-Browser/*/Cache", "~/Library/Caches/BraveSoftware/Brave-Browser/*/Code Cache"] }
+verify = ["not-running:Brave Browser"]
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "edge-cache"
+name = "Edge web cache"
+category = "browser"
+risk = "safe"
+explain = "Copies of web pages and images Edge keeps to load sites faster. Edge refills it as you browse. Logins, history and tabs are not here."
+match = { path = ["~/Library/Caches/Microsoft Edge/*/Cache", "~/Library/Caches/Microsoft Edge/*/Code Cache"] }
+verify = ["not-running:Microsoft Edge"]
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "arc-cache"
+name = "Arc web cache"
+category = "browser"
+risk = "safe"
+explain = "Copies of web pages and images Arc keeps to load sites faster. Arc refills it as you browse. Logins, history and tabs are not here."
+match = { path = ["~/Library/Caches/Arc/User Data/*/Cache", "~/Library/Caches/Arc/User Data/*/Code Cache"] }
+verify = ["not-running:Arc"]
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "vivaldi-cache"
+name = "Vivaldi web cache"
+category = "browser"
+risk = "safe"
+explain = "Copies of web pages and images Vivaldi keeps to load sites faster. Vivaldi refills it as you browse. Logins, history and tabs are not here."
+match = { path = ["~/Library/Caches/Vivaldi/*/Cache", "~/Library/Caches/Vivaldi/*/Code Cache"] }
+verify = ["not-running:Vivaldi"]
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "firefox-cache"
+name = "Firefox web cache"
+category = "browser"
+risk = "safe"
+explain = "Copies of web pages and images Firefox keeps to load sites faster. Firefox refills it as you browse. Logins, history and tabs are not here."
+match = { path = "~/Library/Caches/Firefox/Profiles/*/cache2" }
+verify = ["not-running:firefox"]
 clean = "rm -rf {path}"

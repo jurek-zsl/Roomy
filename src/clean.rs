@@ -59,10 +59,20 @@ pub struct CleanOptions {
     pub timeout: Duration,
     /// The per-user temp area, the only place outside home it may clean.
     pub tmp_root: Option<PathBuf>,
+    /// Where apps are installed. Unused apps may be moved from here to the Trash.
+    pub apps_dir: PathBuf,
 }
 
-/// Pick how to clean one finding.
-pub fn choose_method(f: &Finding, template: Option<&str>, force_trash: bool) -> Method {
+/// Pick how to clean one finding. A `command_only` rule always uses its
+/// command: the Trash can't hold a simulator runtime, and must never take a
+/// `.git` folder.
+pub fn choose_method(f: &Finding, rule: Option<&Rule>, force_trash: bool) -> Method {
+    let template = rule.and_then(|r| r.clean.as_deref());
+    if let (Some(r), Some(cmd)) = (rule, &f.clean) {
+        if r.command_only {
+            return Method::Command(cmd.clone());
+        }
+    }
     if force_trash || f.section() == Section::Review {
         return Method::Trash;
     }
@@ -107,6 +117,19 @@ const PROTECTED: &[&str] = &[
 
 /// Last checks on the path itself. Rules decide what is junk; this makes sure
 /// a bad rule or a moved folder can't make the cleaner hit the wrong thing.
+/// An app may be moved to the Trash only as a whole bundle sitting directly
+/// in the apps folder, never through a link.
+pub fn guard_app(path: &Path, apps_dir: &Path) -> Result<(), String> {
+    if path.parent() != Some(apps_dir) || path.extension().is_none_or(|x| x != "app") {
+        return Err("isn't an app in your Applications folder".into());
+    }
+    let meta = fs::symlink_metadata(path).map_err(|_| "is already gone".to_string())?;
+    if !meta.is_dir() {
+        return Err("isn't an app bundle".into());
+    }
+    Ok(())
+}
+
 pub fn guard(path: &Path, home: &Path, tmp_root: Option<&Path>) -> Result<(), String> {
     if !path.is_absolute() || path.components().any(|c| matches!(c, Component::ParentDir)) {
         return Err("isn't a plain full path".into());
@@ -187,9 +210,10 @@ const RENAME_EXCL: libc::c_uint = 0x4;
 pub fn trash(path: &Path, trash_dir: &Path) -> Result<PathBuf, String> {
     fs::create_dir_all(trash_dir).map_err(|e| format!("can't open the Trash: {e}"))?;
     let name = path.file_name().ok_or("has no name")?.to_string_lossy().into_owned();
+    // "app node_modules" says where a build folder came from; an app's own name is enough.
     let base = match path.parent().and_then(|p| p.file_name()) {
-        Some(parent) => format!("{} {name}", parent.to_string_lossy()),
-        None => name,
+        Some(parent) if !name.ends_with(".app") => format!("{} {name}", parent.to_string_lossy()),
+        _ => name,
     };
     let from = CString::new(path.as_os_str().as_bytes()).map_err(|e| e.to_string())?;
     for n in 1..1000 {
@@ -284,7 +308,17 @@ pub fn run_command(cmd: &str, cwd: &Path, timeout: Duration) -> CommandResult {
 /// Clean one finding. `env` should be taken just before this call, so the
 /// "is it running" checks see the Mac as it is now, not as it was at scan time.
 pub fn clean_one(f: &Finding, rule: &Rule, env: &Env, opts: &CleanOptions) -> Outcome {
-    if let Err(e) = guard(&f.path, &opts.home, opts.tmp_root.as_deref()) {
+    let is_app = matches!(rule.target, crate::rules::Target::Finder { kind: crate::rules::FinderKind::UnusedApps, .. });
+    // A command-only item is never touched by us, only by its tool, so the
+    // path guard (which protects what we delete) doesn't apply.
+    let checked = if rule.command_only {
+        Ok(())
+    } else if is_app {
+        guard_app(&f.path, &opts.apps_dir)
+    } else {
+        guard(&f.path, &opts.home, opts.tmp_root.as_deref())
+    };
+    if let Err(e) = checked {
         return Outcome::Skipped { reason: format!("it {e}") };
     }
     let now = verify::verify(&rule.checks, &f.path, env, &opts.home);
@@ -298,7 +332,10 @@ pub fn clean_one(f: &Finding, rule: &Rule, env: &Env, opts: &CleanOptions) -> Ou
         }
         _ => {}
     }
-    let method = choose_method(f, rule.clean.as_deref(), opts.force_trash);
+    let method = choose_method(f, Some(rule), opts.force_trash);
+    if is_app && method != Method::Trash {
+        return Outcome::Skipped { reason: "apps are only ever moved to the Trash".into() };
+    }
     match &method {
         Method::Delete => match delete(&f.path) {
             Ok(()) => Outcome::Cleaned { method, note: None },
@@ -310,6 +347,10 @@ pub fn clean_one(f: &Finding, rule: &Rule, env: &Env, opts: &CleanOptions) -> Ou
         },
         Method::Command(cmd) => match run_command(cmd, &opts.home, opts.timeout) {
             CommandResult::Ok => Outcome::Cleaned { method, note: None },
+            CommandResult::NotFound if rule.command_only => {
+                let tool = cmd.split_whitespace().next().unwrap_or("the tool").to_string();
+                Outcome::Failed { method, error: format!("`{tool}` isn't installed, so nothing was cleaned") }
+            }
             CommandResult::NotFound => {
                 // The tool isn't installed, so nothing else is using its folder.
                 let tool = cmd.split_whitespace().next().unwrap_or("the tool").to_string();
@@ -409,6 +450,16 @@ pub fn select(
         };
         plan.items.push(PlanItem { index: i, pick });
     }
+    // Clean what's inside before what holds it: a whole project after its
+    // build folders, so each frees its own space and nothing is "already gone".
+    let holds_other = |a: &PlanItem| {
+        let p = &findings[a.index].path;
+        plan.items.iter().any(|b| b.index != a.index && findings[b.index].path.starts_with(p))
+    };
+    let flags: Vec<bool> = plan.items.iter().map(holds_other).collect();
+    let mut tagged: Vec<(bool, PlanItem)> = flags.into_iter().zip(std::mem::take(&mut plan.items)).collect();
+    tagged.sort_by_key(|(holds, _)| *holds);
+    plan.items = tagged.into_iter().map(|(_, it)| it).collect();
     plan
 }
 
@@ -465,6 +516,8 @@ mod tests {
             files: 1,
             clean: clean.map(|c| crate::fill_command(c, path)),
             explain: String::new(),
+            detail: None,
+            label: None,
         }
     }
 
@@ -476,8 +529,9 @@ mod tests {
             risk: Risk::Safe,
             explain: String::new(),
             clean: clean.map(str::to_string),
-            target: Target::Paths { patterns: vec![], keep_newest: None },
+            target: Target::Paths { patterns: vec![], keep_newest: None, older_than_days: None },
             checks,
+            command_only: false,
         }
     }
 
@@ -488,6 +542,7 @@ mod tests {
             force_trash: false,
             timeout: Duration::from_secs(10),
             tmp_root: None,
+            apps_dir: PathBuf::from("/nonexistent-apps"),
         }
     }
 
@@ -503,17 +558,107 @@ mod tests {
     #[test]
     fn methods() {
         let p = Path::new("/h/x");
+        let m = |risk, status, clean: Option<&str>, force| {
+            choose_method(&finding(p, risk, status, clean), Some(&rule(clean, vec![])), force)
+        };
         let rm = Some("rm -rf {path}");
         let tool = Some("brew cleanup");
-        assert_eq!(choose_method(&finding(p, Risk::Safe, Status::Ready, rm), rm, false), Method::Delete);
-        assert_eq!(
-            choose_method(&finding(p, Risk::Safe, Status::Ready, tool), tool, false),
-            Method::Command("brew cleanup".into())
-        );
-        assert_eq!(choose_method(&finding(p, Risk::Safe, Status::Ready, rm), rm, true), Method::Trash);
-        assert_eq!(choose_method(&finding(p, Risk::Review, Status::Ready, rm), rm, false), Method::Trash);
-        assert_eq!(choose_method(&finding(p, Risk::Safe, Status::Review, rm), rm, false), Method::Trash);
-        assert_eq!(choose_method(&finding(p, Risk::Safe, Status::Ready, None), None, false), Method::Trash);
+        assert_eq!(m(Risk::Safe, Status::Ready, rm, false), Method::Delete);
+        assert_eq!(m(Risk::Safe, Status::Ready, tool, false), Method::Command("brew cleanup".into()));
+        assert_eq!(m(Risk::Safe, Status::Ready, rm, true), Method::Trash);
+        assert_eq!(m(Risk::Review, Status::Ready, rm, false), Method::Trash);
+        assert_eq!(m(Risk::Safe, Status::Review, rm, false), Method::Trash);
+        assert_eq!(m(Risk::Safe, Status::Ready, None, false), Method::Trash);
+        assert_eq!(choose_method(&finding(p, Risk::Safe, Status::Ready, rm), None, false), Method::Trash, "no rule");
+    }
+
+    #[test]
+    fn command_only_never_trashes() {
+        let p = Path::new("/h/code/app/.git");
+        let mut r = rule(Some("git -C {parent} gc --quiet"), vec![]);
+        r.command_only = true;
+        let gc = Method::Command("git -C /h/code/app gc --quiet".into());
+        let f = finding(p, Risk::Safe, Status::Ready, r.clean.as_deref());
+        assert_eq!(choose_method(&f, Some(&r), true), gc, "Move to Trash must never take .git");
+        let f = finding(p, Risk::Review, Status::Ready, r.clean.as_deref());
+        assert_eq!(choose_method(&f, Some(&r), false), gc);
+    }
+
+    #[test]
+    fn command_only_missing_tool_touches_nothing() {
+        let home = tempfile::tempdir().unwrap();
+        let p = home.path().join("Devices/U1");
+        folder_with_file(&p);
+        let mut r = rule(Some("no-such-tool-xyz delete {path}"), vec![]);
+        r.command_only = true;
+        let f = finding(&p, Risk::Safe, Status::Ready, r.clean.as_deref());
+        match clean_one(&f, &r, &idle(), &opts(home.path())) {
+            Outcome::Failed { error, .. } => assert!(error.contains("isn't installed"), "{error}"),
+            other => panic!("{other:?}"),
+        }
+        assert!(p.join("f").exists());
+    }
+
+    #[test]
+    fn command_only_may_name_system_paths() {
+        let home = tempfile::tempdir().unwrap();
+        let mut r = rule(Some("true {path}"), vec![]);
+        r.command_only = true;
+        let f = finding(Path::new("/System/Library/AssetsV2/x"), Risk::Review, Status::Ready, r.clean.as_deref());
+        assert!(matches!(clean_one(&f, &r, &idle(), &opts(home.path())), Outcome::Cleaned { .. }));
+    }
+
+    fn app_rule() -> Rule {
+        let mut r = rule(None, vec![]);
+        r.risk = Risk::Review;
+        r.target = Target::Finder { kind: crate::rules::FinderKind::UnusedApps, idle_days: 90, min_mb: 0 };
+        r
+    }
+
+    #[test]
+    fn unused_apps_go_to_the_trash() {
+        let home = tempfile::tempdir().unwrap();
+        let apps = tempfile::tempdir().unwrap();
+        let app = apps.path().join("Old Tool.app");
+        folder_with_file(&app.join("Contents"));
+        let mut o = opts(home.path());
+        o.apps_dir = apps.path().to_path_buf();
+        let f = finding(&app, Risk::Review, Status::Ready, None);
+        match clean_one(&f, &app_rule(), &idle(), &o) {
+            Outcome::Cleaned { method: Method::Trash, note } => assert_eq!(note.as_deref(), Some("in the Trash as \"Old Tool.app\"")),
+            other => panic!("{other:?}"),
+        }
+        assert!(!app.exists());
+        assert!(home.path().join(".Trash/Old Tool.app/Contents/f").exists());
+    }
+
+    #[test]
+    fn app_guard_only_takes_whole_apps() {
+        let apps = tempfile::tempdir().unwrap();
+        let a = apps.path();
+        folder_with_file(&a.join("Good.app/Contents"));
+        folder_with_file(&a.join("NotAnApp"));
+        folder_with_file(&a.join("Sub/Inner.app"));
+        symlink(a.join("Good.app"), a.join("Link.app")).unwrap();
+        assert!(guard_app(&a.join("Good.app"), a).is_ok());
+        assert!(guard_app(&a.join("Good.app/Contents"), a).is_err(), "inside an app");
+        assert!(guard_app(&a.join("NotAnApp"), a).is_err(), "not an app");
+        assert!(guard_app(&a.join("Sub/Inner.app"), a).is_err(), "not directly in Applications");
+        assert!(guard_app(&a.join("Link.app"), a).is_err(), "a link");
+        assert!(guard_app(&a.join("Gone.app"), a).is_err(), "missing");
+    }
+
+    #[test]
+    fn select_cleans_nested_items_first() {
+        let fs_ = vec![
+            finding(Path::new("/h/code/old"), Risk::Review, Status::Ready, None),
+            finding(Path::new("/h/code/old/node_modules"), Risk::Safe, Status::Ready, None),
+            finding(Path::new("/h/other/target"), Risk::Safe, Status::Ready, None),
+        ];
+        let t = vec!["/h/code/old".to_string(), "/h/code/old/node_modules".to_string(), "/h/other/target".into()];
+        let plan = select(&fs_, &[], &t, false, Path::new("/h"), Path::new("/"));
+        let order: Vec<usize> = plan.items.iter().map(|i| i.index).collect();
+        assert_eq!(order, [1, 2, 0]);
     }
 
     #[test]

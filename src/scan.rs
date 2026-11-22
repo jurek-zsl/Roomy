@@ -15,6 +15,14 @@ pub struct Candidate {
     /// Index into the rule list.
     pub rule: usize,
     pub path: PathBuf,
+    /// Set when a finder produced this, with what it already knows.
+    pub found: Option<crate::finders::Found>,
+}
+
+impl Candidate {
+    pub fn new(rule: usize, path: PathBuf) -> Candidate {
+        Candidate { rule, path, found: None }
+    }
 }
 
 /// Check every path rule's locations.
@@ -27,7 +35,8 @@ pub fn path_candidates_in(rules: &[Rule], home: &Path, user_tmp: Option<&Path>) 
     let home_pat = glob::Pattern::escape(&home.to_string_lossy());
     let mut out = Vec::new();
     for (i, r) in rules.iter().enumerate() {
-        let Target::Paths { patterns, keep_newest } = &r.target else { continue };
+        let Target::Paths { patterns, keep_newest, older_than_days } = &r.target else { continue };
+        let cutoff = older_than_days.map(|d| SystemTime::now() - std::time::Duration::from_secs(d * 86400));
         let mut found: Vec<(PathBuf, SystemTime)> = Vec::new();
         for pattern in patterns {
             let full = if let Some(rest) = pattern.strip_prefix("$USERTMP/") {
@@ -44,14 +53,18 @@ pub fn path_candidates_in(rules: &[Rule], home: &Path, user_tmp: Option<&Path>) 
                 if md.file_type().is_symlink() {
                     continue;
                 }
-                found.push((p, md.modified().unwrap_or(SystemTime::UNIX_EPOCH)));
+                let modified = md.modified().unwrap_or(SystemTime::UNIX_EPOCH);
+                if cutoff.is_some_and(|c| modified > c) {
+                    continue;
+                }
+                found.push((p, modified));
             }
         }
         if let Some(n) = keep_newest {
             found.sort_by(|a, b| b.1.cmp(&a.1));
             found.drain(..(*n).min(found.len()));
         }
-        out.extend(found.into_iter().map(|(path, _)| Candidate { rule: i, path }));
+        out.extend(found.into_iter().map(|(path, _)| Candidate::new(i, path)));
     }
     out
 }
@@ -80,12 +93,26 @@ struct ProjectRule<'a> {
 struct Ctx<'a> {
     rules: Vec<ProjectRule<'a>>,
     opts: &'a WalkOptions,
+    repos: Option<Mutex<Vec<PathBuf>>>,
+}
+
+/// What a walk of the user's folders found.
+#[derive(Debug, Default)]
+pub struct Walked {
+    pub candidates: Vec<Candidate>,
+    /// Folders with a `.git` folder inside (only when asked for).
+    pub repos: Vec<PathBuf>,
 }
 
 /// Walk the roots in parallel and collect build folders. Once a folder
 /// matches, it is not entered, so `node_modules` inside `node_modules` is
 /// never reported twice. Does not cross into other volumes.
 pub fn project_candidates(rules: &[Rule], opts: &WalkOptions) -> Vec<Candidate> {
+    walk_projects(rules, opts, false).candidates
+}
+
+/// Walk once for build folders and, with `want_repos`, git repos too.
+pub fn walk_projects(rules: &[Rule], opts: &WalkOptions, want_repos: bool) -> Walked {
     let project: Vec<ProjectRule> = rules
         .iter()
         .enumerate()
@@ -96,10 +123,10 @@ pub fn project_candidates(rules: &[Rule], opts: &WalkOptions) -> Vec<Candidate> 
             _ => None,
         })
         .collect();
-    if project.is_empty() {
-        return Vec::new();
+    if project.is_empty() && !want_repos {
+        return Walked::default();
     }
-    let ctx = Ctx { rules: project, opts };
+    let ctx = Ctx { rules: project, opts, repos: want_repos.then(|| Mutex::new(Vec::new())) };
     let out = Mutex::new(Vec::new());
     opts.roots.par_iter().for_each(|root| {
         if let Ok(md) = fs::metadata(root) {
@@ -108,7 +135,9 @@ pub fn project_candidates(rules: &[Rule], opts: &WalkOptions) -> Vec<Candidate> 
             }
         }
     });
-    out.into_inner().unwrap()
+    let mut repos = ctx.repos.map(|r| r.into_inner().unwrap()).unwrap_or_default();
+    repos.sort();
+    Walked { candidates: out.into_inner().unwrap(), repos }
 }
 
 fn walk(dir: &Path, dev: u64, depth: usize, ctx: &Ctx, out: &Mutex<Vec<Candidate>>) {
@@ -123,6 +152,11 @@ fn walk(dir: &Path, dev: u64, depth: usize, ctx: &Ctx, out: &Mutex<Vec<Candidate
         }
         names.insert(name);
     }
+    if let Some(repos) = &ctx.repos {
+        if names.contains(".git") && dir.join(".git").is_dir() {
+            repos.lock().unwrap().push(dir.to_path_buf());
+        }
+    }
     subdirs.par_iter().for_each(|name| {
         if depth == 0 && ctx.opts.skip_hidden_top && name.starts_with('.') {
             return;
@@ -135,7 +169,7 @@ fn walk(dir: &Path, dev: u64, depth: usize, ctx: &Ctx, out: &Mutex<Vec<Candidate
             r.dir_name == name.as_str() && (r.sibling.is_empty() || r.sibling.iter().any(|s| names.contains(s)))
         });
         if let Some(r) = hit {
-            out.lock().unwrap().push(Candidate { rule: r.idx, path });
+            out.lock().unwrap().push(Candidate::new(r.idx, path));
             return;
         }
         if PRUNE.contains(&name.as_str()) || PRUNE_SUFFIX.iter().any(|s| name.ends_with(s)) {
@@ -285,5 +319,44 @@ match = { path = "$USERTMP/C/clang/ModuleCache" }
         assert_eq!(c.len(), 1);
         assert_eq!(c[0].path, tmp.path().join("C/clang/ModuleCache"));
         assert!(path_candidates_in(&rules, home.path(), None).is_empty());
+    }
+
+    #[test]
+    fn older_than_days_skips_new_files() {
+        let home = tempfile::tempdir().unwrap();
+        let dl = home.path().join("Downloads");
+        mk(&dl);
+        for f in ["old.dmg", "new.dmg"] {
+            touch(&dl.join(f));
+        }
+        let old = SystemTime::now() - std::time::Duration::from_secs(30 * 86400);
+        fs::File::options().write(true).open(dl.join("old.dmg")).unwrap().set_modified(old).unwrap();
+        let rules = parse_rules(
+            r#"
+[[rule]]
+id = "dmg"
+category = "c"
+risk = "review"
+explain = "e"
+match = { path = "~/Downloads/*.dmg", older_than_days = 14 }
+"#,
+        )
+        .unwrap();
+        let c = path_candidates_in(&rules, home.path(), None);
+        assert_eq!(c.iter().map(|c| c.path.clone()).collect::<Vec<_>>(), vec![dl.join("old.dmg")]);
+    }
+
+    #[test]
+    fn walk_collects_repos() {
+        let d = tempfile::tempdir().unwrap();
+        let root = d.path();
+        mk(&root.join("code/a/.git"));
+        mk(&root.join("code/a/sub/.git"));
+        mk(&root.join("code/b"));
+        touch(&root.join("code/b/.git"));
+        let opts = WalkOptions { roots: vec![root.to_path_buf()], skip: vec![], skip_hidden_top: true };
+        let w = walk_projects(&rules(), &opts, true);
+        assert_eq!(w.repos, [root.join("code/a"), root.join("code/a/sub")], "a .git file is a worktree, not a repo");
+        assert!(walk_projects(&rules(), &opts, false).repos.is_empty());
     }
 }
