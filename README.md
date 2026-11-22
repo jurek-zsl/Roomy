@@ -59,42 +59,47 @@ Click Clean, confirm, and Roomy cleans item by item, re-checking each one at tha
   </picture>
 </p>
 
-Where does the disk actually go? The Space Map adds up every folder in your home, Applications and Homebrew (about 15 seconds on a 250 GB Mac). It then shows:
+Where does the disk actually go? The Space Map adds up every folder on the disk: your home, Applications, Homebrew, /Library and system data in /private, each byte once (about 16 seconds on a 250 GB Mac). With Full Disk Access it can read nearly all of it. It then shows:
 
 - how much each folder takes, and how much of it Roomy can free (in green);
 - **Worth a look:** big folders that no rule explains. Roomy never touches these, but they're where the remaining space hides;
 - the part macOS manages itself (system data, snapshots, swap), so the numbers add up.
 
-### What is this folder? (on-device AI)
+### AI Scan: the whole Mac at once
 
 <p align="center">
-  <img src="docs/images/insight.png" width="320" alt="The explain panel for ~/.cache/huggingface: Apple Intelligence says it holds downloaded AI models that come back by themselves, with Roomy's own facts below">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/ai-scan-dark.png">
+    <img src="docs/images/ai-scan.png" width="640" alt="AI Scan: Claude's overview of where the space goes, three folders marked probably not needed with checkboxes, an Add 3 to Review button, and one folder Roomy keeps">
+  </picture>
 </p>
 
-Click any big folder in **Worth a look** and Roomy explains it:
+Instead of asking about folders one by one, let an AI read the map of the whole disk in one request and suggest what could go. It uses the AI you already have: **Claude** (Claude Code), **Codex** (the Codex CLI) or **Gemini** (the Antigravity CLI, `agy`), on your own subscription or API key. There's no Roomy account and no key to paste.
 
-- **Roomy's own facts:** which app or tool it belongs to and whether that's still installed, when anything inside last changed, file types, the biggest items, and hints like "93% of it is AI model weights".
-- **Apple Intelligence's reading of them**, written by Apple's on-device model. Nothing leaves your Mac, there's nothing to download, and it's free. Roomy sends it only those facts (names, sizes, dates), never file contents.
-- **Roomy makes the call, not the model.** The model only says what the folder is and whether it comes back by itself; fixed rules turn that into "Keep it" or "Probably not needed". A small on-device model labels well but weighs decisions poorly, so the decision isn't left to it.
-- **Hard limits on top.** Folders in Documents, Desktop, Movies, Pictures and Music, data of installed or running apps, folders with databases, and git repositories are always "keep". "Leftover of a removed app" needs proof that the app is gone.
-- **You decide.** If you agree with a suggestion, **Add to Review** saves it as a rule. The folder then appears under *Review first* and goes through every normal check, your confirmation, and the Trash. AI never deletes anything.
+- **It asks first.** You see *exactly what's sent* before you press **Scan**: folder names and sizes, never file contents. Paths start at `~`, so your username isn't sent. Documents, Desktop, Movies, Pictures and Music go as totals only, unless you turn on sharing their contents.
+- **Locked down.** Claude runs with no tools, no MCP servers and no saved session. Codex and Gemini run in their read-only sandboxes. Each runs in an empty temporary folder.
+- **Roomy checks every answer.** Paths that aren't on the map, duplicates and folders inside another suggestion are dropped. Roomy then inspects each folder for real and makes the call itself with fixed rules. The AI only says what a folder is and whether it comes back by itself.
+- **Hard limits.** Data of running apps, folders with databases, your own folders and git repositories are always kept. "Leftover of a removed app" needs proof that the app is gone.
+- **You decide.** Tick what you agree with and **Add to Review**. The folders then show up under *Review first* in Clean and go through every normal check, your confirmation and the Trash. AI never deletes anything.
 
-Without Apple Intelligence, you still get the facts, which often say enough on their own.
+On a real Mac with 196 GB used, Gemini answered in 17 s, Claude in 36 s and Codex in 87 s. They suggested 9, 8 and 12 folders to review, all caches, installers or leftovers that come back by themselves.
 
-#### Claude or Codex, with your own account
+### What is this folder?
+
+In Space Map, every big folder Roomy can't explain has a **What is this?** button. It shows Roomy's own facts (owner, last change, file types, biggest items) and, if you ask, the AI's reading of them, with the same checks as above.
+
+### Set up in a minute
 
 <p align="center">
-  <img src="docs/images/insight-ask.png" width="320" alt="The explain panel set to Claude: an Ask Claude button, a note that only facts are sent, and a disclosure showing exactly what is sent">
+  <img src="docs/images/welcome-ai.png" width="520" alt="The welcome screen's AI step: Claude, Codex and Gemini, each with its status and a button to install, sign in or use it">
 </p>
 
-Prefer a stronger model? In **Settings → Explaining folders**, pick **Claude** or **Codex**. Roomy uses the `claude` or `codex` command you already have, so it runs on your own subscription or API key. There's no Roomy account and no key to paste.
+The first launch walks you through it:
 
-- **It asks first, every time.** These facts go to Anthropic or OpenAI, so the panel shows *exactly what's sent* and waits for you to press **Ask Claude** or **Ask Codex**.
-- **Only facts, never files.** Folder and file names, sizes, dates and file types. Paths start at `~`, so your username isn't sent either.
-- **Locked down.** Claude runs with no tools, no MCP servers and no saved session; Codex runs in its read-only sandbox, without saving a session. Both run in an empty temporary folder.
-- **Same rules.** The model only labels the folder; Roomy makes the call and its limits still apply.
+1. **Full Disk Access**, so Roomy can map the whole disk, including other apps' containers and system data. Roomy opens the right page in System Settings and notices when it's on.
+2. **An AI, if you want one.** Roomy finds Claude, Codex and Gemini wherever they're installed and shows whether each is signed in. **Install** and **Sign In** open Terminal with the official command, or the official page. **Use** picks the one Roomy asks.
 
-On real folders, Claude and Codex both told a simulator's data, an app's VM image and an agent's chat history apart from caches. Apple's small model couldn't. Each answer takes about 5 to 15 seconds.
+Both are in Settings too, under the gear button next to Scan Again.
 
 ### Menu bar
 

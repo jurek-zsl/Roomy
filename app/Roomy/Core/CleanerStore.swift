@@ -67,7 +67,7 @@ final class CleanerStore {
     /// Folders you agreed to review (as rules), by path.
     private(set) var accepted: Set<String> = []
     /// The AI tools Roomy can ask (Claude, Codex, Gemini).
-    @ObservationIgnored let advisors: [any FolderAdvisor]
+    private(set) var advisors: [any FolderAdvisor]
     /// Which one explains folders; remembered.
     var advisorID: String {
         didSet {
@@ -79,6 +79,12 @@ final class CleanerStore {
         }
     }
     var advisor: any FolderAdvisor { advisors.first { $0.id == advisorID } ?? advisors[0] }
+
+    /// Look for the tools again, after one was installed.
+    func reloadAdvisors() {
+        guard advisors.allSatisfy({ $0 is CLIAdvisor }) else { return }
+        advisors = CLIAdvisor.all
+    }
     enum AIScanState: Equatable {
         case idle
         case working(String)

@@ -90,6 +90,16 @@ struct SnapAdvisor: FolderAdvisor {
     let name = "Claude"
     let current: AdvisorStatus
     func status() -> AdvisorStatus { current }
+    func request(system: String, prompt: String, schema: String, timeout: TimeInterval) async throws -> Data {
+        Data(#"""
+        {"overview":"Most of your space is in Claude's app data and developer caches. The biggest easy wins are downloaded AI models and the uv package cache, which come back by themselves when needed.","suggestions":[
+         {"path":"~/.cache/huggingface","what":"AI models that Python tools downloaded from Hugging Face. They download again the next time a tool needs one.","kind":"aiModels","regrows":"yes"},
+         {"path":"~/.cache/uv","what":"The uv package manager's cache of Python packages. uv fills it again as you install packages.","kind":"cache","regrows":"yes"},
+         {"path":"~/Library/pnpm","what":"pnpm's shared store of JavaScript packages. Projects download them again on the next install.","kind":"cache","regrows":"yes"},
+         {"path":"~/Library/Application Support/Steam","what":"Steam's games and their saved data.","kind":"appData","regrows":"no"},
+         {"path":"/Users/you/not-on-the-map","what":"Made up.","kind":"cache","regrows":"yes"}]}
+        """#.utf8)
+    }
     func advise(_ clues: FolderClues) async throws -> FolderAdvice {
         FolderAdvice(summary: "Downloaded AI models from Hugging Face, kept so Python tools don't fetch them again.",
                      kind: .aiModels, regrows: .yes, verdict: .review,
@@ -116,4 +126,19 @@ struct SnapAdvisor: FolderAdvisor {
                              userRules: UserRules(file: FileManager.default.temporaryDirectory.appending(path: "snap-\(UUID())/r.toml"), home: "/Users/you"))
     await store.explain(node.path)
     try Snap.render("insight-ask", FolderInsightView(node: node).environment(store), size: CGSize(width: 340, height: 720))
+}
+
+
+@MainActor @Test func snapshotOnboardingAndAIScan() async throws {
+    let rules = UserRules(file: FileManager.default.temporaryDirectory.appending(path: "snap-\(UUID())/r.toml"), home: "/Users/you")
+    let d = UserDefaults(suiteName: "snap-\(UUID().uuidString)")!
+    let store = CleanerStore(engine: try FixtureEngine(), defaults: d, advisors: [SnapAdvisor(current: .ready)], userRules: rules)
+    for step in [1, 2] {
+        try Snap.render("welcome-\(step)", IntroView(step: step).environment(store), size: CGSize(width: 760, height: 640))
+    }
+    try Snap.render("ai-scan-start", AIScanView().environment(store), size: CGSize(width: 900, height: 420))
+    await store.loadMap()
+    await store.runAIScan()
+    try Snap.render("ai-scan", AIScanView().environment(store), size: CGSize(width: 900, height: 1100))
+    try Snap.render("ai-scan", AIScanView().environment(store), size: CGSize(width: 900, height: 1100), dark: true)
 }

@@ -80,7 +80,7 @@ struct AIScanView: View {
                 }
                 Toggle("Also share what's inside Documents, Desktop, Movies, Pictures and Music", isOn: $store.aiScanIncludesPersonal)
                     .font(.callout)
-                Text("Roomy sends the map below to \(tool?.company ?? "the AI") through your own \(tool?.command ?? "") command: folder names and sizes, never file contents. One request, usually under two minutes.")
+                Text("Roomy sends the map below \(tool.map { "to \($0.company) through your own \($0.command) command" } ?? "to \(store.advisor.name)"): folder names and sizes, never file contents. One request, usually under two minutes.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

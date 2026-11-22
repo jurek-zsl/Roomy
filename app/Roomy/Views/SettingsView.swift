@@ -16,17 +16,12 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            SwiftUI.Section("Explaining folders") {
-                Picker("Ask", selection: $store.advisorID) {
-                    ForEach(store.advisors, id: \.id) { a in
-                        Text(a.status() == .notInstalled ? "\(a.name) (not installed)" : a.name).tag(a.id)
-                    }
-                }
-                Text(store.advisor.statusMessage(store.advisorStatus))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text("The AI runs through your own command line tool and account. Roomy shows exactly what it sends and asks each time. Either way, Roomy makes the call and nothing is cleaned without you.")
+            SwiftUI.Section("Disk access") {
+                DiskAccessView()
+            }
+            SwiftUI.Section("AI") {
+                AISetupView()
+                Text("Roomy asks the AI in use to explain folders and to scan the whole disk. It shows exactly what it sends and asks each time. Roomy makes the call, and nothing is cleaned without you.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -49,6 +44,11 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
+        .safeAreaInset(edge: .bottom) {
+            Button("Show the Welcome Again") { store.hasSeenIntro = false }
+                .buttonStyle(.link)
+                .padding(.bottom, 12)
+        }
         .frame(width: 480)
     }
 
