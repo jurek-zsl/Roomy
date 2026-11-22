@@ -27,15 +27,20 @@ struct PackagesView: View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Homebrew & command-line tools").font(.title.weight(.semibold))
+                    .lineLimit(2).fixedSize(horizontal: false, vertical: true)
                 Text("Packages installed with Homebrew, npm, uv and pipx. Each is removed with its own manager, the way it would be in Terminal, so nothing gets out of sync. Packages that something else needs can't be removed.")
                     .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                HStack {
-                    Picker("Show", selection: $filter) {
-                        ForEach(Filter.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                // Both shrink with the window, so nothing gets cut off.
+                ViewThatFits(in: .horizontal) {
+                    HStack {
+                        filterPicker.frame(minWidth: 300, maxWidth: 380)
+                        Spacer(minLength: 12)
+                        searchField.frame(minWidth: 120, maxWidth: 200)
                     }
-                    .pickerStyle(.segmented).labelsHidden().fixedSize()
-                    Spacer()
-                    TextField("Search", text: $search).textFieldStyle(.roundedBorder).frame(width: 180)
+                    VStack(alignment: .leading, spacing: 8) {
+                        filterPicker
+                        searchField
+                    }
                 }
                 if let auto = uninstaller.packages?.autoremove, !auto.isEmpty {
                     HStack(alignment: .top) {
@@ -54,6 +59,7 @@ struct PackagesView: View {
                 }
             }
             .padding(20)
+            .frame(maxWidth: .infinity, alignment: .leading)
             Divider()
             switch uninstaller.packageState {
             case .idle, .loading:
@@ -66,6 +72,7 @@ struct PackagesView: View {
                 List(shown) { p in row(p) }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .task { if uninstaller.packageState == .idle { await uninstaller.loadPackages() } }
         .confirmationDialog("Remove \(confirming?.name ?? "")?", isPresented: Binding(get: { confirming != nil }, set: { if !$0 { confirming = nil } }),
                             presenting: confirming) { p in
@@ -73,6 +80,17 @@ struct PackagesView: View {
         } message: { p in
             Text("Roomy runs \(p.command). You can install it again the same way.")
         }
+    }
+
+    private var filterPicker: some View {
+        Picker("Show", selection: $filter) {
+            ForEach(Filter.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+        }
+        .pickerStyle(.segmented).labelsHidden()
+    }
+
+    private var searchField: some View {
+        TextField("Search", text: $search).textFieldStyle(.roundedBorder)
     }
 
     private func row(_ p: Package) -> some View {
@@ -83,7 +101,7 @@ struct PackagesView: View {
                 .background(tint(p.manager).gradient, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
-                    Text(p.name).fontWeight(.medium)
+                    Text(p.name).fontWeight(.medium).lineLimit(1).layoutPriority(1)
                     if let v = p.version { Text(v).font(.caption).foregroundStyle(.secondary) }
                     Text(p.managerTitle).font(.caption2.weight(.medium)).padding(.horizontal, 6).padding(.vertical, 1)
                         .background(.quaternary, in: Capsule())

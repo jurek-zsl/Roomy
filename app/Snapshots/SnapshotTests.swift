@@ -199,6 +199,7 @@ struct SnapAdvisor: FolderAdvisor {
     }
     await u.loadPackages()
     try Snap.render("packages", PackagesView(uninstaller: u).environment(\.colorScheme, .light), size: CGSize(width: 640, height: 640))
+    try Snap.render("packages-narrow", PackagesView(uninstaller: u), size: CGSize(width: 440, height: 640), dark: true)
     var f = SystemData.Facts()
     f.snapshots = [Date(timeIntervalSinceNow: -7_200), Date(timeIntervalSinceNow: -3_600)]
     f.purgeable = 6_400_000_000

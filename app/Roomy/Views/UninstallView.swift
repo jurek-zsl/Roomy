@@ -21,7 +21,7 @@ struct UninstallView: View {
     var body: some View {
         HSplitView {
             sidebar.frame(minWidth: 250, idealWidth: 280, maxWidth: 340)
-            detail.frame(minWidth: 420, maxWidth: .infinity, maxHeight: .infinity)
+            detail.frame(minWidth: 420, maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading).clipped()
         }
         .task { if uninstaller.apps.isEmpty { await uninstaller.loadApps() } }
     }
