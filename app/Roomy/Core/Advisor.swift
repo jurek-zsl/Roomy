@@ -111,15 +111,45 @@ protocol FolderAdvisor: Sendable {
 
 enum AdvisorPrompt {
     static let instructions = """
-    You help people free disk space on a Mac. You get facts about one folder that a disk scan found. \
-    Say what the folder most likely is, and whether it is worth reviewing for removal.
+    You explain one folder on a Mac to its owner, using facts a disk scan gathered. \
+    Say what the folder holds, what kind of content it is, and whether it comes back by itself if it's removed.
     Rules:
-    - Base every claim on the facts. Don't invent app names or details.
-    - Never suggest removing the user's own documents, photos, music, projects or code.
-    - App databases, messages, settings and saved games are app data: keep them while the app is installed.
-    - Caches, logs, downloaded AI models, installers, build output, and folders of apps that are no longer installed are usually worth reviewing.
-    - If you are unsure, the verdict is keep.
+    - Use only the facts. Don't invent app names or details.
+    - In the summary, name the app or tool it belongs to and what the biggest items are, in plain words. Don't start with "This folder".
+    - Databases, chat history, sessions, settings and saved games are app data.
+    - Disk images (.img) or virtual machines that a running app uses are app data.
+    - Packages, runtimes, wheels or models that a tool downloaded for itself are cache or AI models, and they come back.
+    - Photos, videos, audio, documents, projects and code are the user's files, including renders and exports inside a project.
+    - Build output is only what a compiler or bundler makes inside a project.
+    - It comes back ("yes") only if the app or tool downloads or rebuilds it by itself when it's missing.
     """
+
+    /// Roomy's verdict from what the model saw. A small model labels
+    /// folders well but weighs decisions poorly, so the rule lives here.
+    static func decide(kind: FolderKind, regrows: Regrows) -> (verdict: AdviceVerdict, why: String) {
+        switch (kind, regrows) {
+        case (.leftover, _): (.review, "It looks like what's left of an app or tool that isn't on this Mac anymore.")
+        case (.installers, _): (.review, "Installers and disk images aren't needed once the app is installed.")
+        case (.logs, _): (.review, "Logs only help with fixing problems; nothing needs them to run.")
+        case (.cache, .yes): (.review, "It's a cache that comes back by itself when it's needed.")
+        case (.aiModels, .yes): (.review, "These AI models download again the next time they're needed.")
+        case (.buildOutput, .yes): (.review, "It's build output that's made again on the next build.")
+        case (.cache, _), (.aiModels, _), (.buildOutput, _): (.keep, "It may not come back by itself, so leave it unless you know you don't need it.")
+        case (.userFiles, _): (.keep, "It looks like your own files.")
+        case (.appData, _): (.keep, "It looks like app data, such as history, settings or saved work.")
+        case (.toolchain, _): (.keep, "These are developer tools; remove them from the tool itself if you don't use them.")
+        case (.unknown, _): (.keep, "It's not clear what this is, so it's safer to leave it.")
+        }
+    }
+
+    /// The model's reading, decided by Roomy and held to its limits.
+    static func advice(summary: String, kind: FolderKind, regrows: Regrows, clues: FolderClues,
+                       home: String = NSHomeDirectory()) -> FolderAdvice {
+        // "Leftover" needs a fact behind it: an owner that isn't installed.
+        let kind = kind == .leftover && clues.owner?.installed != false ? .unknown : kind
+        let d = decide(kind: kind, regrows: regrows)
+        return guarded(FolderAdvice(summary: summary, kind: kind, regrows: regrows, verdict: d.verdict, why: d.why), clues, home: home)
+    }
 
     /// The facts, as short plain lines.
     static func facts(_ c: FolderClues, home: String = NSHomeDirectory()) -> String {
@@ -149,10 +179,16 @@ enum AdvisorPrompt {
     }
 
     /// Roomy's own limits on top of the model: some answers are never "review".
-    static func guarded(_ a: FolderAdvice, _ c: FolderClues) -> FolderAdvice {
+    /// Folders that hold what you made; Downloads is left out on purpose.
+    static let yourFolders = ["Documents", "Desktop", "Movies", "Pictures", "Music"]
+
+    static func guarded(_ a: FolderAdvice, _ c: FolderClues, home: String = NSHomeDirectory()) -> FolderAdvice {
         var a = a
         guard a.verdict == .review else { return a }
-        if a.kind == .userFiles {
+        if let top = yourFolders.first(where: { c.path.hasPrefix(home + "/" + $0 + "/") }) {
+            a.verdict = .keep
+            a.override = "It's inside your \(top) folder, so Roomy leaves it to you."
+        } else if a.kind == .userFiles {
             a.verdict = .keep
             a.override = "Roomy never suggests removing your own files."
         } else if a.kind == .appData, c.owner?.installed == true {
@@ -161,6 +197,9 @@ enum AdvisorPrompt {
         } else if c.owner?.running == true {
             a.verdict = .keep
             a.override = "\(c.owner!.name) is running and using it."
+        } else if c.markers.contains(where: { $0.contains("databases") }), a.kind != .leftover {
+            a.verdict = .keep
+            a.override = "It has databases, which usually hold an app's own data."
         } else if c.markers.contains(where: { $0.contains("git repository") }) {
             a.verdict = .keep
             a.override = "It's a git repository; Roomy's old-project check handles those."

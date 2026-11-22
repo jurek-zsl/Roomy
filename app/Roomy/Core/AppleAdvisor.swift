@@ -31,7 +31,8 @@ struct AppleAdvisor: FolderAdvisor {
                 to: AdvisorPrompt.facts(clues),
                 generating: GeneratedAdvice.self,
                 options: GenerationOptions(temperature: 0.1))
-            return AdvisorPrompt.guarded(reply.content.advice, clues)
+            let g = reply.content
+            return AdvisorPrompt.advice(summary: g.summary, kind: g.kind.kind, regrows: g.regrows.value, clues: clues)
         }
         #endif
         throw EngineError.failed("Apple Intelligence isn't available on this Mac.")
@@ -42,20 +43,12 @@ struct AppleAdvisor: FolderAdvisor {
 @available(macOS 26.0, *)
 @Generable
 struct GeneratedAdvice {
-    @Guide(description: "One or two plain sentences: what this folder most likely is and what it holds.")
+    @Guide(description: "One or two plain sentences: whose folder it is and what the biggest items are.")
     var summary: String
     @Guide(description: "The kind of content. leftover = data of an app or tool that is not installed anymore.")
     var kind: GeneratedKind
-    @Guide(description: "If it is removed, will the app or tool recreate or download it again by itself?")
+    @Guide(description: "If it is removed, will the app or tool download or rebuild it by itself?")
     var regrows: GeneratedRegrows
-    @Guide(description: "review = probably not needed and worth reviewing for removal; keep = leave it alone. When unsure: keep.")
-    var verdict: GeneratedVerdict
-    @Guide(description: "One short sentence giving the main reason for the verdict, based on a fact.")
-    var why: String
-
-    var advice: FolderAdvice {
-        FolderAdvice(summary: summary, kind: kind.kind, regrows: regrows.value, verdict: verdict == .review ? .review : .keep, why: why)
-    }
 }
 
 @available(macOS 26.0, *)
@@ -93,9 +86,4 @@ enum GeneratedRegrows {
     }
 }
 
-@available(macOS 26.0, *)
-@Generable
-enum GeneratedVerdict {
-    case keep, review
-}
 #endif

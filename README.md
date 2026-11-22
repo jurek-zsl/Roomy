@@ -75,7 +75,8 @@ Click any big folder in **Worth a look** and Roomy explains it:
 
 - **Roomy's own facts:** which app or tool it belongs to and whether that's still installed, when anything inside last changed, file types, the biggest items, and hints like "93% of it is AI model weights".
 - **Apple Intelligence's reading of them**, written by Apple's on-device model. Nothing leaves your Mac, there's nothing to download, and it's free. Roomy sends it only those facts (names, sizes, dates), never file contents.
-- **Hard limits on top of the AI.** Your own files, data of installed apps and git repositories are always "keep", whatever the model says.
+- **Roomy makes the call, not the model.** The model only says what the folder is and whether it comes back by itself; fixed rules turn that into "Keep it" or "Probably not needed". A small on-device model labels well but weighs decisions poorly, so the decision isn't left to it.
+- **Hard limits on top.** Folders in Documents, Desktop, Movies, Pictures and Music, data of installed or running apps, folders with databases, and git repositories are always "keep". "Leftover of a removed app" needs proof that the app is gone.
 - **You decide.** If you agree with a suggestion, **Add to Review** saves it as a rule. The folder then appears under *Review first* and goes through every normal check, your confirmation, and the Trash. AI never deletes anything.
 
 Without Apple Intelligence, you still get the facts, which often say enough on their own.

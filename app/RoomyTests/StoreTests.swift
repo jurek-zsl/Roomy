@@ -290,11 +290,11 @@ func diskMap(cleanable: Int64 = 40) -> DiskMap {
 }
 
 
-func sampleClues(path: String = "/h/Library/Application Support/OldApp", installed: Bool = false) -> FolderClues {
+func sampleClues(path: String = "/h/Library/Application Support/OldApp", installed: Bool = false, running: Bool = false) -> FolderClues {
     FolderClues(path: path, name: "OldApp", bytes: 2_000, files: 3, folders: 1, newestDays: 200,
                 types: [TypeShare(ext: "bin", bytes: 1_900, files: 2)],
                 biggest: [FolderItem(name: "Cache", bytes: 1_900, folder: true)],
-                owner: FolderOwner(name: "OldApp", kind: "app", installed: installed, running: false),
+                owner: FolderOwner(name: "OldApp", kind: "app", installed: installed, running: running),
                 markers: ["It has cache or temp folders inside: Cache."])
 }
 
