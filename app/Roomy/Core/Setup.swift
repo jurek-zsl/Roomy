@@ -72,14 +72,17 @@ enum AISetup {
     }
 
     /// Check one tool; runs its status command (a second or so).
-    static func check(_ tool: CLIAdvisor.Tool) async -> State {
-        guard let binary = CLIAdvisor.locate(tool.command) else { return .notInstalled }
+    static func check(_ tool: CLIAdvisor.Tool, binary: String? = nil) async -> State {
+        guard let binary = binary ?? CLIAdvisor.locate(tool.command) else { return .notInstalled }
         guard let args = statusArguments(tool) else { return .installed }
         return await withCheckedContinuation { cont in
             DispatchQueue.global().async {
                 let p = Process()
                 p.executableURL = URL(fileURLWithPath: binary)
                 p.arguments = args
+                // The same PATH as a real request: an npm-installed tool needs its `node`.
+                p.environment = CLIAdvisor.environment(binary: binary)
+                p.standardInput = FileHandle.nullDevice
                 let out = Pipe()
                 p.standardOutput = out
                 p.standardError = out

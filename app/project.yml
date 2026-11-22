@@ -36,9 +36,9 @@ targets:
       path: Roomy/Info.plist
       properties:
         CFBundleDisplayName: Roomy
-        CFBundleShortVersionString: "0.7.0"
+        CFBundleShortVersionString: "0.7.1"
         # Sparkle compares this one: raise it with every release.
-        CFBundleVersion: "0.7.0"
+        CFBundleVersion: "0.7.1"
         # Updates: Sparkle reads the feed from the latest GitHub release.
         SUFeedURL: https://github.com/jurek-zsl/Roomy/releases/latest/download/appcast.xml
         SUPublicEDKey: A+2WzvBhudggwV0Ijgr6SeevxTMSsWwWbuidS6yWwbw=

@@ -74,8 +74,69 @@ struct CLIAdvisor: FolderAdvisor {
     static func locate(_ command: String, home: String = NSHomeDirectory(),
                        path: String? = ProcessInfo.processInfo.environment["PATH"]) -> String? {
         let dirs = (path ?? "").split(separator: ":").map(String.init)
-            + homeDirs.map { home + "/" + $0 } + systemDirs
+            + homeDirs.map { home + "/" + $0 } + nodeDirs(home: home) + systemDirs
         return dirs.map { $0 + "/" + command }.first { FileManager.default.isExecutableFile(atPath: $0) }
+    }
+
+    /// Node versions installed with nvm, newest first: npm puts global tools there.
+    static func nodeDirs(home: String = NSHomeDirectory()) -> [String] {
+        let root = home + "/.nvm/versions/node"
+        let versions = (try? FileManager.default.contentsOfDirectory(atPath: root)) ?? []
+        return versions.sorted { $0.compare($1, options: .numeric) == .orderedDescending }.map { root + "/" + $0 + "/bin" }
+    }
+
+    /// The environment a tool runs in: its own folder first (an npm-installed
+    /// tool needs the `node` next to it), then where installers put things.
+    static func environment(binary: String, home: String = NSHomeDirectory()) -> [String: String] {
+        var env = ProcessInfo.processInfo.environment
+        let binDir = URL(fileURLWithPath: binary).deletingLastPathComponent().path
+        let dirs = [binDir] + homeDirs.map { home + "/" + $0 } + nodeDirs(home: home) + systemDirs + ["/usr/bin", "/bin", env["PATH"] ?? ""]
+        env["PATH"] = dirs.joined(separator: ":")
+        return env
+    }
+
+    // MARK: Models
+
+    /// Cheap and fast, unless the person picked their own default in Settings.
+    static var usesFastModels: Bool {
+        UserDefaults.standard.object(forKey: "aiFastModels") as? Bool ?? true
+    }
+
+    /// The model Roomy asks for, or nil for the person's own default.
+    static func model(for tool: Tool, binary: String) -> String? {
+        guard usesFastModels else { return nil }
+        switch tool {
+        case .claude: return "haiku"
+        case .codex: return codexFastModel()?.slug
+        case .gemini: return modelCache.model(for: binary)
+        }
+    }
+
+    /// The model's name for people.
+    static func modelName(for tool: Tool) -> String {
+        guard usesFastModels else { return "your own default model" }
+        switch tool {
+        case .claude: return "Claude Haiku"
+        case .codex: return codexFastModel().map { "\($0.name), low reasoning" } ?? "your default model, low reasoning"
+        case .gemini: return "Gemini Flash"
+        }
+    }
+
+    /// Codex's "fast and affordable" model from its own list (~/.codex/models_cache.json),
+    /// so a new version's model is picked up without a Roomy update.
+    static func codexFastModel(from data: Data? = nil) -> (slug: String, name: String)? {
+        let file = URL(fileURLWithPath: NSHomeDirectory()).appending(path: ".codex/models_cache.json")
+        guard let data = data ?? (try? Data(contentsOf: file)),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let models = json["models"] as? [[String: Any]] else { return nil }
+        let cheap = models.filter { m in
+            m["visibility"] as? String == "list"
+                && ((m["description"] as? String)?.localizedCaseInsensitiveContains("affordable") == true
+                    || (m["slug"] as? String)?.contains("luna") == true)
+        }
+        let best = cheap.min { ($0["priority"] as? Int ?? .max) < ($1["priority"] as? Int ?? .max) }
+        guard let slug = best?["slug"] as? String else { return nil }
+        return (slug, best?["display_name"] as? String ?? slug)
     }
 
     // MARK: The request
@@ -95,9 +156,11 @@ struct CLIAdvisor: FolderAdvisor {
         case .claude:
             ["-p", "--output-format", "json", "--json-schema", schema, "--tools", "", "--strict-mcp-config",
              "--no-session-persistence", "--setting-sources", "", "--system-prompt", system]
+                + (model.map { ["--model", $0] } ?? [])
         case .codex:
             ["exec", "--sandbox", "read-only", "--skip-git-repo-check", "--ephemeral",
-             "--output-schema", schema, "--output-last-message", answer, "-"]
+             "-c", "model_reasoning_effort=\"low\""] + (model.map { ["-m", $0] } ?? [])
+                + ["--output-schema", schema, "--output-last-message", answer, "-"]
         case .gemini:
             ["--output-format", "json", "--json-schema", schema, "--sandbox", "--disable-slash-commands",
              "--print-timeout", "\(Int(timeout))s"] + (model.map { ["--model", $0] } ?? []) + ["-p", prompt]
@@ -208,12 +271,9 @@ struct CLIAdvisor: FolderAdvisor {
         let whole = combined(system: system, prompt: prompt)
         p.arguments = arguments(tool, schema: tool == .codex ? schemaFile.path : schema, answer: answerFile.path,
                                 prompt: whole, system: system, timeout: timeout,
-                                model: tool == .gemini ? modelCache.model(for: binary) : nil)
+                                model: model(for: tool, binary: binary))
         p.currentDirectoryURL = dir
-        var env = ProcessInfo.processInfo.environment
-        let binDir = URL(fileURLWithPath: binary).deletingLastPathComponent().path
-        env["PATH"] = ([binDir] + systemDirs + ["/usr/bin", "/bin", env["PATH"] ?? ""]).joined(separator: ":")
-        p.environment = env
+        p.environment = environment(binary: binary)
         let stdin = Pipe(), stdout = Pipe(), stderr = Pipe()
         p.standardInput = stdin
         p.standardOutput = stdout

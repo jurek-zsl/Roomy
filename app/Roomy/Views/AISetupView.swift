@@ -62,7 +62,7 @@ struct AISetupView: View {
         case .notInstalled?: return "\(what). Not installed."
         case .signedOut?: return "\(what). Installed; sign in with your account."
         case .installed?: return "\(what). Installed. If it asks you to sign in, click Sign In."
-        case .ready?: return "\(what). Signed in and ready."
+        case .ready?: return "\(what). Signed in. Uses \(CLIAdvisor.modelName(for: tool))."
         }
     }
 }
