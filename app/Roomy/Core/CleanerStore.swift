@@ -42,6 +42,19 @@ final class CleanerStore {
     private(set) var totalBytes: Int64?
     var summary: CleanSummary?
 
+    enum MapState: Equatable {
+        case none
+        case loading
+        case ready
+        case failed(String)
+    }
+
+    private(set) var mapState: MapState = .none
+    private(set) var diskMap: DiskMap?
+    private(set) var mapDate: Date?
+    /// Something was cleaned since the map was made.
+    private(set) var mapIsStale = false
+
     /// Notify when free space drops under `lowSpaceThreshold` (once a day at most).
     var lowSpaceAlerts: Bool {
         didSet { defaults.set(lowSpaceAlerts, forKey: Keys.lowSpace) }
@@ -198,7 +211,22 @@ final class CleanerStore {
             s.error = error.localizedDescription
         }
         summary = s
+        if diskMap != nil { mapIsStale = true }
         await performScan()
+    }
+
+    /// Map where the disk space goes. Read-only, so it may run next to a scan.
+    func loadMap() async {
+        guard mapState != .loading else { return }
+        mapState = .loading
+        do {
+            diskMap = try await engine.map()
+            mapDate = .now
+            mapIsStale = false
+            mapState = .ready
+        } catch {
+            mapState = .failed(error.localizedDescription)
+        }
     }
 
     /// Everything in "Safe now" from the last scan (the menu bar button).
@@ -246,5 +274,12 @@ final class CleanerStore {
         result = r
         lastScan = .now
         if let free = r.freeBytes { freeBytes = free }
+    }
+}
+
+extension CleanerStore {
+    /// What Clean will really do with this item, with the Trash setting applied.
+    func method(for f: Finding) -> Method {
+        trashInstead ? (f.trashMethod ?? .trash) : f.method
     }
 }

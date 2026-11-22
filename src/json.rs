@@ -24,6 +24,8 @@ pub struct FindingJson<'a> {
     pub section: Section,
     /// What `clean` would do, without `--trash`.
     pub method: Method,
+    /// What it would do with `--trash` ("Move to the Trash instead").
+    pub trash_method: Method,
 }
 
 pub fn scan_document<'a>(findings: &'a [Finding], rules: &'a [Rule], free_bytes: Option<u64>, elapsed_ms: u64) -> ScanDocument<'a> {
@@ -36,6 +38,7 @@ pub fn scan_document<'a>(findings: &'a [Finding], rules: &'a [Rule], free_bytes:
                 name: display_name(rule, f),
                 section: f.section(),
                 method: choose_method(f, rule, false),
+                trash_method: choose_method(f, rule, true),
             }
         })
         .collect();
@@ -132,6 +135,7 @@ mod tests {
         assert_eq!(f[1]["section"], "safe-now");
         assert_eq!(f[1]["method"]["kind"], "command");
         assert_eq!(f[1]["method"]["command"], "brew cleanup");
+        assert_eq!(f[1]["trash_method"]["kind"], "trash");
     }
 
     #[test]

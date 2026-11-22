@@ -25,13 +25,16 @@ struct DetailView: View {
                 if finding.section == .blocked {
                     blocked
                 }
+                if let detail = finding.detail {
+                    note("info.circle", detail)
+                }
                 block("What it is", finding.explain)
                 if let reason = finding.reason, finding.section != .blocked {
                     block("Note", reason)
                 }
                 block("What Clean does", store.method(for: finding).sentence)
                 block("Where", friendlyPath(finding.path), selectable: true)
-                Text("\(finding.files) files · rule \(finding.rule)")
+                Text(finding.files > 0 ? "\(finding.files) files · rule \(finding.rule)" : "rule \(finding.rule)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Button {

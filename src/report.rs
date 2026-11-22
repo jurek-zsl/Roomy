@@ -39,7 +39,7 @@ pub struct ReportInfo<'a> {
 pub fn render(findings: &[Finding], info: &ReportInfo) -> String {
     let mut s = String::new();
     let roots: Vec<String> = info.roots.iter().map(|r| tilde(r, info.home)).collect();
-    let _ = writeln!(s, "Mac Cleaner scan (dry run: nothing was deleted)");
+    let _ = writeln!(s, "Roomy scan (dry run: nothing was deleted)");
     let _ = writeln!(
         s,
         "Walked {} for build folders, checked known cache locations. Took {:.1}s.",

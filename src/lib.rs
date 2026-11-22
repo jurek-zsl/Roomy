@@ -1,4 +1,4 @@
-//! Mac Cleaner: finds space you can free, explains it, and says how to
+//! Roomy: finds space you can free, explains it, and says how to
 //! clean it. This crate only scans. It never deletes anything.
 
 pub mod clean;

@@ -13,7 +13,7 @@ extension Section {
     var subtitle: String {
         switch self {
         case .safeNow: "Caches and build output. Apps and tools make them again when needed."
-        case .review: "Might hold something you want. Tick what you don't need; these go to the Trash."
+        case .review: "Might hold something you want. Tick only what you don't need. Most go to the Trash first."
         case .blocked: "An app or tool is using these. Quit it, then scan again."
         }
     }
@@ -48,6 +48,12 @@ struct CategoryStyle {
         case "developer": (symbol, tint) = ("chevron.left.forwardslash.chevron.right", .indigo)
         case "leftover", "old-version": (symbol, tint) = ("clock.arrow.circlepath", .brown)
         case "temp": (symbol, tint) = ("tray.full.fill", .gray)
+        case "project": (symbol, tint) = ("archivebox.fill", .orange)
+        case "git": (symbol, tint) = ("arrow.triangle.branch", .red)
+        case "app": (symbol, tint) = ("app.fill", .blue)
+        case "xcode": (symbol, tint) = ("iphone", .blue)
+        case "download": (symbol, tint) = ("arrow.down.circle.fill", .cyan)
+        case "browser": (symbol, tint) = ("globe", .blue)
         default: (symbol, tint) = ("folder.fill", .gray)
         }
     }
@@ -72,12 +78,6 @@ extension Method {
     }
 }
 
-extension CleanerStore {
-    /// What Clean will really do with this item, with the Trash setting applied.
-    func method(for f: Finding) -> Method {
-        trashInstead ? .trash : f.method
-    }
-}
 
 /// Real app icons for per-app caches ("Notion web cache").
 @MainActor
@@ -105,7 +105,10 @@ enum AppIcons {
 
 /// Rules that belong to one app, for its icon.
 private func ruleApp(_ rule: String) -> String? {
-    if rule.hasPrefix("xcode") || rule.hasPrefix("simulator") { return "Xcode" }
+    if rule.hasPrefix("xcode") || rule.hasPrefix("simulator") || rule == "broken-simulator" { return "Xcode" }
+    let browsers = ["chrome-cache": "Google Chrome", "brave-cache": "Brave Browser", "edge-cache": "Microsoft Edge",
+                    "arc-cache": "Arc", "vivaldi-cache": "Vivaldi", "firefox-cache": "Firefox"]
+    if let b = browsers[rule] { return b }
     if rule.hasPrefix("roblox") { return "Roblox" }
     if rule.hasPrefix("godot") { return "Godot" }
     return nil
@@ -117,7 +120,13 @@ struct ItemIcon: View {
     var size: CGFloat = 28
 
     var body: some View {
-        if let app = appOwner(finding.path) ?? ruleApp(finding.rule), let image = AppIcons.icon(for: app) {
+        if finding.path.hasSuffix(".app") {
+            // An unused app: its own icon.
+            Image(nsImage: NSWorkspace.shared.icon(forFile: finding.path))
+                .resizable()
+                .frame(width: size + 4, height: size + 4)
+                .padding(-2)
+        } else if let app = appOwner(finding.path) ?? ruleApp(finding.rule), let image = AppIcons.icon(for: app) {
             Image(nsImage: image)
                 .resizable()
                 .frame(width: size + 4, height: size + 4)

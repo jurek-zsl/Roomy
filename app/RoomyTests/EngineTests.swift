@@ -5,7 +5,7 @@ import Testing
 private func script(_ body: String) throws -> Engine {
     let dir = FileManager.default.temporaryDirectory.appending(path: "engine-\(UUID().uuidString)")
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-    let url = dir.appending(path: "mac-cleaner")
+    let url = dir.appending(path: "roomy-engine")
     try ("#!/bin/sh\n" + body).write(to: url, atomically: true, encoding: .utf8)
     try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
     return Engine(binary: url)
@@ -22,7 +22,7 @@ private func script(_ body: String) throws -> Engine {
 }
 
 @Test func missingEngineIsReported() async {
-    let e = Engine(binary: URL(fileURLWithPath: "/nonexistent/mac-cleaner"))
+    let e = Engine(binary: URL(fileURLWithPath: "/nonexistent/roomy-engine"))
     await #expect(throws: EngineError.missing) { try await e.scan() }
 }
 

@@ -8,6 +8,8 @@ final class FakeEngine: CleanEngine, @unchecked Sendable {
     private var events: [CleanEvent]
     private var streamError: EngineError?
     private var scanDelay: Duration
+    var mapResult: Result<DiskMap, EngineError> = .failure(.failed("no map"))
+    private(set) var mapCount = 0
     private(set) var scanCount = 0
     private(set) var cleanCalls: [(paths: [String], trash: Bool)] = []
 
@@ -25,6 +27,11 @@ final class FakeEngine: CleanEngine, @unchecked Sendable {
         }
         if scanDelay > .zero { try await Task.sleep(for: scanDelay) }
         return try next.get()
+    }
+
+    func map() async throws -> DiskMap {
+        let r = lock.withLock { mapCount += 1; return mapResult }
+        return try r.get()
     }
 
     func clean(paths: [String], trash: Bool) -> AsyncThrowingStream<CleanEvent, Error> {
@@ -226,4 +233,55 @@ final class Bell: @unchecked Sendable {
     store.checkLowSpace(free: 4_000_000_000, now: now.addingTimeInterval(25 * 3600))
     #expect(bell.rung.count == 2)
     #expect(bell.rung[0].contains("5.0 GB"))
+}
+
+
+func diskMap(cleanable: Int64 = 40) -> DiskMap {
+    let child = MapNode(path: "/h/code", name: "code", kind: .folder, bytes: 600, cleanable: cleanable, children: [])
+    let home = MapNode(path: "/h", name: "/h", kind: .folder, bytes: 1_000, cleanable: cleanable, children: [child])
+    return DiskMap(totalBytes: 5_000, usedBytes: 3_000, freeBytes: 2_000, mappedBytes: 1_000,
+                   cleanableBytes: cleanable, elapsedMs: 5, roots: [home])
+}
+
+@MainActor @Test func mapLoadsAndExplainsTheRest() async {
+    let engine = FakeEngine(scans: [.success(scanResult([a]))])
+    engine.mapResult = .success(diskMap())
+    let store = CleanerStore(engine: engine, defaults: freshDefaults())
+    #expect(store.mapState == .none)
+    await store.loadMap()
+    #expect(store.mapState == .ready)
+    #expect(store.diskMap?.roots.first?.children.first?.name == "code")
+    #expect(store.diskMap?.systemBytes == 2_000, "used minus what the map found")
+    #expect(store.diskMap?.unexplained(min: 100).map(\.path) == ["/h/code"])
+}
+
+@MainActor @Test func mapErrorIsShown() async {
+    let engine = FakeEngine(scans: [.success(scanResult([a]))])
+    engine.mapResult = .failure(.failed("no access"))
+    let store = CleanerStore(engine: engine, defaults: freshDefaults())
+    await store.loadMap()
+    #expect(store.mapState == .failed("The engine stopped: no access"))
+}
+
+@MainActor @Test func mapIsOutOfDateAfterAClean() async {
+    let engine = FakeEngine(scans: [.success(scanResult([a]))],
+                            events: [.plan(items: 1, bytes: 300),
+                                     .done(CleanDone(cleaned: 1, skipped: 0, failed: 0, freeBefore: 1, freeAfter: 301, trashedBytes: 0))])
+    engine.mapResult = .success(diskMap())
+    let store = CleanerStore(engine: engine, defaults: freshDefaults())
+    await store.scan()
+    await store.loadMap()
+    #expect(!store.mapIsStale)
+    await store.clean([a])
+    #expect(store.mapIsStale)
+}
+
+@MainActor @Test func trashSettingKeepsToolOnlyItems() async {
+    var gc = finding("/h/app/.git", .safeNow)
+    gc.trashMethod = .command("git -C /h/app gc --quiet")
+    let plain = finding("/h/x", .safeNow)
+    let store = CleanerStore(engine: FakeEngine(scans: [.success(scanResult([gc, plain]))]), defaults: freshDefaults())
+    store.trashInstead = true
+    #expect(store.method(for: gc) == .command("git -C /h/app gc --quiet"))
+    #expect(store.method(for: plain) == .trash)
 }

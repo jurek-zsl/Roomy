@@ -1,24 +1,62 @@
 import SwiftUI
 
+enum MainTab: String, CaseIterable {
+    case clean, space
+
+    var title: String {
+        switch self {
+        case .clean: "Clean"
+        case .space: "Space Map"
+        }
+    }
+}
+
 struct ContentView: View {
     @Environment(CleanerStore.self) private var store
+    @AppStorage("tab") private var tab: MainTab = .clean
     @State private var selection: Finding.ID?
     /// Set once when Clean is clicked, so the sheet keeps one identity.
     @State private var confirming: Pending?
 
     var body: some View {
-        content
+        Group {
+            if store.hasSeenIntro && tab == .space {
+                SpaceMapView()
+            } else {
+                content
+            }
+        }
             .navigationTitle("Roomy")
             .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        Task { await store.scan() }
-                    } label: {
-                        Label("Scan Again", systemImage: "arrow.clockwise")
+                if store.hasSeenIntro {
+                    ToolbarItem(placement: .principal) {
+                        Picker("View", selection: $tab) {
+                            ForEach(MainTab.allCases, id: \.self) { Text($0.title).tag($0) }
+                        }
+                        .pickerStyle(.segmented)
+                        .frame(width: 220)
                     }
-                    .keyboardShortcut("r")
-                    .disabled(store.isWorking || !store.hasSeenIntro)
-                    .help("Scan again (⌘R)")
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    if tab == .space && store.hasSeenIntro {
+                        Button {
+                            Task { await store.loadMap() }
+                        } label: {
+                            Label("Map Again", systemImage: "arrow.clockwise")
+                        }
+                        .keyboardShortcut("r")
+                        .disabled(store.mapState == .loading)
+                        .help("Map the disk again (⌘R)")
+                    } else {
+                        Button {
+                            Task { await store.scan() }
+                        } label: {
+                            Label("Scan Again", systemImage: "arrow.clockwise")
+                        }
+                        .keyboardShortcut("r")
+                        .disabled(store.isWorking || !store.hasSeenIntro)
+                        .help("Scan again (⌘R)")
+                    }
                 }
             }
             .sheet(item: $confirming) { pending in

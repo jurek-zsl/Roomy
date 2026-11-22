@@ -1,9 +1,11 @@
 import Foundation
 
 /// What the store needs from the engine. The real one runs the bundled
-/// `mac-cleaner` program; tests use a scripted one.
+/// `roomy-engine` program; tests use a scripted one.
 protocol CleanEngine: Sendable {
     func scan() async throws -> ScanResult
+    /// Where the disk space goes (`map --json`). Read-only; takes up to a minute.
+    func map() async throws -> DiskMap
     func clean(paths: [String], trash: Bool) -> AsyncThrowingStream<CleanEvent, Error>
 }
 
@@ -12,37 +14,43 @@ protocol CleanEngine: Sendable {
 struct Engine: CleanEngine {
     let binary: URL
 
-    /// The engine inside the app, or `MAC_CLEANER_ENGINE` if set.
+    /// The engine inside the app, or `ROOMY_ENGINE` if set.
     static func bundled() -> Engine {
-        if let p = ProcessInfo.processInfo.environment["MAC_CLEANER_ENGINE"], !p.isEmpty {
+        if let p = ProcessInfo.processInfo.environment["ROOMY_ENGINE"], !p.isEmpty {
             return Engine(binary: URL(fileURLWithPath: p))
         }
-        let url = Bundle.main.url(forAuxiliaryExecutable: "mac-cleaner")
-            ?? Bundle.main.bundleURL.appending(path: "Contents/MacOS/mac-cleaner")
+        let url = Bundle.main.url(forAuxiliaryExecutable: "roomy-engine")
+            ?? Bundle.main.bundleURL.appending(path: "Contents/MacOS/roomy-engine")
         return Engine(binary: url)
     }
 
     func scan() async throws -> ScanResult {
-        let binary = binary
-        // Blocking reads run on a dispatch thread, never on Swift's shared
-        // threads: many runs at once would starve them and hang.
-        return try await withCheckedThrowingContinuation { c in
-            DispatchQueue.global(qos: .userInitiated).async {
-                c.resume(with: Result { try Engine.scanBlocking(binary) })
-            }
-        }
+        try await Engine.json(binary, ["scan", "--json"], ScanResult.decode)
     }
 
-    private static func scanBlocking(_ binary: URL) throws -> ScanResult {
-        let run = try start(binary, ["scan", "--json"])
-        let stderr = collect(run.err)
-        let data = (try? run.out.readToEnd()) ?? Data()
-        run.process.waitUntilExit()
-        guard run.process.terminationStatus == 0 else { throw EngineError.failed(tail(stderr.wait())) }
-        do {
-            return try ScanResult.decode(data)
-        } catch {
-            throw EngineError.badOutput(String(decoding: data.prefix(200), as: UTF8.self))
+    func map() async throws -> DiskMap {
+        try await Engine.json(binary, ["map", "--json"], DiskMap.decode)
+    }
+
+    /// Run the engine once and decode what it prints. Blocking reads run on
+    /// a dispatch thread, never on Swift's shared threads: many runs at once
+    /// would starve them and hang.
+    private static func json<T: Sendable>(_ binary: URL, _ args: [String], _ decode: @escaping @Sendable (Data) throws -> T) async throws -> T {
+        try await withCheckedThrowingContinuation { c in
+            DispatchQueue.global(qos: .userInitiated).async {
+                c.resume(with: Result {
+                    let run = try start(binary, args)
+                    let stderr = collect(run.err)
+                    let data = (try? run.out.readToEnd()) ?? Data()
+                    run.process.waitUntilExit()
+                    guard run.process.terminationStatus == 0 else { throw EngineError.failed(tail(stderr.wait())) }
+                    do {
+                        return try decode(data)
+                    } catch {
+                        throw EngineError.badOutput(String(decoding: data.prefix(200), as: UTF8.self))
+                    }
+                })
+            }
         }
     }
 

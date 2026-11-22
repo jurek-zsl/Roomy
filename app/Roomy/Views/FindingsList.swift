@@ -97,6 +97,16 @@ struct FindingRow: View {
     @Environment(CleanerStore.self) private var store
     let finding: Finding
 
+    /// A finder's first sentence ("Last opened 7 months ago.") says more than the path.
+    private var subtitle: String {
+        if let d = finding.detail, !d.isEmpty {
+            // Sentences end in ". "; version numbers ("iOS 27.2") don't.
+            if let end = d.range(of: ". ") { return String(d[..<end.lowerBound]) + "." }
+            return d
+        }
+        return friendlyPath(finding.path)
+    }
+
     var body: some View {
         HStack(spacing: 12) {
             if finding.section == .blocked {
@@ -112,13 +122,16 @@ struct FindingRow: View {
             ItemIcon(finding: finding)
             VStack(alignment: .leading, spacing: 2) {
                 Text(finding.name).fontWeight(.medium)
-                Text(friendlyPath(finding.path))
+                Text(subtitle)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
-                if finding.section == .blocked, let reason = finding.reason {
-                    Text(reason).font(.caption).foregroundStyle(.orange)
+                if let reason = finding.reason {
+                    Text(reason)
+                        .font(.caption)
+                        .foregroundStyle(finding.section == .blocked ? .orange : .secondary)
+                        .lineLimit(1)
                 }
             }
             Spacer(minLength: 8)

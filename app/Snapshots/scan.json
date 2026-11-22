@@ -1,802 +1,873 @@
 {
-  "free_bytes": 62641385472,
-  "elapsed_ms": 2190,
-  "findings": [
-    {
-      "rule": "electron-cache",
-      "category": "app-cache",
-      "risk": "safe",
-      "status": "blocked",
-      "reason": "Claude is running",
-      "path": "/Users/you/Library/Application Support/Claude/Cache/Cache_Data",
-      "bytes_on_disk": 913948672,
-      "bytes_freed": 913948672,
-      "files": 50792,
-      "clean": "rm -rf '/Users/you/Library/Application Support/Claude/Cache/Cache_Data'",
-      "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
-      "name": "Claude web cache",
-      "section": "blocked",
-      "method": {
-        "kind": "delete"
-      }
-    },
-    {
-      "rule": "pnpm-store",
-      "category": "package-cache",
-      "risk": "safe",
-      "status": "ready",
-      "reason": null,
-      "path": "/Users/you/Library/pnpm/store",
-      "bytes_on_disk": 957808640,
-      "bytes_freed": 820260864,
-      "files": 47297,
-      "clean": "pnpm store prune",
-      "explain": "pnpm package store. Prune removes only packages no project uses, so it may free less than shown.",
-      "name": "pnpm packages",
-      "section": "safe-now",
-      "method": {
-        "kind": "command",
-        "command": "pnpm store prune"
-      }
-    },
-    {
-      "rule": "uv-cache",
-      "category": "package-cache",
-      "risk": "safe",
-      "status": "blocked",
-      "reason": "another program is using it (lock held)",
-      "path": "/Users/you/.cache/uv",
-      "bytes_on_disk": 3104284672,
-      "bytes_freed": 456478720,
-      "files": 87955,
-      "clean": "uv cache clean",
-      "explain": "uv Python package cache.",
-      "name": "uv Python cache",
-      "section": "blocked",
-      "method": {
-        "kind": "command",
-        "command": "uv cache clean"
-      }
-    },
-    {
-      "rule": "clang-module-cache",
-      "category": "temp",
-      "risk": "safe",
-      "status": "ready",
-      "reason": null,
-      "path": "/var/folders/xy/abc123_def456ghi789jkl0000gn/C/clang/ModuleCache",
-      "bytes_on_disk": 443936768,
-      "bytes_freed": 443936768,
-      "files": 512,
-      "clean": "rm -rf /var/folders/xy/abc123_def456ghi789jkl0000gn/C/clang/ModuleCache",
-      "explain": "Precompiled modules clang and Swift keep in temp. Builds make them again; macOS also clears them sometimes.",
-      "name": "Compiler module cache",
-      "section": "safe-now",
-      "method": {
-        "kind": "delete"
-      }
-    },
-    {
-      "rule": "claude-code-old-version",
-      "category": "leftover",
-      "risk": "review",
-      "status": "ready",
-      "reason": null,
-      "path": "/Users/you/.local/share/claude/versions/2.1.328",
-      "bytes_on_disk": 354631680,
-      "bytes_freed": 354631680,
-      "files": 1,
-      "clean": "rm -rf /Users/you/.local/share/claude/versions/2.1.328",
-      "explain": "Older Claude Code version. Claude Code keeps a few for rollback and may clean them itself.",
-      "name": "Old Claude Code version",
-      "section": "review",
-      "method": {
-        "kind": "trash"
-      }
-    },
-    {
-      "rule": "claude-code-old-version",
-      "category": "leftover",
-      "risk": "review",
-      "status": "ready",
-      "reason": null,
-      "path": "/Users/you/.local/share/claude/versions/2.1.325",
-      "bytes_on_disk": 347410432,
-      "bytes_freed": 347410432,
-      "files": 1,
-      "clean": "rm -rf /Users/you/.local/share/claude/versions/2.1.325",
-      "explain": "Older Claude Code version. Claude Code keeps a few for rollback and may clean them itself.",
-      "name": "Old Claude Code version",
-      "section": "review",
-      "method": {
-        "kind": "trash"
-      }
-    },
-    {
-      "rule": "claude-code-old-version",
-      "category": "leftover",
-      "risk": "review",
-      "status": "ready",
-      "reason": null,
-      "path": "/Users/you/.local/share/claude/versions/2.1.323",
-      "bytes_on_disk": 344371200,
-      "bytes_freed": 344371200,
-      "files": 1,
-      "clean": "rm -rf /Users/you/.local/share/claude/versions/2.1.323",
-      "explain": "Older Claude Code version. Claude Code keeps a few for rollback and may clean them itself.",
-      "name": "Old Claude Code version",
-      "section": "review",
-      "method": {
-        "kind": "trash"
-      }
-    },
-    {
-      "rule": "electron-cache",
-      "category": "app-cache",
-      "risk": "safe",
-      "status": "blocked",
-      "reason": "Notion is running",
-      "path": "/Users/you/Library/Application Support/Notion/Partitions/notion/Cache/Cache_Data",
-      "bytes_on_disk": 297476096,
-      "bytes_freed": 297476096,
-      "files": 19375,
-      "clean": "rm -rf '/Users/you/Library/Application Support/Notion/Partitions/notion/Cache/Cache_Data'",
-      "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
-      "name": "Notion web cache",
-      "section": "blocked",
-      "method": {
-        "kind": "delete"
-      }
-    },
-    {
-      "rule": "electron-cache",
-      "category": "app-cache",
-      "risk": "safe",
-      "status": "blocked",
-      "reason": "Claude is running",
-      "path": "/Users/you/Library/Application Support/Claude/Code Cache",
-      "bytes_on_disk": 275329024,
-      "bytes_freed": 275329024,
-      "files": 21948,
-      "clean": "rm -rf '/Users/you/Library/Application Support/Claude/Code Cache'",
-      "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
-      "name": "Claude web cache",
-      "section": "blocked",
-      "method": {
-        "kind": "delete"
-      }
-    },
-    {
-      "rule": "go-mod-cache",
-      "category": "package-cache",
-      "risk": "review",
-      "status": "ready",
-      "reason": null,
-      "path": "/Users/you/go/pkg/mod",
-      "bytes_on_disk": 212426752,
-      "bytes_freed": 212426752,
-      "files": 15450,
-      "clean": "go clean -modcache",
-      "explain": "Downloaded Go modules. Safe, but every Go project re-downloads its modules.",
-      "name": "Go modules",
-      "section": "review",
-      "method": {
-        "kind": "trash"
-      }
-    },
-    {
-      "rule": "xcode-derived-data",
-      "category": "package-cache",
-      "risk": "safe",
-      "status": "ready",
-      "reason": null,
-      "path": "/Users/you/Library/Developer/Xcode/DerivedData",
-      "bytes_on_disk": 113254400,
-      "bytes_freed": 113254400,
-      "files": 1496,
-      "clean": "rm -rf /Users/you/Library/Developer/Xcode/DerivedData",
-      "explain": "Xcode build products and indexes. Rebuilt on next build.",
-      "name": "Xcode build data",
-      "section": "safe-now",
-      "method": {
-        "kind": "delete"
-      }
-    },
-    {
-      "rule": "electron-cache",
-      "category": "app-cache",
-      "risk": "safe",
-      "status": "ready",
-      "reason": null,
-      "path": "/Users/you/Library/Application Support/Antigravity/Cache/Cache_Data",
-      "bytes_on_disk": 52154368,
-      "bytes_freed": 52154368,
-      "files": 187,
-      "clean": "rm -rf '/Users/you/Library/Application Support/Antigravity/Cache/Cache_Data'",
-      "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
-      "name": "Antigravity web cache",
-      "section": "safe-now",
-      "method": {
-        "kind": "delete"
-      }
-    },
-    {
-      "rule": "electron-cache",
-      "category": "app-cache",
-      "risk": "safe",
-      "status": "blocked",
-      "reason": "obsidian is running",
-      "path": "/Users/you/Library/Application Support/obsidian/Cache/Cache_Data",
-      "bytes_on_disk": 30777344,
-      "bytes_freed": 30777344,
-      "files": 71,
-      "clean": "rm -rf '/Users/you/Library/Application Support/obsidian/Cache/Cache_Data'",
-      "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
-      "name": "obsidian web cache",
-      "section": "blocked",
-      "method": {
-        "kind": "delete"
-      }
-    },
-    {
-      "rule": "cargo-registry-src",
-      "category": "package-cache",
-      "risk": "safe",
-      "status": "ready",
-      "reason": null,
-      "path": "/Users/you/.cargo/registry/src",
-      "bytes_on_disk": 27697152,
-      "bytes_freed": 27697152,
-      "files": 2459,
-      "clean": "rm -rf /Users/you/.cargo/registry/src",
-      "explain": "Unpacked crate sources. Cargo unpacks them again from its download cache.",
-      "name": "Rust package sources",
-      "section": "safe-now",
-      "method": {
-        "kind": "delete"
-      }
-    },
-    {
-      "rule": "pyinstaller-leftover",
-      "category": "temp",
-      "risk": "review",
-      "status": "ready",
-      "reason": null,
-      "path": "/var/folders/xy/abc123_def456ghi789jkl0000gn/T/_MEI00003923FgpXnU",
-      "bytes_on_disk": 14794752,
-      "bytes_freed": 14794752,
-      "files": 50,
-      "clean": "rm -rf /var/folders/xy/abc123_def456ghi789jkl0000gn/T/_MEI00003923FgpXnU",
-      "explain": "Folders Python apps made with PyInstaller unpack into. They are left behind when such an app crashes; a running one still uses its folder.",
-      "name": "Leftover app unpack folder",
-      "section": "review",
-      "method": {
-        "kind": "trash"
-      }
-    },
-    {
-      "rule": "pyinstaller-leftover",
-      "category": "temp",
-      "risk": "review",
-      "status": "ready",
-      "reason": null,
-      "path": "/var/folders/xy/abc123_def456ghi789jkl0000gn/T/_MEI00003b13O3lGG5",
-      "bytes_on_disk": 13676544,
-      "bytes_freed": 13676544,
-      "files": 9,
-      "clean": "rm -rf /var/folders/xy/abc123_def456ghi789jkl0000gn/T/_MEI00003b13O3lGG5",
-      "explain": "Folders Python apps made with PyInstaller unpack into. They are left behind when such an app crashes; a running one still uses its folder.",
-      "name": "Leftover app unpack folder",
-      "section": "review",
-      "method": {
-        "kind": "trash"
-      }
-    },
-    {
-      "rule": "npx-package",
-      "category": "package-cache",
-      "risk": "safe",
-      "status": "blocked",
-      "reason": "`@coding-solo/godot-mcp` from here is running",
-      "path": "/Users/you/.npm/_npx/6e568f649a25892d",
-      "bytes_on_disk": 12517376,
-      "bytes_freed": 12517376,
-      "files": 1227,
-      "clean": "rm -rf /Users/you/.npm/_npx/6e568f649a25892d",
-      "explain": "A package downloaded by npx. Re-downloads next time you run it.",
-      "name": "npx tool download",
-      "section": "blocked",
-      "method": {
-        "kind": "delete"
-      }
-    },
-    {
-      "rule": "electron-cache",
-      "category": "app-cache",
-      "risk": "safe",
-      "status": "blocked",
-      "reason": "Notion is running",
-      "path": "/Users/you/Library/Application Support/Notion/Partitions/notion/Code Cache",
-      "bytes_on_disk": 10747904,
-      "bytes_freed": 10747904,
-      "files": 404,
-      "clean": "rm -rf '/Users/you/Library/Application Support/Notion/Partitions/notion/Code Cache'",
-      "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
-      "name": "Notion web cache",
-      "section": "blocked",
-      "method": {
-        "kind": "delete"
-      }
-    },
-    {
-      "rule": "electron-cache",
-      "category": "app-cache",
-      "risk": "safe",
-      "status": "blocked",
-      "reason": "obsidian is running",
-      "path": "/Users/you/Library/Application Support/obsidian/Code Cache",
-      "bytes_on_disk": 6569984,
-      "bytes_freed": 6569984,
-      "files": 35,
-      "clean": "rm -rf '/Users/you/Library/Application Support/obsidian/Code Cache'",
-      "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
-      "name": "obsidian web cache",
-      "section": "blocked",
-      "method": {
-        "kind": "delete"
-      }
-    },
-    {
-      "rule": "electron-cache",
-      "category": "app-cache",
-      "risk": "safe",
-      "status": "blocked",
-      "reason": "Claude is running",
-      "path": "/Users/you/Library/Application Support/Claude/GPUCache",
-      "bytes_on_disk": 5840896,
-      "bytes_freed": 5840896,
-      "files": 5,
-      "clean": "rm -rf '/Users/you/Library/Application Support/Claude/GPUCache'",
-      "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
-      "name": "Claude web cache",
-      "section": "blocked",
-      "method": {
-        "kind": "delete"
-      }
-    },
-    {
-      "rule": "electron-cache",
-      "category": "app-cache",
-      "risk": "safe",
-      "status": "ready",
-      "reason": null,
-      "path": "/Users/you/Library/Application Support/Happy/GPUCache",
-      "bytes_on_disk": 4792320,
-      "bytes_freed": 4792320,
-      "files": 5,
-      "clean": "rm -rf '/Users/you/Library/Application Support/Happy/GPUCache'",
-      "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
-      "name": "Happy web cache",
-      "section": "safe-now",
-      "method": {
-        "kind": "delete"
-      }
-    },
-    {
-      "rule": "electron-cache",
-      "category": "app-cache",
-      "risk": "safe",
-      "status": "blocked",
-      "reason": "obsidian is running",
-      "path": "/Users/you/Library/Application Support/obsidian/GPUCache",
-      "bytes_on_disk": 3080192,
-      "bytes_freed": 3080192,
-      "files": 5,
-      "clean": "rm -rf '/Users/you/Library/Application Support/obsidian/GPUCache'",
-      "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
-      "name": "obsidian web cache",
-      "section": "blocked",
-      "method": {
-        "kind": "delete"
-      }
-    },
-    {
-      "rule": "electron-cache",
-      "category": "app-cache",
-      "risk": "safe",
-      "status": "ready",
-      "reason": null,
-      "path": "/Users/you/Library/Application Support/Antigravity/Code Cache",
-      "bytes_on_disk": 565248,
-      "bytes_freed": 565248,
-      "files": 80,
-      "clean": "rm -rf '/Users/you/Library/Application Support/Antigravity/Code Cache'",
-      "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
-      "name": "Antigravity web cache",
-      "section": "safe-now",
-      "method": {
-        "kind": "delete"
-      }
-    },
-    {
-      "rule": "electron-cache",
-      "category": "app-cache",
-      "risk": "safe",
-      "status": "ready",
-      "reason": null,
-      "path": "/Users/you/Library/Application Support/Antigravity/DawnGraphiteCache",
-      "bytes_on_disk": 561152,
-      "bytes_freed": 561152,
-      "files": 5,
-      "clean": "rm -rf '/Users/you/Library/Application Support/Antigravity/DawnGraphiteCache'",
-      "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
-      "name": "Antigravity web cache",
-      "section": "safe-now",
-      "method": {
-        "kind": "delete"
-      }
-    },
-    {
-      "rule": "electron-cache",
-      "category": "app-cache",
-      "risk": "safe",
-      "status": "ready",
-      "reason": null,
-      "path": "/Users/you/Library/Application Support/Antigravity/DawnWebGPUCache",
-      "bytes_on_disk": 561152,
-      "bytes_freed": 561152,
-      "files": 5,
-      "clean": "rm -rf '/Users/you/Library/Application Support/Antigravity/DawnWebGPUCache'",
-      "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
-      "name": "Antigravity web cache",
-      "section": "safe-now",
-      "method": {
-        "kind": "delete"
-      }
-    },
-    {
-      "rule": "electron-cache",
-      "category": "app-cache",
-      "risk": "safe",
-      "status": "ready",
-      "reason": null,
-      "path": "/Users/you/Library/Application Support/Antigravity/GPUCache",
-      "bytes_on_disk": 561152,
-      "bytes_freed": 561152,
-      "files": 5,
-      "clean": "rm -rf '/Users/you/Library/Application Support/Antigravity/GPUCache'",
-      "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
-      "name": "Antigravity web cache",
-      "section": "safe-now",
-      "method": {
-        "kind": "delete"
-      }
-    },
-    {
-      "rule": "electron-cache",
-      "category": "app-cache",
-      "risk": "safe",
-      "status": "blocked",
-      "reason": "Claude is running",
-      "path": "/Users/you/Library/Application Support/Claude/DawnGraphiteCache",
-      "bytes_on_disk": 561152,
-      "bytes_freed": 561152,
-      "files": 5,
-      "clean": "rm -rf '/Users/you/Library/Application Support/Claude/DawnGraphiteCache'",
-      "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
-      "name": "Claude web cache",
-      "section": "blocked",
-      "method": {
-        "kind": "delete"
-      }
-    },
-    {
-      "rule": "electron-cache",
-      "category": "app-cache",
-      "risk": "safe",
-      "status": "blocked",
-      "reason": "Claude is running",
-      "path": "/Users/you/Library/Application Support/Claude/DawnWebGPUCache",
-      "bytes_on_disk": 561152,
-      "bytes_freed": 561152,
-      "files": 5,
-      "clean": "rm -rf '/Users/you/Library/Application Support/Claude/DawnWebGPUCache'",
-      "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
-      "name": "Claude web cache",
-      "section": "blocked",
-      "method": {
-        "kind": "delete"
-      }
-    },
-    {
-      "rule": "electron-cache",
-      "category": "app-cache",
-      "risk": "safe",
-      "status": "blocked",
-      "reason": "Claude is running",
-      "path": "/Users/you/Library/Application Support/Claude/Partitions/cowork-file-preview/GPUCache",
-      "bytes_on_disk": 561152,
-      "bytes_freed": 561152,
-      "files": 5,
-      "clean": "rm -rf '/Users/you/Library/Application Support/Claude/Partitions/cowork-file-preview/GPUCache'",
-      "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
-      "name": "Claude web cache",
-      "section": "blocked",
-      "method": {
-        "kind": "delete"
-      }
-    },
-    {
-      "rule": "electron-cache",
-      "category": "app-cache",
-      "risk": "safe",
-      "status": "ready",
-      "reason": null,
-      "path": "/Users/you/Library/Application Support/Happy/DawnGraphiteCache",
-      "bytes_on_disk": 561152,
-      "bytes_freed": 561152,
-      "files": 5,
-      "clean": "rm -rf '/Users/you/Library/Application Support/Happy/DawnGraphiteCache'",
-      "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
-      "name": "Happy web cache",
-      "section": "safe-now",
-      "method": {
-        "kind": "delete"
-      }
-    },
-    {
-      "rule": "electron-cache",
-      "category": "app-cache",
-      "risk": "safe",
-      "status": "ready",
-      "reason": null,
-      "path": "/Users/you/Library/Application Support/Happy/DawnWebGPUCache",
-      "bytes_on_disk": 561152,
-      "bytes_freed": 561152,
-      "files": 5,
-      "clean": "rm -rf '/Users/you/Library/Application Support/Happy/DawnWebGPUCache'",
-      "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
-      "name": "Happy web cache",
-      "section": "safe-now",
-      "method": {
-        "kind": "delete"
-      }
-    },
-    {
-      "rule": "electron-cache",
-      "category": "app-cache",
-      "risk": "safe",
-      "status": "blocked",
-      "reason": "Notion is running",
-      "path": "/Users/you/Library/Application Support/Notion/DawnGraphiteCache",
-      "bytes_on_disk": 561152,
-      "bytes_freed": 561152,
-      "files": 5,
-      "clean": "rm -rf '/Users/you/Library/Application Support/Notion/DawnGraphiteCache'",
-      "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
-      "name": "Notion web cache",
-      "section": "blocked",
-      "method": {
-        "kind": "delete"
-      }
-    },
-    {
-      "rule": "electron-cache",
-      "category": "app-cache",
-      "risk": "safe",
-      "status": "blocked",
-      "reason": "Notion is running",
-      "path": "/Users/you/Library/Application Support/Notion/DawnWebGPUCache",
-      "bytes_on_disk": 561152,
-      "bytes_freed": 561152,
-      "files": 5,
-      "clean": "rm -rf '/Users/you/Library/Application Support/Notion/DawnWebGPUCache'",
-      "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
-      "name": "Notion web cache",
-      "section": "blocked",
-      "method": {
-        "kind": "delete"
-      }
-    },
-    {
-      "rule": "electron-cache",
-      "category": "app-cache",
-      "risk": "safe",
-      "status": "blocked",
-      "reason": "Notion is running",
-      "path": "/Users/you/Library/Application Support/Notion/GPUCache",
-      "bytes_on_disk": 561152,
-      "bytes_freed": 561152,
-      "files": 5,
-      "clean": "rm -rf '/Users/you/Library/Application Support/Notion/GPUCache'",
-      "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
-      "name": "Notion web cache",
-      "section": "blocked",
-      "method": {
-        "kind": "delete"
-      }
-    },
-    {
-      "rule": "electron-cache",
-      "category": "app-cache",
-      "risk": "safe",
-      "status": "blocked",
-      "reason": "Notion is running",
-      "path": "/Users/you/Library/Application Support/Notion/Partitions/notion/GPUCache",
-      "bytes_on_disk": 561152,
-      "bytes_freed": 561152,
-      "files": 5,
-      "clean": "rm -rf '/Users/you/Library/Application Support/Notion/Partitions/notion/GPUCache'",
-      "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
-      "name": "Notion web cache",
-      "section": "blocked",
-      "method": {
-        "kind": "delete"
-      }
-    },
-    {
-      "rule": "electron-cache",
-      "category": "app-cache",
-      "risk": "safe",
-      "status": "blocked",
-      "reason": "obsidian is running",
-      "path": "/Users/you/Library/Application Support/obsidian/DawnGraphiteCache",
-      "bytes_on_disk": 561152,
-      "bytes_freed": 561152,
-      "files": 5,
-      "clean": "rm -rf '/Users/you/Library/Application Support/obsidian/DawnGraphiteCache'",
-      "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
-      "name": "obsidian web cache",
-      "section": "blocked",
-      "method": {
-        "kind": "delete"
-      }
-    },
-    {
-      "rule": "electron-cache",
-      "category": "app-cache",
-      "risk": "safe",
-      "status": "blocked",
-      "reason": "obsidian is running",
-      "path": "/Users/you/Library/Application Support/obsidian/DawnWebGPUCache",
-      "bytes_on_disk": 561152,
-      "bytes_freed": 561152,
-      "files": 5,
-      "clean": "rm -rf '/Users/you/Library/Application Support/obsidian/DawnWebGPUCache'",
-      "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
-      "name": "obsidian web cache",
-      "section": "blocked",
-      "method": {
-        "kind": "delete"
-      }
-    },
-    {
-      "rule": "electron-cache",
-      "category": "app-cache",
-      "risk": "safe",
-      "status": "ready",
-      "reason": null,
-      "path": "/Users/you/Library/Application Support/Happy/Cache/Cache_Data",
-      "bytes_on_disk": 81920,
-      "bytes_freed": 81920,
-      "files": 6,
-      "clean": "rm -rf '/Users/you/Library/Application Support/Happy/Cache/Cache_Data'",
-      "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
-      "name": "Happy web cache",
-      "section": "safe-now",
-      "method": {
-        "kind": "delete"
-      }
-    },
-    {
-      "rule": "electron-cache",
-      "category": "app-cache",
-      "risk": "safe",
-      "status": "blocked",
-      "reason": "Notion is running",
-      "path": "/Users/you/Library/Application Support/Notion/Code Cache",
-      "bytes_on_disk": 53248,
-      "bytes_freed": 53248,
-      "files": 5,
-      "clean": "rm -rf '/Users/you/Library/Application Support/Notion/Code Cache'",
-      "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
-      "name": "Notion web cache",
-      "section": "blocked",
-      "method": {
-        "kind": "delete"
-      }
-    },
-    {
-      "rule": "electron-cache",
-      "category": "app-cache",
-      "risk": "safe",
-      "status": "ready",
-      "reason": null,
-      "path": "/Users/you/Library/Application Support/Happy/Code Cache",
-      "bytes_on_disk": 36864,
-      "bytes_freed": 36864,
-      "files": 5,
-      "clean": "rm -rf '/Users/you/Library/Application Support/Happy/Code Cache'",
-      "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
-      "name": "Happy web cache",
-      "section": "safe-now",
-      "method": {
-        "kind": "delete"
-      }
-    },
-    {
-      "rule": "electron-cache",
-      "category": "app-cache",
-      "risk": "safe",
-      "status": "ready",
-      "reason": null,
-      "path": "/Users/you/Library/Application Support/Antigravity/Partitions/hub-browser-anonymous/Code Cache",
-      "bytes_on_disk": 16384,
-      "bytes_freed": 16384,
-      "files": 4,
-      "clean": "rm -rf '/Users/you/Library/Application Support/Antigravity/Partitions/hub-browser-anonymous/Code Cache'",
-      "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
-      "name": "Antigravity web cache",
-      "section": "safe-now",
-      "method": {
-        "kind": "delete"
-      }
-    },
-    {
-      "rule": "electron-cache",
-      "category": "app-cache",
-      "risk": "safe",
-      "status": "blocked",
-      "reason": "Claude is running",
-      "path": "/Users/you/Library/Application Support/Claude/Partitions/cowork-file-preview/Code Cache",
-      "bytes_on_disk": 16384,
-      "bytes_freed": 16384,
-      "files": 4,
-      "clean": "rm -rf '/Users/you/Library/Application Support/Claude/Partitions/cowork-file-preview/Code Cache'",
-      "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
-      "name": "Claude web cache",
-      "section": "blocked",
-      "method": {
-        "kind": "delete"
-      }
-    },
-    {
-      "rule": "npm-cache",
-      "category": "package-cache",
-      "risk": "safe",
-      "status": "ready",
-      "reason": null,
-      "path": "/Users/you/.npm/_cacache",
-      "bytes_on_disk": 8192,
-      "bytes_freed": 8192,
-      "files": 2,
-      "clean": "npm cache clean --force",
-      "explain": "npm download cache. Re-downloads when needed.",
-      "name": "npm cache",
-      "section": "safe-now",
-      "method": {
-        "kind": "command",
-        "command": "npm cache clean --force"
-      }
-    },
-    {
-      "rule": "go-build-cache",
-      "category": "package-cache",
-      "risk": "safe",
-      "status": "ready",
-      "reason": null,
-      "path": "/Users/you/Library/Caches/go-build",
-      "bytes_on_disk": 8192,
-      "bytes_freed": 8192,
-      "files": 2,
-      "clean": "go clean -cache",
-      "explain": "Go compiler cache.",
-      "name": "Go build cache",
-      "section": "safe-now",
-      "method": {
-        "kind": "command",
-        "command": "go clean -cache"
-      }
-    }
-  ]
+ "free_bytes": 62641385472,
+ "elapsed_ms": 2190,
+ "findings": [
+  {
+   "rule": "electron-cache",
+   "category": "app-cache",
+   "risk": "safe",
+   "status": "blocked",
+   "reason": "Claude is running",
+   "path": "/Users/you/Library/Application Support/Claude/Cache/Cache_Data",
+   "bytes_on_disk": 913948672,
+   "bytes_freed": 913948672,
+   "files": 50792,
+   "clean": "rm -rf '/Users/you/Library/Application Support/Claude/Cache/Cache_Data'",
+   "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
+   "name": "Claude web cache",
+   "section": "blocked",
+   "method": {
+    "kind": "delete"
+   }
+  },
+  {
+   "rule": "pnpm-store",
+   "category": "package-cache",
+   "risk": "safe",
+   "status": "ready",
+   "reason": null,
+   "path": "/Users/you/Library/pnpm/store",
+   "bytes_on_disk": 957808640,
+   "bytes_freed": 820260864,
+   "files": 47297,
+   "clean": "pnpm store prune",
+   "explain": "pnpm package store. Prune removes only packages no project uses, so it may free less than shown.",
+   "name": "pnpm packages",
+   "section": "safe-now",
+   "method": {
+    "kind": "command",
+    "command": "pnpm store prune"
+   }
+  },
+  {
+   "rule": "uv-cache",
+   "category": "package-cache",
+   "risk": "safe",
+   "status": "blocked",
+   "reason": "another program is using it (lock held)",
+   "path": "/Users/you/.cache/uv",
+   "bytes_on_disk": 3104284672,
+   "bytes_freed": 456478720,
+   "files": 87955,
+   "clean": "uv cache clean",
+   "explain": "uv Python package cache.",
+   "name": "uv Python cache",
+   "section": "blocked",
+   "method": {
+    "kind": "command",
+    "command": "uv cache clean"
+   }
+  },
+  {
+   "rule": "clang-module-cache",
+   "category": "temp",
+   "risk": "safe",
+   "status": "ready",
+   "reason": null,
+   "path": "/var/folders/xy/abc123_def456ghi789jkl0000gn/C/clang/ModuleCache",
+   "bytes_on_disk": 443936768,
+   "bytes_freed": 443936768,
+   "files": 512,
+   "clean": "rm -rf /var/folders/xy/abc123_def456ghi789jkl0000gn/C/clang/ModuleCache",
+   "explain": "Precompiled modules clang and Swift keep in temp. Builds make them again; macOS also clears them sometimes.",
+   "name": "Compiler module cache",
+   "section": "safe-now",
+   "method": {
+    "kind": "delete"
+   }
+  },
+  {
+   "rule": "claude-code-old-version",
+   "category": "leftover",
+   "risk": "review",
+   "status": "ready",
+   "reason": null,
+   "path": "/Users/you/.local/share/claude/versions/2.1.328",
+   "bytes_on_disk": 354631680,
+   "bytes_freed": 354631680,
+   "files": 1,
+   "clean": "rm -rf /Users/you/.local/share/claude/versions/2.1.328",
+   "explain": "Older Claude Code version. Claude Code keeps a few for rollback and may clean them itself.",
+   "name": "Old Claude Code version",
+   "section": "review",
+   "method": {
+    "kind": "trash"
+   }
+  },
+  {
+   "rule": "claude-code-old-version",
+   "category": "leftover",
+   "risk": "review",
+   "status": "ready",
+   "reason": null,
+   "path": "/Users/you/.local/share/claude/versions/2.1.325",
+   "bytes_on_disk": 347410432,
+   "bytes_freed": 347410432,
+   "files": 1,
+   "clean": "rm -rf /Users/you/.local/share/claude/versions/2.1.325",
+   "explain": "Older Claude Code version. Claude Code keeps a few for rollback and may clean them itself.",
+   "name": "Old Claude Code version",
+   "section": "review",
+   "method": {
+    "kind": "trash"
+   }
+  },
+  {
+   "rule": "claude-code-old-version",
+   "category": "leftover",
+   "risk": "review",
+   "status": "ready",
+   "reason": null,
+   "path": "/Users/you/.local/share/claude/versions/2.1.323",
+   "bytes_on_disk": 344371200,
+   "bytes_freed": 344371200,
+   "files": 1,
+   "clean": "rm -rf /Users/you/.local/share/claude/versions/2.1.323",
+   "explain": "Older Claude Code version. Claude Code keeps a few for rollback and may clean them itself.",
+   "name": "Old Claude Code version",
+   "section": "review",
+   "method": {
+    "kind": "trash"
+   }
+  },
+  {
+   "rule": "electron-cache",
+   "category": "app-cache",
+   "risk": "safe",
+   "status": "blocked",
+   "reason": "Notion is running",
+   "path": "/Users/you/Library/Application Support/Notion/Partitions/notion/Cache/Cache_Data",
+   "bytes_on_disk": 297476096,
+   "bytes_freed": 297476096,
+   "files": 19375,
+   "clean": "rm -rf '/Users/you/Library/Application Support/Notion/Partitions/notion/Cache/Cache_Data'",
+   "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
+   "name": "Notion web cache",
+   "section": "blocked",
+   "method": {
+    "kind": "delete"
+   }
+  },
+  {
+   "rule": "electron-cache",
+   "category": "app-cache",
+   "risk": "safe",
+   "status": "blocked",
+   "reason": "Claude is running",
+   "path": "/Users/you/Library/Application Support/Claude/Code Cache",
+   "bytes_on_disk": 275329024,
+   "bytes_freed": 275329024,
+   "files": 21948,
+   "clean": "rm -rf '/Users/you/Library/Application Support/Claude/Code Cache'",
+   "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
+   "name": "Claude web cache",
+   "section": "blocked",
+   "method": {
+    "kind": "delete"
+   }
+  },
+  {
+   "rule": "go-mod-cache",
+   "category": "package-cache",
+   "risk": "review",
+   "status": "ready",
+   "reason": null,
+   "path": "/Users/you/go/pkg/mod",
+   "bytes_on_disk": 212426752,
+   "bytes_freed": 212426752,
+   "files": 15450,
+   "clean": "go clean -modcache",
+   "explain": "Downloaded Go modules. Safe, but every Go project re-downloads its modules.",
+   "name": "Go modules",
+   "section": "review",
+   "method": {
+    "kind": "trash"
+   }
+  },
+  {
+   "rule": "xcode-derived-data",
+   "category": "package-cache",
+   "risk": "safe",
+   "status": "ready",
+   "reason": null,
+   "path": "/Users/you/Library/Developer/Xcode/DerivedData",
+   "bytes_on_disk": 113254400,
+   "bytes_freed": 113254400,
+   "files": 1496,
+   "clean": "rm -rf /Users/you/Library/Developer/Xcode/DerivedData",
+   "explain": "Xcode build products and indexes. Rebuilt on next build.",
+   "name": "Xcode build data",
+   "section": "safe-now",
+   "method": {
+    "kind": "delete"
+   }
+  },
+  {
+   "rule": "electron-cache",
+   "category": "app-cache",
+   "risk": "safe",
+   "status": "ready",
+   "reason": null,
+   "path": "/Users/you/Library/Application Support/Antigravity/Cache/Cache_Data",
+   "bytes_on_disk": 52154368,
+   "bytes_freed": 52154368,
+   "files": 187,
+   "clean": "rm -rf '/Users/you/Library/Application Support/Antigravity/Cache/Cache_Data'",
+   "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
+   "name": "Antigravity web cache",
+   "section": "safe-now",
+   "method": {
+    "kind": "delete"
+   }
+  },
+  {
+   "rule": "electron-cache",
+   "category": "app-cache",
+   "risk": "safe",
+   "status": "blocked",
+   "reason": "obsidian is running",
+   "path": "/Users/you/Library/Application Support/obsidian/Cache/Cache_Data",
+   "bytes_on_disk": 30777344,
+   "bytes_freed": 30777344,
+   "files": 71,
+   "clean": "rm -rf '/Users/you/Library/Application Support/obsidian/Cache/Cache_Data'",
+   "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
+   "name": "obsidian web cache",
+   "section": "blocked",
+   "method": {
+    "kind": "delete"
+   }
+  },
+  {
+   "rule": "cargo-registry-src",
+   "category": "package-cache",
+   "risk": "safe",
+   "status": "ready",
+   "reason": null,
+   "path": "/Users/you/.cargo/registry/src",
+   "bytes_on_disk": 27697152,
+   "bytes_freed": 27697152,
+   "files": 2459,
+   "clean": "rm -rf /Users/you/.cargo/registry/src",
+   "explain": "Unpacked crate sources. Cargo unpacks them again from its download cache.",
+   "name": "Rust package sources",
+   "section": "safe-now",
+   "method": {
+    "kind": "delete"
+   }
+  },
+  {
+   "rule": "pyinstaller-leftover",
+   "category": "temp",
+   "risk": "review",
+   "status": "ready",
+   "reason": null,
+   "path": "/var/folders/xy/abc123_def456ghi789jkl0000gn/T/_MEI00003923FgpXnU",
+   "bytes_on_disk": 14794752,
+   "bytes_freed": 14794752,
+   "files": 50,
+   "clean": "rm -rf /var/folders/xy/abc123_def456ghi789jkl0000gn/T/_MEI00003923FgpXnU",
+   "explain": "Folders Python apps made with PyInstaller unpack into. They are left behind when such an app crashes; a running one still uses its folder.",
+   "name": "Leftover app unpack folder",
+   "section": "review",
+   "method": {
+    "kind": "trash"
+   }
+  },
+  {
+   "rule": "pyinstaller-leftover",
+   "category": "temp",
+   "risk": "review",
+   "status": "ready",
+   "reason": null,
+   "path": "/var/folders/xy/abc123_def456ghi789jkl0000gn/T/_MEI00003b13O3lGG5",
+   "bytes_on_disk": 13676544,
+   "bytes_freed": 13676544,
+   "files": 9,
+   "clean": "rm -rf /var/folders/xy/abc123_def456ghi789jkl0000gn/T/_MEI00003b13O3lGG5",
+   "explain": "Folders Python apps made with PyInstaller unpack into. They are left behind when such an app crashes; a running one still uses its folder.",
+   "name": "Leftover app unpack folder",
+   "section": "review",
+   "method": {
+    "kind": "trash"
+   }
+  },
+  {
+   "rule": "npx-package",
+   "category": "package-cache",
+   "risk": "safe",
+   "status": "blocked",
+   "reason": "`@coding-solo/godot-mcp` from here is running",
+   "path": "/Users/you/.npm/_npx/6e568f649a25892d",
+   "bytes_on_disk": 12517376,
+   "bytes_freed": 12517376,
+   "files": 1227,
+   "clean": "rm -rf /Users/you/.npm/_npx/6e568f649a25892d",
+   "explain": "A package downloaded by npx. Re-downloads next time you run it.",
+   "name": "npx tool download",
+   "section": "blocked",
+   "method": {
+    "kind": "delete"
+   }
+  },
+  {
+   "rule": "electron-cache",
+   "category": "app-cache",
+   "risk": "safe",
+   "status": "blocked",
+   "reason": "Notion is running",
+   "path": "/Users/you/Library/Application Support/Notion/Partitions/notion/Code Cache",
+   "bytes_on_disk": 10747904,
+   "bytes_freed": 10747904,
+   "files": 404,
+   "clean": "rm -rf '/Users/you/Library/Application Support/Notion/Partitions/notion/Code Cache'",
+   "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
+   "name": "Notion web cache",
+   "section": "blocked",
+   "method": {
+    "kind": "delete"
+   }
+  },
+  {
+   "rule": "electron-cache",
+   "category": "app-cache",
+   "risk": "safe",
+   "status": "blocked",
+   "reason": "obsidian is running",
+   "path": "/Users/you/Library/Application Support/obsidian/Code Cache",
+   "bytes_on_disk": 6569984,
+   "bytes_freed": 6569984,
+   "files": 35,
+   "clean": "rm -rf '/Users/you/Library/Application Support/obsidian/Code Cache'",
+   "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
+   "name": "obsidian web cache",
+   "section": "blocked",
+   "method": {
+    "kind": "delete"
+   }
+  },
+  {
+   "rule": "electron-cache",
+   "category": "app-cache",
+   "risk": "safe",
+   "status": "blocked",
+   "reason": "Claude is running",
+   "path": "/Users/you/Library/Application Support/Claude/GPUCache",
+   "bytes_on_disk": 5840896,
+   "bytes_freed": 5840896,
+   "files": 5,
+   "clean": "rm -rf '/Users/you/Library/Application Support/Claude/GPUCache'",
+   "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
+   "name": "Claude web cache",
+   "section": "blocked",
+   "method": {
+    "kind": "delete"
+   }
+  },
+  {
+   "rule": "electron-cache",
+   "category": "app-cache",
+   "risk": "safe",
+   "status": "ready",
+   "reason": null,
+   "path": "/Users/you/Library/Application Support/Happy/GPUCache",
+   "bytes_on_disk": 4792320,
+   "bytes_freed": 4792320,
+   "files": 5,
+   "clean": "rm -rf '/Users/you/Library/Application Support/Happy/GPUCache'",
+   "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
+   "name": "Happy web cache",
+   "section": "safe-now",
+   "method": {
+    "kind": "delete"
+   }
+  },
+  {
+   "rule": "electron-cache",
+   "category": "app-cache",
+   "risk": "safe",
+   "status": "blocked",
+   "reason": "obsidian is running",
+   "path": "/Users/you/Library/Application Support/obsidian/GPUCache",
+   "bytes_on_disk": 3080192,
+   "bytes_freed": 3080192,
+   "files": 5,
+   "clean": "rm -rf '/Users/you/Library/Application Support/obsidian/GPUCache'",
+   "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
+   "name": "obsidian web cache",
+   "section": "blocked",
+   "method": {
+    "kind": "delete"
+   }
+  },
+  {
+   "rule": "electron-cache",
+   "category": "app-cache",
+   "risk": "safe",
+   "status": "ready",
+   "reason": null,
+   "path": "/Users/you/Library/Application Support/Antigravity/Code Cache",
+   "bytes_on_disk": 565248,
+   "bytes_freed": 565248,
+   "files": 80,
+   "clean": "rm -rf '/Users/you/Library/Application Support/Antigravity/Code Cache'",
+   "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
+   "name": "Antigravity web cache",
+   "section": "safe-now",
+   "method": {
+    "kind": "delete"
+   }
+  },
+  {
+   "rule": "electron-cache",
+   "category": "app-cache",
+   "risk": "safe",
+   "status": "ready",
+   "reason": null,
+   "path": "/Users/you/Library/Application Support/Antigravity/DawnGraphiteCache",
+   "bytes_on_disk": 561152,
+   "bytes_freed": 561152,
+   "files": 5,
+   "clean": "rm -rf '/Users/you/Library/Application Support/Antigravity/DawnGraphiteCache'",
+   "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
+   "name": "Antigravity web cache",
+   "section": "safe-now",
+   "method": {
+    "kind": "delete"
+   }
+  },
+  {
+   "rule": "electron-cache",
+   "category": "app-cache",
+   "risk": "safe",
+   "status": "ready",
+   "reason": null,
+   "path": "/Users/you/Library/Application Support/Antigravity/DawnWebGPUCache",
+   "bytes_on_disk": 561152,
+   "bytes_freed": 561152,
+   "files": 5,
+   "clean": "rm -rf '/Users/you/Library/Application Support/Antigravity/DawnWebGPUCache'",
+   "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
+   "name": "Antigravity web cache",
+   "section": "safe-now",
+   "method": {
+    "kind": "delete"
+   }
+  },
+  {
+   "rule": "electron-cache",
+   "category": "app-cache",
+   "risk": "safe",
+   "status": "ready",
+   "reason": null,
+   "path": "/Users/you/Library/Application Support/Antigravity/GPUCache",
+   "bytes_on_disk": 561152,
+   "bytes_freed": 561152,
+   "files": 5,
+   "clean": "rm -rf '/Users/you/Library/Application Support/Antigravity/GPUCache'",
+   "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
+   "name": "Antigravity web cache",
+   "section": "safe-now",
+   "method": {
+    "kind": "delete"
+   }
+  },
+  {
+   "rule": "electron-cache",
+   "category": "app-cache",
+   "risk": "safe",
+   "status": "blocked",
+   "reason": "Claude is running",
+   "path": "/Users/you/Library/Application Support/Claude/DawnGraphiteCache",
+   "bytes_on_disk": 561152,
+   "bytes_freed": 561152,
+   "files": 5,
+   "clean": "rm -rf '/Users/you/Library/Application Support/Claude/DawnGraphiteCache'",
+   "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
+   "name": "Claude web cache",
+   "section": "blocked",
+   "method": {
+    "kind": "delete"
+   }
+  },
+  {
+   "rule": "electron-cache",
+   "category": "app-cache",
+   "risk": "safe",
+   "status": "blocked",
+   "reason": "Claude is running",
+   "path": "/Users/you/Library/Application Support/Claude/DawnWebGPUCache",
+   "bytes_on_disk": 561152,
+   "bytes_freed": 561152,
+   "files": 5,
+   "clean": "rm -rf '/Users/you/Library/Application Support/Claude/DawnWebGPUCache'",
+   "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
+   "name": "Claude web cache",
+   "section": "blocked",
+   "method": {
+    "kind": "delete"
+   }
+  },
+  {
+   "rule": "electron-cache",
+   "category": "app-cache",
+   "risk": "safe",
+   "status": "blocked",
+   "reason": "Claude is running",
+   "path": "/Users/you/Library/Application Support/Claude/Partitions/cowork-file-preview/GPUCache",
+   "bytes_on_disk": 561152,
+   "bytes_freed": 561152,
+   "files": 5,
+   "clean": "rm -rf '/Users/you/Library/Application Support/Claude/Partitions/cowork-file-preview/GPUCache'",
+   "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
+   "name": "Claude web cache",
+   "section": "blocked",
+   "method": {
+    "kind": "delete"
+   }
+  },
+  {
+   "rule": "electron-cache",
+   "category": "app-cache",
+   "risk": "safe",
+   "status": "ready",
+   "reason": null,
+   "path": "/Users/you/Library/Application Support/Happy/DawnGraphiteCache",
+   "bytes_on_disk": 561152,
+   "bytes_freed": 561152,
+   "files": 5,
+   "clean": "rm -rf '/Users/you/Library/Application Support/Happy/DawnGraphiteCache'",
+   "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
+   "name": "Happy web cache",
+   "section": "safe-now",
+   "method": {
+    "kind": "delete"
+   }
+  },
+  {
+   "rule": "electron-cache",
+   "category": "app-cache",
+   "risk": "safe",
+   "status": "ready",
+   "reason": null,
+   "path": "/Users/you/Library/Application Support/Happy/DawnWebGPUCache",
+   "bytes_on_disk": 561152,
+   "bytes_freed": 561152,
+   "files": 5,
+   "clean": "rm -rf '/Users/you/Library/Application Support/Happy/DawnWebGPUCache'",
+   "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
+   "name": "Happy web cache",
+   "section": "safe-now",
+   "method": {
+    "kind": "delete"
+   }
+  },
+  {
+   "rule": "electron-cache",
+   "category": "app-cache",
+   "risk": "safe",
+   "status": "blocked",
+   "reason": "Notion is running",
+   "path": "/Users/you/Library/Application Support/Notion/DawnGraphiteCache",
+   "bytes_on_disk": 561152,
+   "bytes_freed": 561152,
+   "files": 5,
+   "clean": "rm -rf '/Users/you/Library/Application Support/Notion/DawnGraphiteCache'",
+   "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
+   "name": "Notion web cache",
+   "section": "blocked",
+   "method": {
+    "kind": "delete"
+   }
+  },
+  {
+   "rule": "electron-cache",
+   "category": "app-cache",
+   "risk": "safe",
+   "status": "blocked",
+   "reason": "Notion is running",
+   "path": "/Users/you/Library/Application Support/Notion/DawnWebGPUCache",
+   "bytes_on_disk": 561152,
+   "bytes_freed": 561152,
+   "files": 5,
+   "clean": "rm -rf '/Users/you/Library/Application Support/Notion/DawnWebGPUCache'",
+   "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
+   "name": "Notion web cache",
+   "section": "blocked",
+   "method": {
+    "kind": "delete"
+   }
+  },
+  {
+   "rule": "electron-cache",
+   "category": "app-cache",
+   "risk": "safe",
+   "status": "blocked",
+   "reason": "Notion is running",
+   "path": "/Users/you/Library/Application Support/Notion/GPUCache",
+   "bytes_on_disk": 561152,
+   "bytes_freed": 561152,
+   "files": 5,
+   "clean": "rm -rf '/Users/you/Library/Application Support/Notion/GPUCache'",
+   "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
+   "name": "Notion web cache",
+   "section": "blocked",
+   "method": {
+    "kind": "delete"
+   }
+  },
+  {
+   "rule": "electron-cache",
+   "category": "app-cache",
+   "risk": "safe",
+   "status": "blocked",
+   "reason": "Notion is running",
+   "path": "/Users/you/Library/Application Support/Notion/Partitions/notion/GPUCache",
+   "bytes_on_disk": 561152,
+   "bytes_freed": 561152,
+   "files": 5,
+   "clean": "rm -rf '/Users/you/Library/Application Support/Notion/Partitions/notion/GPUCache'",
+   "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
+   "name": "Notion web cache",
+   "section": "blocked",
+   "method": {
+    "kind": "delete"
+   }
+  },
+  {
+   "rule": "electron-cache",
+   "category": "app-cache",
+   "risk": "safe",
+   "status": "blocked",
+   "reason": "obsidian is running",
+   "path": "/Users/you/Library/Application Support/obsidian/DawnGraphiteCache",
+   "bytes_on_disk": 561152,
+   "bytes_freed": 561152,
+   "files": 5,
+   "clean": "rm -rf '/Users/you/Library/Application Support/obsidian/DawnGraphiteCache'",
+   "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
+   "name": "obsidian web cache",
+   "section": "blocked",
+   "method": {
+    "kind": "delete"
+   }
+  },
+  {
+   "rule": "electron-cache",
+   "category": "app-cache",
+   "risk": "safe",
+   "status": "blocked",
+   "reason": "obsidian is running",
+   "path": "/Users/you/Library/Application Support/obsidian/DawnWebGPUCache",
+   "bytes_on_disk": 561152,
+   "bytes_freed": 561152,
+   "files": 5,
+   "clean": "rm -rf '/Users/you/Library/Application Support/obsidian/DawnWebGPUCache'",
+   "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
+   "name": "obsidian web cache",
+   "section": "blocked",
+   "method": {
+    "kind": "delete"
+   }
+  },
+  {
+   "rule": "electron-cache",
+   "category": "app-cache",
+   "risk": "safe",
+   "status": "ready",
+   "reason": null,
+   "path": "/Users/you/Library/Application Support/Happy/Cache/Cache_Data",
+   "bytes_on_disk": 81920,
+   "bytes_freed": 81920,
+   "files": 6,
+   "clean": "rm -rf '/Users/you/Library/Application Support/Happy/Cache/Cache_Data'",
+   "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
+   "name": "Happy web cache",
+   "section": "safe-now",
+   "method": {
+    "kind": "delete"
+   }
+  },
+  {
+   "rule": "electron-cache",
+   "category": "app-cache",
+   "risk": "safe",
+   "status": "blocked",
+   "reason": "Notion is running",
+   "path": "/Users/you/Library/Application Support/Notion/Code Cache",
+   "bytes_on_disk": 53248,
+   "bytes_freed": 53248,
+   "files": 5,
+   "clean": "rm -rf '/Users/you/Library/Application Support/Notion/Code Cache'",
+   "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
+   "name": "Notion web cache",
+   "section": "blocked",
+   "method": {
+    "kind": "delete"
+   }
+  },
+  {
+   "rule": "electron-cache",
+   "category": "app-cache",
+   "risk": "safe",
+   "status": "ready",
+   "reason": null,
+   "path": "/Users/you/Library/Application Support/Happy/Code Cache",
+   "bytes_on_disk": 36864,
+   "bytes_freed": 36864,
+   "files": 5,
+   "clean": "rm -rf '/Users/you/Library/Application Support/Happy/Code Cache'",
+   "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
+   "name": "Happy web cache",
+   "section": "safe-now",
+   "method": {
+    "kind": "delete"
+   }
+  },
+  {
+   "rule": "electron-cache",
+   "category": "app-cache",
+   "risk": "safe",
+   "status": "ready",
+   "reason": null,
+   "path": "/Users/you/Library/Application Support/Antigravity/Partitions/hub-browser-anonymous/Code Cache",
+   "bytes_on_disk": 16384,
+   "bytes_freed": 16384,
+   "files": 4,
+   "clean": "rm -rf '/Users/you/Library/Application Support/Antigravity/Partitions/hub-browser-anonymous/Code Cache'",
+   "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
+   "name": "Antigravity web cache",
+   "section": "safe-now",
+   "method": {
+    "kind": "delete"
+   }
+  },
+  {
+   "rule": "electron-cache",
+   "category": "app-cache",
+   "risk": "safe",
+   "status": "blocked",
+   "reason": "Claude is running",
+   "path": "/Users/you/Library/Application Support/Claude/Partitions/cowork-file-preview/Code Cache",
+   "bytes_on_disk": 16384,
+   "bytes_freed": 16384,
+   "files": 4,
+   "clean": "rm -rf '/Users/you/Library/Application Support/Claude/Partitions/cowork-file-preview/Code Cache'",
+   "explain": "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings.",
+   "name": "Claude web cache",
+   "section": "blocked",
+   "method": {
+    "kind": "delete"
+   }
+  },
+  {
+   "rule": "npm-cache",
+   "category": "package-cache",
+   "risk": "safe",
+   "status": "ready",
+   "reason": null,
+   "path": "/Users/you/.npm/_cacache",
+   "bytes_on_disk": 8192,
+   "bytes_freed": 8192,
+   "files": 2,
+   "clean": "npm cache clean --force",
+   "explain": "npm download cache. Re-downloads when needed.",
+   "name": "npm cache",
+   "section": "safe-now",
+   "method": {
+    "kind": "command",
+    "command": "npm cache clean --force"
+   }
+  },
+  {
+   "rule": "go-build-cache",
+   "category": "package-cache",
+   "risk": "safe",
+   "status": "ready",
+   "reason": null,
+   "path": "/Users/you/Library/Caches/go-build",
+   "bytes_on_disk": 8192,
+   "bytes_freed": 8192,
+   "files": 2,
+   "clean": "go clean -cache",
+   "explain": "Go compiler cache.",
+   "name": "Go build cache",
+   "section": "safe-now",
+   "method": {
+    "kind": "command",
+    "command": "go clean -cache"
+   }
+  },
+  {
+   "rule": "simulator-runtime",
+   "category": "xcode",
+   "risk": "review",
+   "status": "ready",
+   "reason": null,
+   "path": "/System/Library/AssetsV2/com_apple_MobileAsset_iOSSimulatorRuntime/abc.asset/AssetData",
+   "bytes_on_disk": 8315434484,
+   "bytes_freed": 8315434484,
+   "files": 0,
+   "clean": "xcrun simctl runtime delete B24D",
+   "explain": "A whole iOS system for the Simulator.",
+   "name": "iOS 26.0 Simulator runtime",
+   "section": "review",
+   "method": {
+    "kind": "command",
+    "command": "xcrun simctl runtime delete B24D"
+   },
+   "detail": "iOS 26.0: a newer iOS runtime is installed, and there's no record of a simulator running on it.",
+   "label": "iOS 26.0 Simulator runtime",
+   "trash_method": {
+    "kind": "command",
+    "command": "xcrun simctl runtime delete B24D"
+   }
+  },
+  {
+   "rule": "stale-project",
+   "category": "project",
+   "risk": "review",
+   "status": "ready",
+   "reason": null,
+   "path": "/Users/you/Documents/code/weather-bot",
+   "bytes_on_disk": 2100000000,
+   "bytes_freed": 1300000000,
+   "files": 4211,
+   "clean": null,
+   "explain": "A whole project you haven't touched in six months.",
+   "name": "weather-bot project",
+   "section": "review",
+   "method": {
+    "kind": "trash"
+   },
+   "detail": "Last commit 10 months ago. Everything is pushed to github.com/you/weather-bot, so you can clone it again. Its build folder (800 MB) is listed separately.",
+   "label": "weather-bot project",
+   "trash_method": {
+    "kind": "trash"
+   }
+  },
+  {
+   "rule": "unused-app",
+   "category": "app",
+   "risk": "review",
+   "status": "ready",
+   "reason": null,
+   "path": "/Applications/Blender.app",
+   "bytes_on_disk": 951000000,
+   "bytes_freed": 951000000,
+   "files": 3000,
+   "clean": null,
+   "explain": "An app you haven't opened in four months.",
+   "name": "Blender",
+   "section": "review",
+   "method": {
+    "kind": "trash"
+   },
+   "detail": "Last opened 7 months ago. Its settings stay, so it works the same if you install it again.",
+   "label": "Blender",
+   "trash_method": {
+    "kind": "trash"
+   }
+  }
+ ]
 }

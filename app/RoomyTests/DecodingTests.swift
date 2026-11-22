@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-// Copied from real `mac-cleaner scan --json` output, paths shortened.
+// Copied from real `roomy scan --json` output, paths shortened.
 private let scanJSON = """
 {
   "free_bytes": 61800000000,
@@ -64,4 +64,36 @@ private let scanJSON = """
 @Test func garbageLineIsAnError() {
     #expect(throws: (any Error).self) { try CleanEvent.decode(line: "Scanning...") }
     #expect(throws: (any Error).self) { try CleanEvent.decode(line: #"{"event":"party"}"#) }
+}
+
+
+@Test func decodesDetailAndTrashMethod() throws {
+    let json = #"""
+    {"free_bytes": 1, "elapsed_ms": 2, "findings": [{
+      "rule": "simulator-runtime", "name": "iOS 27.2 Simulator runtime", "category": "xcode", "risk": "review",
+      "status": "ready", "section": "review", "reason": null, "path": "/System/Library/AssetsV2/x",
+      "bytes_on_disk": 8000, "bytes_freed": 8000, "files": 0, "clean": "xcrun simctl runtime delete A",
+      "explain": "e", "detail": "iOS 27.2: unused.", "label": "iOS 27.2 Simulator runtime",
+      "method": {"kind": "command", "command": "xcrun simctl runtime delete A"},
+      "trash_method": {"kind": "command", "command": "xcrun simctl runtime delete A"}}]}
+    """#
+    let f = try ScanResult.decode(Data(json.utf8)).findings[0]
+    #expect(f.detail == "iOS 27.2: unused.")
+    #expect(f.trashMethod == .command("xcrun simctl runtime delete A"))
+}
+
+@Test func decodesDiskMap() throws {
+    let json = #"""
+    {"total_bytes": 245000000000, "used_bytes": 180700000000, "free_bytes": 64300000000,
+     "mapped_bytes": 112000000000, "cleanable_bytes": 3000000000, "elapsed_ms": 13984,
+     "roots": [{"path": "/Users/me", "name": "/Users/me", "kind": "folder", "bytes": 61400000000, "cleanable": 3000000000,
+                "children": [{"path": "/Users/me/Pictures/Photos Library.photoslibrary", "name": "Photos Library.photoslibrary",
+                              "kind": "personal", "bytes": 9000000000, "cleanable": 0, "children": []},
+                             {"path": "/Users/me", "name": "Smaller items", "kind": "other", "bytes": 1000, "cleanable": 0, "children": []}]}]}
+    """#
+    let m = try DiskMap.decode(Data(json.utf8))
+    #expect(m.usedBytes == 180_700_000_000)
+    #expect(m.roots[0].children[0].kind == .personal)
+    #expect(m.roots[0].children[1].kind == .other)
+    #expect(m.roots[0].children[0].id != m.roots[0].id, "a grouped row has its own id")
 }

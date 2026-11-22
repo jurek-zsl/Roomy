@@ -1,20 +1,20 @@
 use clap::{Args, Parser, Subcommand};
-use mac_cleaner::clean::{self, CleanOptions, LogEntry, Method, Outcome, Pick};
-use mac_cleaner::json::{self, CleanEvent};
-use mac_cleaner::Finding;
-use mac_cleaner::report::{self, ReportInfo, human_bytes, tilde};
-use mac_cleaner::verify::Env;
+use roomy::clean::{self, CleanOptions, LogEntry, Method, Outcome, Pick};
+use roomy::json::{self, CleanEvent};
+use roomy::Finding;
+use roomy::report::{self, ReportInfo, human_bytes, tilde};
+use roomy::verify::Env;
 use std::io::{IsTerminal, Write};
 use std::time::Duration;
-use mac_cleaner::rules::{self, Target};
-use mac_cleaner::scan::WalkOptions;
-use mac_cleaner::{ScanOptions, run};
+use roomy::rules::{self, Target};
+use roomy::scan::WalkOptions;
+use roomy::{ScanOptions, run};
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::time::Instant;
 
 #[derive(Parser)]
-#[command(name = "mac-cleaner", version, about = "Find space you can free on your Mac, and clean it safely.")]
+#[command(name = "roomy", version, about = "Find space you can free on your Mac, and clean it safely.")]
 struct Cli {
     #[command(subcommand)]
     cmd: Cmd,
@@ -42,9 +42,9 @@ struct MapArgs {
     depth: usize,
 }
 
-/// Where apps are installed. `MAC_CLEANER_APPS_DIR` overrides it for tests.
+/// Where apps are installed. `ROOMY_APPS_DIR` overrides it for tests.
 fn apps_dir() -> PathBuf {
-    std::env::var_os("MAC_CLEANER_APPS_DIR").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("/Applications"))
+    std::env::var_os("ROOMY_APPS_DIR").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("/Applications"))
 }
 
 fn disk_space(path: &std::path::Path) -> Option<(u64, u64)> {
@@ -59,7 +59,7 @@ fn disk_space(path: &std::path::Path) -> Option<(u64, u64)> {
 }
 
 fn run_map(a: MapArgs, home: &std::path::Path) -> ExitCode {
-    use mac_cleaner::map;
+    use roomy::map;
     let rules = match load_rules(None) {
         Ok(r) => r,
         Err(e) => {
@@ -75,7 +75,7 @@ fn run_map(a: MapArgs, home: &std::path::Path) -> ExitCode {
     let findings = run(&ScanOptions { home: home.to_path_buf(), rules, walk: walk_options(home, &[]), apps_dir: apps.clone() });
     let mut roots = vec![home.to_path_buf(), apps];
     for extra in ["/opt/homebrew", "/usr/local", "/Library"] {
-        if std::env::var_os("MAC_CLEANER_APPS_DIR").is_none() && std::path::Path::new(extra).is_dir() {
+        if std::env::var_os("ROOMY_APPS_DIR").is_none() && std::path::Path::new(extra).is_dir() {
             roots.push(PathBuf::from(extra));
         }
     }
@@ -132,7 +132,7 @@ struct CleanArgs {
 }
 
 /// "140 smaller items (python-bytecode 120, dist-output 9, ...)"
-fn smaller_items(findings: &[mac_cleaner::Finding], idx: &[usize]) -> String {
+fn smaller_items(findings: &[roomy::Finding], idx: &[usize]) -> String {
     let mut by_rule: Vec<(String, usize)> = Vec::new();
     for &i in idx {
         match by_rule.iter_mut().find(|(r, _)| *r == findings[i].rule) {
@@ -277,7 +277,7 @@ struct Prepared {
 /// Load rules, scan, and pick what to clean.
 fn prepare_clean(a: &CleanArgs, home: &std::path::Path) -> Result<Prepared, String> {
     if a.targets.is_empty() && !a.safe {
-        return Err("Say what to clean: rule ids or paths from `mac-cleaner scan`, or --safe for everything safe.".into());
+        return Err("Say what to clean: rule ids or paths from `roomy scan`, or --safe for everything safe.".into());
     }
     let rules = load_rules(a.rules.as_ref())?;
     let ids: Vec<&str> = rules.iter().map(|r| r.id.as_str()).collect();
@@ -309,7 +309,7 @@ fn clean_options(a: &CleanArgs, home: &std::path::Path) -> CleanOptions {
 }
 
 fn log_path(home: &std::path::Path) -> PathBuf {
-    home.join("Library/Logs/mac-cleaner/clean.jsonl")
+    home.join("Library/Logs/Roomy/clean.jsonl")
 }
 
 /// Clean one item with a fresh process list, and log it.
@@ -405,7 +405,7 @@ fn run_clean(a: CleanArgs, home: &std::path::Path) -> ExitCode {
     };
     if let Some(t) = plan.unmatched.first() {
         eprintln!(
-            "error: `{t}` isn't something the scanner found. The cleaner only removes what a rule matched; run `mac-cleaner scan` to see the list"
+            "error: `{t}` isn't something the scanner found. The cleaner only removes what a rule matched; run `roomy scan` to see the list"
         );
         return ExitCode::FAILURE;
     }

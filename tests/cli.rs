@@ -7,11 +7,11 @@ fn json_clean_reports_unmatched_paths_as_skipped() {
     let home = tempfile::tempdir().unwrap();
     let h = home.path().to_str().unwrap();
     let gone = format!("{h}/nope");
-    let out = Command::new(env!("CARGO_BIN_EXE_mac-cleaner"))
+    let out = Command::new(env!("CARGO_BIN_EXE_roomy"))
         .args(["clean", "--json", "--root", h, &gone])
         .env("HOME", h)
         .env("TMPDIR", h)
-        .env("MAC_CLEANER_APPS_DIR", format!("{h}/Applications"))
+        .env("ROOMY_APPS_DIR", format!("{h}/Applications"))
         .output()
         .unwrap();
     assert!(out.status.success(), "exit {:?}: {}", out.status, String::from_utf8_lossy(&out.stderr));
@@ -35,11 +35,11 @@ fn json_scan_is_a_document() {
     let h = home.path().to_str().unwrap();
     std::fs::create_dir_all(format!("{h}/.bun/install/cache")).unwrap();
     std::fs::write(format!("{h}/.bun/install/cache/x"), vec![1u8; 50_000]).unwrap();
-    let out = Command::new(env!("CARGO_BIN_EXE_mac-cleaner"))
+    let out = Command::new(env!("CARGO_BIN_EXE_roomy"))
         .args(["scan", "--json", "--root", h])
         .env("HOME", h)
         .env("TMPDIR", h)
-        .env("MAC_CLEANER_APPS_DIR", format!("{h}/Applications"))
+        .env("ROOMY_APPS_DIR", format!("{h}/Applications"))
         .output()
         .unwrap();
     assert!(out.status.success());
@@ -59,11 +59,11 @@ fn json_map_shows_folders_and_what_can_be_freed() {
     std::fs::create_dir_all(format!("{h}/.bun/install/cache")).unwrap();
     std::fs::write(format!("{h}/.bun/install/cache/x"), vec![1u8; 60_000_000]).unwrap();
     std::fs::create_dir_all(format!("{h}/Applications/Tool.app")).unwrap();
-    let out = Command::new(env!("CARGO_BIN_EXE_mac-cleaner"))
+    let out = Command::new(env!("CARGO_BIN_EXE_roomy"))
         .args(["map", "--json"])
         .env("HOME", h)
         .env("TMPDIR", h)
-        .env("MAC_CLEANER_APPS_DIR", format!("{h}/Applications"))
+        .env("ROOMY_APPS_DIR", format!("{h}/Applications"))
         .output()
         .unwrap();
     assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));

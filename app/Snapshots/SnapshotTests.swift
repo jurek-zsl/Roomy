@@ -37,6 +37,10 @@ final class FixtureEngine: CleanEngine, @unchecked Sendable {
         result = try ScanResult.decode(Data(contentsOf: url))
     }
     func scan() async throws -> ScanResult { result }
+    func map() async throws -> DiskMap {
+        let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appending(path: "map.json")
+        return try DiskMap.decode(Data(contentsOf: url))
+    }
     func clean(paths: [String], trash: Bool) -> AsyncThrowingStream<CleanEvent, Error> {
         AsyncThrowingStream { $0.finish() }
     }
@@ -57,6 +61,12 @@ func scannedStore() async throws -> CleanerStore {
         try Snap.render("window", ContentView().environment(store), size: CGSize(width: 900, height: 720), dark: dark)
         try Snap.render("menubar", MenuBarPanel().environment(store), size: CGSize(width: 320, height: 240), dark: dark)
     }
+    await store.loadMap()
+    for dark in [false, true] {
+        try Snap.render("map", SpaceMapView().environment(store), size: CGSize(width: 900, height: 760), dark: dark)
+    }
+    let runtime = try #require(store.result?.findings.first { $0.rule == "simulator-runtime" })
+    try Snap.render("detail", DetailView(finding: runtime).environment(store), size: CGSize(width: 320, height: 560))
     let fresh = CleanerStore(engine: try FixtureEngine(), defaults: UserDefaults(suiteName: "snap-\(UUID().uuidString)")!)
     try Snap.render("intro", ContentView().environment(fresh), size: CGSize(width: 900, height: 720))
     try Snap.render("confirm", ConfirmSheet(items: store.selectedItems).environment(store), size: CGSize(width: 440, height: 330))

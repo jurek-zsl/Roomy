@@ -1,6 +1,6 @@
-name: MacCleaner
+name: Roomy
 options:
-  bundleIdPrefix: dev.maccleaner
+  bundleIdPrefix: dev.roomy
   deploymentTarget:
     macOS: "14.0"
   createIntermediateGroups: true
@@ -17,15 +17,15 @@ settings:
     ENABLE_USER_SCRIPT_SANDBOXING: NO
     SWIFT_TREAT_WARNINGS_AS_ERRORS: NO
 targets:
-  MacCleaner:
+  Roomy:
     type: application
     platform: macOS
-    sources: [MacCleaner]
+    sources: [Roomy]
     info:
-      path: MacCleaner/Info.plist
+      path: Roomy/Info.plist
       properties:
         CFBundleDisplayName: Roomy
-        CFBundleShortVersionString: "0.4.0"
+        CFBundleShortVersionString: "0.5.0"
         LSApplicationCategoryType: public.app-category.utilities
         LSMinimumSystemVersion: "14.0"
         NSDocumentsFolderUsageDescription: Roomy looks in your Documents folder for build folders (like node_modules) that can be made again. Nothing is deleted unless you click Clean.
@@ -48,33 +48,34 @@ targets:
           env -i HOME="$HOME" PATH="$HOME/.cargo/bin:/usr/bin:/bin" \
             cargo build --release --quiet --manifest-path "$SRCROOT/../Cargo.toml"
           mkdir -p "$TARGET_BUILD_DIR/$EXECUTABLE_FOLDER_PATH"
-          cp "$SRCROOT/../target/release/mac-cleaner" "$TARGET_BUILD_DIR/$EXECUTABLE_FOLDER_PATH/mac-cleaner"
-  MacCleanerTests:
+          # Named roomy-engine: "roomy" would clash with "Roomy" on a case-insensitive disk.
+          cp "$SRCROOT/../target/release/roomy" "$TARGET_BUILD_DIR/$EXECUTABLE_FOLDER_PATH/roomy-engine"
+  RoomyTests:
     type: bundle.unit-test
     platform: macOS
     # The core files are compiled straight into the tests (no host app), so
     # running tests doesn't open the window or the menu bar item.
-    sources: [MacCleanerTests, MacCleaner/Core]
+    sources: [RoomyTests, Roomy/Core]
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: dev.maccleaner.tests
+        PRODUCT_BUNDLE_IDENTIFIER: dev.roomy.tests
         GENERATE_INFOPLIST_FILE: YES
   Snapshots:
     type: bundle.unit-test
     platform: macOS
-    sources: [Snapshots, MacCleaner/Core, MacCleaner/Views]
+    sources: [Snapshots, Roomy/Core, Roomy/Views]
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: dev.maccleaner.snapshots
+        PRODUCT_BUNDLE_IDENTIFIER: dev.roomy.snapshots
         GENERATE_INFOPLIST_FILE: YES
 schemes:
-  MacCleaner:
+  Roomy:
     build:
       targets:
-        MacCleaner: all
-        MacCleanerTests: [test]
+        Roomy: all
+        RoomyTests: [test]
     test:
-      targets: [MacCleanerTests]
+      targets: [RoomyTests]
   Snapshots:
     build:
       targets:

@@ -1,0 +1,298 @@
+{
+ "total_bytes": 245000000000,
+ "used_bytes": 180700000000,
+ "free_bytes": 64300000000,
+ "mapped_bytes": 109000000000,
+ "cleanable_bytes": 3000000000,
+ "elapsed_ms": 13984,
+ "roots": [
+  {
+   "path": "/Users/you",
+   "name": "/Users/you",
+   "kind": "folder",
+   "bytes": 61400000000,
+   "cleanable": 3000000000,
+   "children": [
+    {
+     "path": "/Users/you/Library",
+     "name": "Library",
+     "kind": "folder",
+     "bytes": 30200000000,
+     "cleanable": 1000000000,
+     "children": [
+      {
+       "path": "/Users/you/Library/Application Support",
+       "name": "Application Support",
+       "kind": "folder",
+       "bytes": 23300000000,
+       "cleanable": 60000000,
+       "children": [
+        {
+         "path": "/Users/you/Library/Application Support/Claude",
+         "name": "Claude",
+         "kind": "folder",
+         "bytes": 13100000000,
+         "cleanable": 40000000,
+         "children": []
+        },
+        {
+         "path": "/Users/you/Library/Application Support/Code",
+         "name": "Code",
+         "kind": "folder",
+         "bytes": 3200000000,
+         "cleanable": 0,
+         "children": []
+        },
+        {
+         "path": "/Users/you/Library/Application Support/Slack",
+         "name": "Slack",
+         "kind": "folder",
+         "bytes": 1900000000,
+         "cleanable": 20000000,
+         "children": []
+        },
+        {
+         "path": "/Users/you/Library/Application Support/Steam",
+         "name": "Steam",
+         "kind": "folder",
+         "bytes": 1600000000,
+         "cleanable": 0,
+         "children": []
+        },
+        {
+         "path": "/Users/you/Library/Application Support",
+         "name": "Smaller items",
+         "kind": "other",
+         "bytes": 3500000000,
+         "cleanable": 0,
+         "children": []
+        }
+       ]
+      },
+      {
+       "path": "/Users/you/Library/Developer",
+       "name": "Developer",
+       "kind": "folder",
+       "bytes": 3000000000,
+       "cleanable": 130000000,
+       "children": []
+      },
+      {
+       "path": "/Users/you/Library/Caches",
+       "name": "Caches",
+       "kind": "folder",
+       "bytes": 1400000000,
+       "cleanable": 0,
+       "children": []
+      },
+      {
+       "path": "/Users/you/Library/pnpm",
+       "name": "pnpm",
+       "kind": "folder",
+       "bytes": 960000000,
+       "cleanable": 820000000,
+       "children": []
+      },
+      {
+       "path": "/Users/you/Library/Mobile Documents",
+       "name": "Mobile Documents",
+       "kind": "personal",
+       "bytes": 760000000,
+       "cleanable": 0,
+       "children": []
+      },
+      {
+       "path": "/Users/you/Library",
+       "name": "Smaller items",
+       "kind": "other",
+       "bytes": 790000000,
+       "cleanable": 0,
+       "children": []
+      }
+     ]
+    },
+    {
+     "path": "/Users/you/Documents",
+     "name": "Documents",
+     "kind": "personal",
+     "bytes": 8300000000,
+     "cleanable": 740000000,
+     "children": [
+      {
+       "path": "/Users/you/Documents/code",
+       "name": "code",
+       "kind": "folder",
+       "bytes": 7000000000,
+       "cleanable": 740000000,
+       "children": [
+        {
+         "path": "/Users/you/Documents/code/game-engine",
+         "name": "game-engine",
+         "kind": "folder",
+         "bytes": 3100000000,
+         "cleanable": 520000000,
+         "children": []
+        },
+        {
+         "path": "/Users/you/Documents/code/website",
+         "name": "website",
+         "kind": "folder",
+         "bytes": 2200000000,
+         "cleanable": 220000000,
+         "children": []
+        },
+        {
+         "path": "/Users/you/Documents/code",
+         "name": "Smaller items",
+         "kind": "other",
+         "bytes": 1700000000,
+         "cleanable": 0,
+         "children": []
+        }
+       ]
+      },
+      {
+       "path": "/Users/you/Documents",
+       "name": "Smaller items",
+       "kind": "other",
+       "bytes": 1300000000,
+       "cleanable": 0,
+       "children": []
+      }
+     ]
+    },
+    {
+     "path": "/Users/you/.cache",
+     "name": ".cache",
+     "kind": "folder",
+     "bytes": 7200000000,
+     "cleanable": 0,
+     "children": [
+      {
+       "path": "/Users/you/.cache/huggingface",
+       "name": "huggingface",
+       "kind": "folder",
+       "bytes": 4099999999,
+       "cleanable": 0,
+       "children": []
+      },
+      {
+       "path": "/Users/you/.cache/uv",
+       "name": "uv",
+       "kind": "folder",
+       "bytes": 3100000000,
+       "cleanable": 0,
+       "children": []
+      }
+     ]
+    },
+    {
+     "path": "/Users/you/.local",
+     "name": ".local",
+     "kind": "folder",
+     "bytes": 4800000000,
+     "cleanable": 1000000000,
+     "children": []
+    },
+    {
+     "path": "/Users/you/Movies",
+     "name": "Movies",
+     "kind": "personal",
+     "bytes": 3900000000,
+     "cleanable": 0,
+     "children": []
+    },
+    {
+     "path": "/Users/you/Pictures/Photos Library.photoslibrary",
+     "name": "Photos Library.photoslibrary",
+     "kind": "personal",
+     "bytes": 2600000000,
+     "cleanable": 0,
+     "children": []
+    },
+    {
+     "path": "/Users/you/.rustup",
+     "name": ".rustup",
+     "kind": "folder",
+     "bytes": 1600000000,
+     "cleanable": 0,
+     "children": []
+    },
+    {
+     "path": "/Users/you",
+     "name": "Smaller items",
+     "kind": "other",
+     "bytes": 2400000000,
+     "cleanable": 0,
+     "children": []
+    }
+   ]
+  },
+  {
+   "path": "/Applications",
+   "name": "/Applications",
+   "kind": "folder",
+   "bytes": 34400000000,
+   "cleanable": 0,
+   "children": [
+    {
+     "path": "/Applications/Xcode.app",
+     "name": "Xcode.app",
+     "kind": "bundle",
+     "bytes": 4000000000,
+     "cleanable": 0,
+     "children": []
+    },
+    {
+     "path": "/Applications/Microsoft Word.app",
+     "name": "Microsoft Word.app",
+     "kind": "bundle",
+     "bytes": 2900000000,
+     "cleanable": 0,
+     "children": []
+    },
+    {
+     "path": "/Applications/Blender.app",
+     "name": "Blender.app",
+     "kind": "bundle",
+     "bytes": 950000000,
+     "cleanable": 0,
+     "children": []
+    },
+    {
+     "path": "/Applications",
+     "name": "Smaller items",
+     "kind": "other",
+     "bytes": 26500000000,
+     "cleanable": 0,
+     "children": []
+    }
+   ]
+  },
+  {
+   "path": "/opt/homebrew",
+   "name": "/opt/homebrew",
+   "kind": "folder",
+   "bytes": 13200000000,
+   "cleanable": 0,
+   "children": [
+    {
+     "path": "/opt/homebrew/Cellar",
+     "name": "Cellar",
+     "kind": "folder",
+     "bytes": 11500000000,
+     "cleanable": 0,
+     "children": []
+    },
+    {
+     "path": "/opt/homebrew",
+     "name": "Smaller items",
+     "kind": "other",
+     "bytes": 1700000000,
+     "cleanable": 0,
+     "children": []
+    }
+   ]
+  }
+ ]
+}
