@@ -32,8 +32,114 @@ enum Cmd {
     Map(MapArgs),
     /// Gather clues about one folder: file types, last change, biggest items, owner app.
     Inspect(InspectArgs),
+    /// Show what uninstalling an app would remove, or remove it (to the Trash).
+    Uninstall(UninstallArgs),
+    /// Files of apps that aren't installed anymore.
+    Leftovers(LeftoversArgs),
     /// Say what Roomy's list of known folders knows about folders (they don't have to exist).
     Known(KnownArgs),
+}
+
+#[derive(Args)]
+struct UninstallArgs {
+    /// The app (/Applications/Slack.app).
+    app: PathBuf,
+    /// Move these to the Trash: the app itself and/or files from its list.
+    #[arg(long)]
+    remove: bool,
+    /// Print JSON instead of text.
+    #[arg(long)]
+    json: bool,
+    /// With --remove: what to remove (default: the app and all its files).
+    #[arg(last = true)]
+    paths: Vec<PathBuf>,
+}
+
+#[derive(Args)]
+struct LeftoversArgs {
+    /// Move these leftovers to the Trash (they must be on the list).
+    #[arg(long)]
+    remove: bool,
+    #[arg(long)]
+    json: bool,
+    #[arg(last = true)]
+    paths: Vec<PathBuf>,
+}
+
+fn app_dirs(home: &std::path::Path) -> Vec<PathBuf> {
+    vec![apps_dir(), home.join("Applications"), PathBuf::from("/System/Applications")]
+}
+
+fn run_uninstall(a: UninstallArgs, home: &std::path::Path) -> ExitCode {
+    use roomy::uninstall;
+    let app = if let Ok(rest) = a.app.strip_prefix("~") { home.join(rest) } else { a.app.clone() };
+    if app.extension().is_none_or(|x| x != "app") || !app.is_dir() {
+        eprintln!("error: {} isn't an app", app.display());
+        return ExitCode::FAILURE;
+    }
+    let plan = uninstall::plan(&app, home, std::path::Path::new("/"), &Env::capture());
+    if !a.remove {
+        if a.json {
+            println!("{}", serde_json::to_string(&plan).unwrap());
+        } else {
+            println!("{}  {}{}", plan.name, human_bytes(plan.app_bytes), if plan.running { "  (open now)" } else { "" });
+            for i in &plan.items {
+                println!("  {:>9}  {}  {}{}", human_bytes(i.bytes), i.what, tilde(&i.path, home), if i.admin { "  (needs admin)" } else { "" });
+            }
+        }
+        return ExitCode::SUCCESS;
+    }
+    if plan.bundle_id.as_deref().is_some_and(|id| id.starts_with("com.apple.")) {
+        eprintln!("error: Roomy doesn't remove Apple's apps");
+        return ExitCode::FAILURE;
+    }
+    if plan.running {
+        eprintln!("error: {} is open; quit it first", plan.name);
+        return ExitCode::FAILURE;
+    }
+    let chosen: Vec<PathBuf> = if a.paths.is_empty() {
+        std::iter::once(app.clone()).chain(plan.items.iter().filter(|i| !i.admin).map(|i| i.path.clone())).collect()
+    } else {
+        a.paths.clone()
+    };
+    let done = uninstall::remove(&chosen, &plan.items, Some(&app), home, &home.join(".Trash"));
+    print_removed(&done, a.json, home)
+}
+
+fn run_leftovers(a: LeftoversArgs, home: &std::path::Path) -> ExitCode {
+    use roomy::uninstall;
+    let found = uninstall::orphans(home, &uninstall::installed_ids(&app_dirs(home)));
+    if !a.remove {
+        if a.json {
+            println!("{}", serde_json::to_string(&found).unwrap());
+        } else {
+            for o in &found {
+                println!("{}  {}", o.bundle_id, human_bytes(o.items.iter().map(|i| i.bytes).sum()));
+                for i in &o.items {
+                    println!("  {:>9}  {}", human_bytes(i.bytes), tilde(&i.path, home));
+                }
+            }
+        }
+        return ExitCode::SUCCESS;
+    }
+    let all: Vec<roomy::uninstall::Item> = found.into_iter().flat_map(|o| o.items).collect();
+    let done = uninstall::remove(&a.paths, &all, None, home, &home.join(".Trash"));
+    print_removed(&done, a.json, home)
+}
+
+fn print_removed(done: &[roomy::uninstall::Removed], json: bool, home: &std::path::Path) -> ExitCode {
+    if json {
+        println!("{}", serde_json::to_string(done).unwrap());
+    } else {
+        for r in done {
+            match &r.error {
+                None => println!("moved to the Trash: {}", tilde(&r.path, home)),
+                Some(e) => println!("skipped {}: {e}", tilde(&r.path, home)),
+            }
+        }
+    }
+    // With --json the result says what was skipped; the app reads it.
+    if json || done.iter().all(|r| r.error.is_none()) { ExitCode::SUCCESS } else { ExitCode::from(2) }
 }
 
 #[derive(Args)]
@@ -352,6 +458,8 @@ fn main() -> ExitCode {
         Cmd::Map(a) => run_map(a, &home),
         Cmd::Inspect(a) => run_inspect(a, &home),
         Cmd::Known(a) => run_known(a, &home),
+        Cmd::Uninstall(a) => run_uninstall(a, &home),
+        Cmd::Leftovers(a) => run_leftovers(a, &home),
     }
 }
 

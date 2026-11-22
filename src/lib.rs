@@ -11,6 +11,7 @@ pub mod report;
 pub mod rules;
 pub mod scan;
 pub mod size;
+pub mod uninstall;
 pub mod verify;
 
 use rayon::prelude::*;
