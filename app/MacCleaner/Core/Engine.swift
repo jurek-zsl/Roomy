@@ -1,0 +1,161 @@
+import Foundation
+
+/// What the store needs from the engine. The real one runs the bundled
+/// `mac-cleaner` program; tests use a scripted one.
+protocol CleanEngine: Sendable {
+    func scan() async throws -> ScanResult
+    func clean(paths: [String], trash: Bool) -> AsyncThrowingStream<CleanEvent, Error>
+}
+
+/// Runs the Rust engine as a program and reads its JSON. Arguments go to it
+/// directly (no shell), so paths with spaces or quotes are safe.
+struct Engine: CleanEngine {
+    let binary: URL
+
+    /// The engine inside the app, or `MAC_CLEANER_ENGINE` if set.
+    static func bundled() -> Engine {
+        if let p = ProcessInfo.processInfo.environment["MAC_CLEANER_ENGINE"], !p.isEmpty {
+            return Engine(binary: URL(fileURLWithPath: p))
+        }
+        let url = Bundle.main.url(forAuxiliaryExecutable: "mac-cleaner")
+            ?? Bundle.main.bundleURL.appending(path: "Contents/MacOS/mac-cleaner")
+        return Engine(binary: url)
+    }
+
+    func scan() async throws -> ScanResult {
+        let binary = binary
+        // Blocking reads run on a dispatch thread, never on Swift's shared
+        // threads: many runs at once would starve them and hang.
+        return try await withCheckedThrowingContinuation { c in
+            DispatchQueue.global(qos: .userInitiated).async {
+                c.resume(with: Result { try Engine.scanBlocking(binary) })
+            }
+        }
+    }
+
+    private static func scanBlocking(_ binary: URL) throws -> ScanResult {
+        let run = try start(binary, ["scan", "--json"])
+        let stderr = collect(run.err)
+        let data = (try? run.out.readToEnd()) ?? Data()
+        run.process.waitUntilExit()
+        guard run.process.terminationStatus == 0 else { throw EngineError.failed(tail(stderr.wait())) }
+        do {
+            return try ScanResult.decode(data)
+        } catch {
+            throw EngineError.badOutput(String(decoding: data.prefix(200), as: UTF8.self))
+        }
+    }
+
+    /// Streams `clean --json` events as they come. A line that isn't an event
+    /// is remembered and reported at the end; reading goes on, so the engine
+    /// never blocks on a full pipe in the middle of cleaning.
+    func clean(paths: [String], trash: Bool) -> AsyncThrowingStream<CleanEvent, Error> {
+        let binary = binary
+        let args = ["clean", "--json"] + (trash ? ["--trash"] : []) + ["--"] + paths
+        return AsyncThrowingStream { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                do {
+                    let run = try Engine.start(binary, args)
+                    let stderr = Engine.collect(run.err)
+                    var sawDone = false
+                    var badLine: String?
+                    var buffer = Data()
+                    func handle(_ bytes: Data) {
+                        let line = String(decoding: bytes, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard !line.isEmpty else { return }
+                        do {
+                            let event = try CleanEvent.decode(line: line)
+                            if case .done = event { sawDone = true }
+                            continuation.yield(event)
+                        } catch {
+                            if badLine == nil { badLine = line }
+                        }
+                    }
+                    while true {
+                        let chunk = run.out.availableData  // empty at end of output
+                        if chunk.isEmpty { break }
+                        buffer.append(chunk)
+                        while let nl = buffer.firstIndex(of: 0x0A) {
+                            handle(Data(buffer[buffer.startIndex..<nl]))
+                            buffer = Data(buffer[buffer.index(after: nl)...])
+                        }
+                    }
+                    handle(buffer)
+                    run.process.waitUntilExit()
+                    let errText = stderr.wait()
+                    if let badLine { throw EngineError.badOutput(badLine) }
+                    if !sawDone {
+                        let why = run.process.terminationStatus == 0 ? "it ended without finishing" : Engine.tail(errText)
+                        throw EngineError.failed(why)
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+        }
+    }
+
+    private struct Running {
+        let process: Process
+        let out: FileHandle
+        let err: FileHandle
+    }
+
+    private static func start(_ binary: URL, _ args: [String]) throws -> Running {
+        guard FileManager.default.isExecutableFile(atPath: binary.path) else { throw EngineError.missing }
+        let p = Process()
+        p.executableURL = binary
+        p.arguments = args
+        p.currentDirectoryURL = URL(fileURLWithPath: NSHomeDirectory())
+        p.standardInput = FileHandle.nullDevice
+        let out = Pipe()
+        let err = Pipe()
+        // Keep these pipe ends out of any other program started meanwhile;
+        // a leaked write end means the output never ends.
+        for h in [out.fileHandleForReading, out.fileHandleForWriting, err.fileHandleForReading, err.fileHandleForWriting] {
+            _ = fcntl(h.fileDescriptor, F_SETFD, FD_CLOEXEC)
+        }
+        p.standardOutput = out
+        p.standardError = err
+        do {
+            try p.run()
+        } catch {
+            throw EngineError.failed("couldn't start it: \(error.localizedDescription)")
+        }
+        // Only the engine writes; our copies of the write ends must close.
+        try? out.fileHandleForWriting.close()
+        try? err.fileHandleForWriting.close()
+        return Running(process: p, out: out.fileHandleForReading, err: err.fileHandleForReading)
+    }
+
+    /// Reads stderr to the end on its own thread.
+    private final class Collected: @unchecked Sendable {
+        private var text = ""
+        private let done = DispatchSemaphore(value: 0)
+
+        init(_ handle: FileHandle) {
+            DispatchQueue.global(qos: .utility).async {
+                self.text = String(decoding: (try? handle.readToEnd()) ?? Data(), as: UTF8.self)
+                self.done.signal()
+            }
+        }
+
+        func wait() -> String {
+            done.wait()
+            return text
+        }
+    }
+
+    private static func collect(_ handle: FileHandle) -> Collected {
+        Collected(handle)
+    }
+
+    /// The last few lines the engine printed to stderr, for error messages.
+    static func tail(_ text: String) -> String {
+        let lines = text.split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty && $0 != "Scanning..." }
+        return lines.isEmpty ? "it stopped with no message" : lines.suffix(3).joined(separator: " / ")
+    }
+}

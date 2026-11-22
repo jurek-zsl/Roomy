@@ -1,0 +1,529 @@
+# Mac Cleaner built-in rules.
+#
+# Each rule finds one kind of junk.
+#   match.path      a fixed location or a list of them (~ and * allowed)
+#   match.dir_name  a folder name found while walking your folders, with
+#   match.sibling   a marker file next to it (any one of them)
+#   match.keep_newest  for version folders: keep the N newest, report the rest
+#
+# risk:   safe | quit-app | review
+# verify: checks run before anything is called "safe now"
+#   git-ignored        folder must be ignored by git (else: review)
+#   not-running:NAME   process NAME must not be running (else: blocked)
+#   lock-free:PATH     no other process may hold a lock on PATH (else: blocked)
+#   npx-idle           no running process uses a package from this npx folder
+# clean:  the command to run. {path} and {parent} are filled in.
+
+# ---------------------------------------------------------------------------
+# A. Package manager caches
+# ---------------------------------------------------------------------------
+
+[[rule]]
+id = "homebrew-cache"
+name = "Homebrew downloads"
+category = "package-cache"
+risk = "safe"
+explain = "Downloaded Homebrew bottles and old versions."
+# Only downloads/: brew cleanup keeps api/ (the formula index) and bootsnap/,
+# so measuring the whole folder showed 46 MB that never goes away.
+match = { path = "~/Library/Caches/Homebrew/downloads" }
+verify = ["not-running:brew"]
+clean = "brew cleanup -s --prune=all"
+
+[[rule]]
+id = "npm-cache"
+name = "npm cache"
+category = "package-cache"
+risk = "safe"
+explain = "npm download cache. Re-downloads when needed."
+match = { path = "~/.npm/_cacache" }
+verify = ["not-running:npm"]
+clean = "npm cache clean --force"
+
+[[rule]]
+id = "npx-package"
+name = "npx tool download"
+category = "package-cache"
+risk = "safe"
+explain = "A package downloaded by npx. Re-downloads next time you run it."
+match = { path = "~/.npm/_npx/*" }
+verify = ["npx-idle"]
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "pnpm-store"
+name = "pnpm packages"
+category = "package-cache"
+risk = "safe"
+explain = "pnpm package store. Prune removes only packages no project uses, so it may free less than shown."
+match = { path = "~/Library/pnpm/store" }
+verify = ["not-running:pnpm"]
+clean = "pnpm store prune"
+
+[[rule]]
+id = "uv-cache"
+name = "uv Python cache"
+category = "package-cache"
+risk = "safe"
+explain = "uv Python package cache."
+match = { path = "~/.cache/uv" }
+verify = ["lock-free:~/.cache/uv/.lock"]
+clean = "uv cache clean"
+
+[[rule]]
+id = "pip-cache"
+name = "pip cache"
+category = "package-cache"
+risk = "safe"
+explain = "pip download cache."
+match = { path = "~/Library/Caches/pip" }
+verify = ["not-running:pip", "not-running:pip3"]
+# A plain delete: many Macs only have pip3, or pip inside one Python version.
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "bun-cache"
+name = "Bun cache"
+category = "package-cache"
+risk = "safe"
+explain = "Bun package cache."
+match = { path = "~/.bun/install/cache" }
+verify = ["not-running:bun"]
+clean = "bun pm cache rm"
+
+[[rule]]
+id = "yarn-cache"
+name = "Yarn cache"
+category = "package-cache"
+risk = "safe"
+explain = "Yarn package cache."
+match = { path = "~/Library/Caches/Yarn" }
+verify = ["not-running:yarn"]
+clean = "yarn cache clean"
+
+[[rule]]
+id = "cargo-registry-src"
+name = "Rust package sources"
+category = "package-cache"
+risk = "safe"
+explain = "Unpacked crate sources. Cargo unpacks them again from its download cache."
+match = { path = "~/.cargo/registry/src" }
+verify = ["not-running:cargo"]
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "go-build-cache"
+name = "Go build cache"
+category = "package-cache"
+risk = "safe"
+explain = "Go compiler cache."
+match = { path = "~/Library/Caches/go-build" }
+verify = ["not-running:go"]
+clean = "go clean -cache"
+
+[[rule]]
+id = "go-mod-cache"
+name = "Go modules"
+category = "package-cache"
+risk = "review"
+explain = "Downloaded Go modules. Safe, but every Go project re-downloads its modules."
+match = { path = "~/go/pkg/mod" }
+verify = ["not-running:go"]
+clean = "go clean -modcache"
+
+[[rule]]
+id = "gradle-cache"
+name = "Gradle cache"
+category = "package-cache"
+risk = "safe"
+explain = "Gradle dependency and build cache."
+match = { path = "~/.gradle/caches" }
+verify = ["not-running:gradle"]
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "cocoapods-cache"
+name = "CocoaPods cache"
+category = "package-cache"
+risk = "safe"
+explain = "CocoaPods download cache."
+match = { path = "~/Library/Caches/CocoaPods" }
+verify = ["not-running:pod"]
+clean = "pod cache clean --all"
+
+[[rule]]
+id = "playwright-browsers"
+name = "Playwright test browsers"
+category = "package-cache"
+risk = "safe"
+explain = "Browsers downloaded for Playwright. `npx playwright install` brings them back."
+match = { path = "~/Library/Caches/ms-playwright" }
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "puccinialin-toolchain"
+name = "Extra Rust toolchain (puccinialin)"
+category = "package-cache"
+risk = "safe"
+explain = "A private copy of rustup and cargo downloaded by a Python build tool."
+match = { path = "~/Library/Caches/puccinialin" }
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "deno-cache"
+name = "Deno cache"
+category = "package-cache"
+risk = "safe"
+explain = "Deno module cache."
+match = { path = "~/Library/Caches/deno" }
+verify = ["not-running:deno"]
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "xcode-derived-data"
+name = "Xcode build data"
+category = "package-cache"
+risk = "safe"
+explain = "Xcode build products and indexes. Rebuilt on next build."
+match = { path = "~/Library/Developer/Xcode/DerivedData" }
+verify = ["not-running:Xcode"]
+clean = "rm -rf {path}"
+
+# ---------------------------------------------------------------------------
+# B. Build output in projects (found by walking your folders)
+# ---------------------------------------------------------------------------
+
+[[rule]]
+id = "rust-target"
+name = "Rust build output"
+category = "build-output"
+risk = "safe"
+explain = "Rust build output. The next build is slower."
+match = { dir_name = "target", sibling = ["Cargo.toml"] }
+verify = ["git-ignored", "not-running:cargo"]
+clean = "cargo clean --manifest-path {parent}/Cargo.toml"
+
+[[rule]]
+id = "node-modules"
+name = "Node packages (node_modules)"
+category = "build-output"
+risk = "safe"
+explain = "Installed JavaScript packages. Run your package manager's install to get them back."
+match = { dir_name = "node_modules", sibling = ["package.json"] }
+verify = ["git-ignored"]
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "next-build"
+name = "Next.js build"
+category = "build-output"
+risk = "safe"
+explain = "Next.js build output and cache."
+match = { dir_name = ".next", sibling = ["package.json"] }
+verify = ["git-ignored"]
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "turbo-cache"
+name = "Turborepo cache"
+category = "build-output"
+risk = "safe"
+explain = "Turborepo cache. It never shrinks on its own."
+match = { dir_name = ".turbo", sibling = ["package.json", "turbo.json"] }
+verify = ["git-ignored"]
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "nuxt-build"
+name = "Nuxt build"
+category = "build-output"
+risk = "safe"
+explain = "Nuxt build output."
+match = { dir_name = ".nuxt", sibling = ["package.json"] }
+verify = ["git-ignored"]
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "svelte-kit-build"
+name = "SvelteKit build"
+category = "build-output"
+risk = "safe"
+explain = "SvelteKit build output."
+match = { dir_name = ".svelte-kit", sibling = ["package.json"] }
+verify = ["git-ignored"]
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "parcel-cache"
+name = "Parcel cache"
+category = "build-output"
+risk = "safe"
+explain = "Parcel bundler cache."
+match = { dir_name = ".parcel-cache", sibling = ["package.json"] }
+verify = ["git-ignored"]
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "dist-output"
+name = "Build output (dist)"
+category = "build-output"
+risk = "safe"
+explain = "Built files. Rebuilt by your build command."
+match = { dir_name = "dist", sibling = ["package.json", "pyproject.toml", "setup.py"] }
+verify = ["git-ignored"]
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "build-output"
+name = "Build output (build)"
+category = "build-output"
+risk = "safe"
+explain = "Built files. Rebuilt by your build command."
+match = { dir_name = "build", sibling = ["package.json", "build.gradle", "build.gradle.kts", "CMakeLists.txt", "Makefile", "pubspec.yaml", "project.godot", "setup.py"] }
+verify = ["git-ignored"]
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "python-venv"
+name = "Python virtual env"
+category = "build-output"
+risk = "safe"
+explain = "Python virtual environment. Recreate it with your install command."
+match = { dir_name = ".venv", sibling = ["pyproject.toml", "requirements.txt", "setup.py", "uv.lock"] }
+verify = ["git-ignored"]
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "python-venv-plain"
+name = "Python virtual env"
+category = "build-output"
+risk = "safe"
+explain = "Python virtual environment. Recreate it with your install command."
+match = { dir_name = "venv", sibling = ["pyproject.toml", "requirements.txt", "setup.py"] }
+verify = ["git-ignored"]
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "python-bytecode"
+name = "Python bytecode (__pycache__)"
+category = "build-output"
+risk = "safe"
+explain = "Compiled Python files. Python recreates them."
+match = { dir_name = "__pycache__" }
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "swift-build"
+name = "Swift build output"
+category = "build-output"
+risk = "safe"
+explain = "Swift Package Manager build output."
+match = { dir_name = ".build", sibling = ["Package.swift"] }
+verify = ["git-ignored"]
+clean = "swift package --package-path {parent} clean"
+
+[[rule]]
+id = "gradle-project-cache"
+name = "Gradle project cache"
+category = "build-output"
+risk = "safe"
+explain = "Gradle project cache."
+match = { dir_name = ".gradle", sibling = ["build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts", "gradlew"] }
+verify = ["git-ignored"]
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "cocoapods-pods"
+name = "CocoaPods Pods"
+category = "build-output"
+risk = "safe"
+explain = "Installed CocoaPods. `pod install` brings them back."
+match = { dir_name = "Pods", sibling = ["Podfile"] }
+verify = ["git-ignored"]
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "godot-import-cache"
+name = "Godot import cache"
+category = "build-output"
+risk = "safe"
+explain = "Godot import cache. Godot re-imports assets on next open."
+match = { dir_name = ".godot", sibling = ["project.godot"] }
+verify = ["git-ignored", "not-running:Godot"]
+clean = "rm -rf {path}"
+
+# ---------------------------------------------------------------------------
+# D. Updater leftovers and old versions
+# ---------------------------------------------------------------------------
+
+[[rule]]
+id = "old-binary"
+name = "Old program version (.old)"
+category = "leftover"
+risk = "safe"
+explain = "Old copy of a program left behind by an update."
+match = { path = "~/.local/bin/*.old" }
+clean = "rm -f {path}"
+
+[[rule]]
+id = "shipit-update"
+name = "Leftover app update"
+category = "leftover"
+risk = "safe"
+explain = "App update download that was already installed (Squirrel/ShipIt updater)."
+match = { path = "~/Library/Caches/*.ShipIt" }
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "updater-cache"
+name = "App updater download"
+category = "leftover"
+risk = "safe"
+explain = "App updater download cache."
+match = { path = "~/Library/Caches/*-updater" }
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "roblox-patch-backups"
+name = "Roblox patch backups"
+category = "leftover"
+risk = "safe"
+explain = "Backups Roblox keeps from old updates."
+match = { path = "~/Library/Roblox/OTAPatchBackups" }
+verify = ["not-running:RobloxPlayer", "not-running:RobloxStudio"]
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "roblox-update-zip"
+name = "Roblox update download"
+category = "leftover"
+risk = "safe"
+explain = "Roblox update download that is already unpacked."
+match = { path = "~/Library/Roblox/*.zip" }
+verify = ["not-running:RobloxPlayer", "not-running:RobloxStudio"]
+clean = "rm -f {path}"
+
+[[rule]]
+id = "half-finished-install"
+name = "Unfinished Codex install"
+category = "leftover"
+risk = "safe"
+explain = "An install that never finished."
+match = { path = "~/.cache/codex-runtimes/*-install-*" }
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "partial-download"
+name = "Unfinished download"
+category = "leftover"
+risk = "safe"
+explain = "A download that never finished."
+match = { path = ["~/Downloads/*.download", "~/Downloads/*.crdownload", "~/Downloads/*.part"] }
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "claude-code-old-version"
+name = "Old Claude Code version"
+category = "leftover"
+risk = "review"
+explain = "Older Claude Code version. Claude Code keeps a few for rollback and may clean them itself."
+match = { path = "~/.local/share/claude/versions/*", keep_newest = 2 }
+clean = "rm -rf {path}"
+
+# ---------------------------------------------------------------------------
+# C. App caches
+
+[[rule]]
+id = "electron-cache"
+name = "web cache"
+category = "app-cache"
+risk = "safe"
+explain = "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings."
+match = { path = [
+  "~/Library/Application Support/*/Cache/Cache_Data",
+  "~/Library/Application Support/*/Code Cache",
+  "~/Library/Application Support/*/GPUCache",
+  "~/Library/Application Support/*/DawnGraphiteCache",
+  "~/Library/Application Support/*/DawnWebGPUCache",
+  "~/Library/Application Support/*/Service Worker/CacheStorage",
+  "~/Library/Application Support/*/Partitions/*/Cache/Cache_Data",
+  "~/Library/Application Support/*/Partitions/*/Code Cache",
+  "~/Library/Application Support/*/Partitions/*/GPUCache",
+] }
+verify = ["app-not-running"]
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "crash-reports"
+name = "sent crash reports"
+category = "app-cache"
+risk = "safe"
+explain = "Crash reports the app already sent. Nothing reads them again."
+match = { path = "~/Library/Application Support/*/Crashpad/completed" }
+verify = ["app-not-running"]
+clean = "rm -rf {path}"
+
+# ---------------------------------------------------------------------------
+# E. Developer platform
+
+[[rule]]
+id = "xcode-device-support"
+name = "Old iPhone debug symbols"
+category = "developer"
+risk = "review"
+explain = "Debug symbols Xcode copies from each iOS version you connected. The 2 newest are kept; Xcode copies others again if you connect that version."
+match = { path = ["~/Library/Developer/Xcode/iOS DeviceSupport/*", "~/Library/Developer/Xcode/watchOS DeviceSupport/*"], keep_newest = 2 }
+verify = ["not-running:Xcode"]
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "xcode-archives"
+name = "Xcode archives"
+category = "developer"
+risk = "review"
+explain = "Builds you archived in Xcode, sometimes ones you shipped. Keep them if you may need their debug symbols for crash reports."
+match = { path = "~/Library/Developer/Xcode/Archives/*" }
+verify = ["not-running:Xcode"]
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "simulator-caches"
+name = "Simulator caches"
+category = "developer"
+risk = "safe"
+explain = "Caches of the iOS Simulator. It makes them again."
+match = { path = "~/Library/Developer/CoreSimulator/Caches/*" }
+verify = ["not-running:Simulator"]
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "godot-export-templates"
+name = "Old Godot export templates"
+category = "developer"
+risk = "review"
+explain = "Export templates for older Godot versions. The newest is kept."
+match = { path = "~/Library/Application Support/Godot/export_templates/*", keep_newest = 1 }
+verify = ["not-running:Godot"]
+clean = "rm -rf {path}"
+
+# ---------------------------------------------------------------------------
+# F. Temp
+
+[[rule]]
+id = "clang-module-cache"
+name = "Compiler module cache"
+category = "temp"
+risk = "safe"
+explain = "Precompiled modules clang and Swift keep in temp. Builds make them again; macOS also clears them sometimes."
+match = { path = "$USERTMP/C/clang/ModuleCache" }
+verify = ["not-running:clang", "not-running:swift-frontend", "not-running:Xcode"]
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "pyinstaller-leftover"
+name = "Leftover app unpack folder"
+category = "temp"
+risk = "review"
+explain = "Folders Python apps made with PyInstaller unpack into. They are left behind when such an app crashes; a running one still uses its folder."
+match = { path = "$USERTMP/T/_MEI*" }
+clean = "rm -rf {path}"

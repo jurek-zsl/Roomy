@@ -1,0 +1,229 @@
+import Foundation
+import Testing
+
+/// Scripted engine: hands out queued scan results and clean events.
+final class FakeEngine: CleanEngine, @unchecked Sendable {
+    private let lock = NSLock()
+    private var scans: [Result<ScanResult, EngineError>]
+    private var events: [CleanEvent]
+    private var streamError: EngineError?
+    private var scanDelay: Duration
+    private(set) var scanCount = 0
+    private(set) var cleanCalls: [(paths: [String], trash: Bool)] = []
+
+    init(scans: [Result<ScanResult, EngineError>], events: [CleanEvent] = [], streamError: EngineError? = nil, scanDelay: Duration = .zero) {
+        self.scans = scans
+        self.events = events
+        self.streamError = streamError
+        self.scanDelay = scanDelay
+    }
+
+    func scan() async throws -> ScanResult {
+        let next: Result<ScanResult, EngineError> = lock.withLock {
+            scanCount += 1
+            return scans.count > 1 ? scans.removeFirst() : scans[0]
+        }
+        if scanDelay > .zero { try await Task.sleep(for: scanDelay) }
+        return try next.get()
+    }
+
+    func clean(paths: [String], trash: Bool) -> AsyncThrowingStream<CleanEvent, Error> {
+        let (evs, err) = lock.withLock {
+            cleanCalls.append((paths, trash))
+            return (events, streamError)
+        }
+        return AsyncThrowingStream { c in
+            for e in evs { c.yield(e) }
+            c.finish(throwing: err)
+        }
+    }
+}
+
+func finding(_ path: String, _ section: Section, bytes: Int64 = 100, name: String = "Thing") -> Finding {
+    Finding(
+        rule: "r", name: name, category: "c",
+        risk: section == .review ? .review : .safe,
+        status: section == .blocked ? .blocked : .ready,
+        section: section, reason: section == .blocked ? "it's in use" : nil,
+        path: path, bytesOnDisk: bytes, bytesFreed: bytes, files: 1,
+        clean: nil, explain: "e", method: .delete)
+}
+
+func scanResult(_ f: [Finding], free: Int64 = 1_000) -> ScanResult {
+    ScanResult(freeBytes: free, elapsedMs: 1, findings: f)
+}
+
+private func freshDefaults() -> UserDefaults {
+    let d = UserDefaults(suiteName: "tests-\(UUID().uuidString)")!
+    d.set(true, forKey: "seenIntro")
+    return d
+}
+
+private let a = finding("/h/a", .safeNow, bytes: 300)
+private let b = finding("/h/b", .review, bytes: 200)
+private let c = finding("/h/c", .blocked, bytes: 50)
+
+@MainActor @Test func defaultTicks() async {
+    let store = CleanerStore(engine: FakeEngine(scans: [.success(scanResult([a, b, c]))]), defaults: freshDefaults())
+    await store.scan()
+    #expect(store.isSelected(a))
+    #expect(!store.isSelected(b))
+    #expect(!store.isSelected(c))
+}
+
+@MainActor @Test func blockedCannotBeTicked() async {
+    let store = CleanerStore(engine: FakeEngine(scans: [.success(scanResult([a, b, c]))]), defaults: freshDefaults())
+    await store.scan()
+    store.toggle(c)
+    store.setAll(.blocked, true)
+    #expect(!store.isSelected(c))
+    #expect(store.selectedItems.map(\.path) == ["/h/a"])
+}
+
+@MainActor @Test func choicesSurviveRescanInSameSection() async {
+    let store = CleanerStore(engine: FakeEngine(scans: [.success(scanResult([a, b, c]))]), defaults: freshDefaults())
+    await store.scan()
+    store.toggle(a)
+    store.toggle(b)
+    await store.scan()
+    #expect(!store.isSelected(a))
+    #expect(store.isSelected(b))
+}
+
+@MainActor @Test func choiceResetsWhenSectionChanges() async {
+    let aReview = finding("/h/a", .review, bytes: 300)
+    let engine = FakeEngine(scans: [.success(scanResult([a])), .success(scanResult([aReview])), .success(scanResult([a]))])
+    let store = CleanerStore(engine: engine, defaults: freshDefaults())
+    await store.scan()
+    store.toggle(a)  // off while safe
+    await store.scan()  // now in review: default off
+    #expect(!store.isSelected(aReview))
+    await store.scan()  // back in safe: the old choice is gone, default on
+    #expect(store.isSelected(a))
+}
+
+@MainActor @Test func totalsAndSelectedBytes() async {
+    let a2 = finding("/h/a2", .safeNow, bytes: 700)
+    let store = CleanerStore(engine: FakeEngine(scans: [.success(scanResult([a, b, c, a2]))]), defaults: freshDefaults())
+    await store.scan()
+    #expect(store.total(.safeNow) == 1_000)
+    #expect(store.total(.review) == 200)
+    #expect(store.total(.blocked) == 50)
+    #expect(store.items(.safeNow).map(\.path) == ["/h/a2", "/h/a"])
+    #expect(store.selectedBytes == 1_000)
+    store.toggle(b)
+    #expect(store.selectedBytes == 1_200)
+    store.setAll(.safeNow, false)
+    #expect(store.selectedBytes == 200)
+}
+
+@MainActor @Test func secondOperationIsIgnored() async {
+    let engine = FakeEngine(scans: [.success(scanResult([a]))], scanDelay: .milliseconds(50))
+    let store = CleanerStore(engine: engine, defaults: freshDefaults())
+    let t1 = Task { await store.scan() }
+    let t2 = Task { await store.scan() }
+    let t3 = Task { await store.cleanSafe() }
+    await t1.value
+    await t2.value
+    await t3.value
+    #expect(engine.scanCount == 1)
+    #expect(engine.cleanCalls.isEmpty)
+}
+
+@MainActor @Test func scanFailureShowsError() async {
+    let engine = FakeEngine(scans: [.failure(.missing), .success(scanResult([a]))])
+    let store = CleanerStore(engine: engine, defaults: freshDefaults())
+    await store.scan()
+    #expect(store.phase == .error(EngineError.missing.localizedDescription))
+    await store.scan()
+    #expect(store.phase == .idle)
+    #expect(store.result?.findings.count == 1)
+}
+
+@MainActor @Test func cleanBuildsSummaryAndRescans() async {
+    let events: [CleanEvent] = [
+        .plan(items: 2, bytes: 500),
+        .item(CleanItem(index: 1, path: "/h/a", rule: "r", name: "Thing A", bytes: 300, outcome: .cleaned(.delete, note: nil))),
+        .item(CleanItem(index: 2, path: "/h/b", rule: "", name: "", bytes: 0, outcome: .skipped(reason: "the scan doesn't find it anymore"))),
+        .done(CleanDone(cleaned: 1, skipped: 1, failed: 0, freeBefore: 100, freeAfter: 150, trashedBytes: 0)),
+    ]
+    let b2 = finding("/h/b", .review, bytes: 200, name: "Thing B")
+    let engine = FakeEngine(scans: [.success(scanResult([a, b2]))], events: events)
+    let store = CleanerStore(engine: engine, defaults: freshDefaults())
+    await store.scan()
+    store.toggle(b2)
+    await store.clean(store.selectedItems)
+    #expect(engine.cleanCalls.first?.paths == ["/h/a", "/h/b"])
+    #expect(engine.cleanCalls.first?.trash == false)
+    #expect(engine.scanCount == 2)
+    #expect(store.phase == .idle)
+    let s = try! #require(store.summary)
+    #expect(s.cleaned == 1)
+    #expect(s.freed == 50)
+    #expect(s.skipped == [SummaryLine(name: "Thing B", path: "/h/b", reason: "the scan doesn't find it anymore")])
+    #expect(s.failed.isEmpty)
+    #expect(s.error == nil)
+}
+
+@MainActor @Test func cleanPassesTrashSetting() async {
+    let engine = FakeEngine(scans: [.success(scanResult([a]))], events: [])
+    let store = CleanerStore(engine: engine, defaults: freshDefaults())
+    store.trashInstead = true
+    await store.scan()
+    await store.cleanSafe()
+    #expect(engine.cleanCalls.first?.trash == true)
+    #expect(engine.cleanCalls.first?.paths == ["/h/a"])
+}
+
+@MainActor @Test func cleanStreamErrorStillRescans() async {
+    let engine = FakeEngine(scans: [.success(scanResult([a]))], events: [.plan(items: 1, bytes: 300)], streamError: .badOutput("Scanning..."))
+    let store = CleanerStore(engine: engine, defaults: freshDefaults())
+    await store.scan()
+    await store.cleanSafe()
+    #expect(engine.scanCount == 2)
+    #expect(store.summary?.error == EngineError.badOutput("Scanning...").localizedDescription)
+}
+
+@MainActor @Test func staleScanWaitsForIntro() async {
+    let d = freshDefaults()
+    d.set(false, forKey: "seenIntro")
+    let engine = FakeEngine(scans: [.success(scanResult([a]))])
+    let store = CleanerStore(engine: engine, defaults: d)
+    await store.scanIfStale(maxAge: 600)
+    #expect(engine.scanCount == 0)
+    store.hasSeenIntro = true
+    await store.scanIfStale(maxAge: 600)
+    await store.scanIfStale(maxAge: 600)
+    #expect(engine.scanCount == 1)
+}
+
+@Test func storageSegmentsAddUp() {
+    let s = StorageBreakdown(total: 250, free: 60, safe: 20, review: 10)
+    #expect(s.used == 160)
+    #expect(s.used + s.safe + s.review + s.free == s.total)
+    // Engine numbers a bit off from the disk's: never negative.
+    let odd = StorageBreakdown(total: 100, free: 90, safe: 20, review: 5)
+    #expect(odd.used == 0)
+}
+
+final class Bell: @unchecked Sendable {
+    var rung: [String] = []
+}
+
+@MainActor @Test func lowSpaceAlertsOncePerDay() {
+    let d = UserDefaults(suiteName: "tests-\(UUID().uuidString)")!
+    let bell = Bell()
+    let store = CleanerStore(engine: FakeEngine(scans: [.success(scanResult([]))]), defaults: d, notify: { bell.rung.append($0) })
+    let now = Date()
+    store.checkLowSpace(free: 5_000_000_000, now: now)
+    #expect(bell.rung.isEmpty, "off by default")
+    store.lowSpaceAlerts = true
+    store.checkLowSpace(free: 50_000_000_000, now: now)
+    #expect(bell.rung.isEmpty, "plenty of space")
+    store.checkLowSpace(free: 5_000_000_000, now: now)
+    store.checkLowSpace(free: 4_000_000_000, now: now.addingTimeInterval(3600))
+    #expect(bell.rung.count == 1)
+    store.checkLowSpace(free: 4_000_000_000, now: now.addingTimeInterval(25 * 3600))
+    #expect(bell.rung.count == 2)
+    #expect(bell.rung[0].contains("5.0 GB"))
+}

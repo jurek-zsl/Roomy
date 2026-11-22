@@ -1,0 +1,83 @@
+name: MacCleaner
+options:
+  bundleIdPrefix: dev.maccleaner
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    ARCHS: arm64
+    ONLY_ACTIVE_ARCH: YES
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_STYLE: Manual
+    DEVELOPMENT_TEAM: ""
+    ENABLE_HARDENED_RUNTIME: NO
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+    SWIFT_TREAT_WARNINGS_AS_ERRORS: NO
+targets:
+  MacCleaner:
+    type: application
+    platform: macOS
+    sources: [MacCleaner]
+    info:
+      path: MacCleaner/Info.plist
+      properties:
+        CFBundleDisplayName: Roomy
+        CFBundleShortVersionString: "0.4.0"
+        LSApplicationCategoryType: public.app-category.utilities
+        LSMinimumSystemVersion: "14.0"
+        NSDocumentsFolderUsageDescription: Roomy looks in your Documents folder for build folders (like node_modules) that can be made again. Nothing is deleted unless you click Clean.
+        NSDesktopFolderUsageDescription: Roomy looks on your Desktop for build folders that can be made again. Nothing is deleted unless you click Clean.
+        NSDownloadsFolderUsageDescription: Roomy looks in Downloads for unfinished downloads. Nothing is deleted unless you click Clean.
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.roomy.app
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        PRODUCT_NAME: Roomy
+        ENABLE_APP_SANDBOX: NO
+        GENERATE_INFOPLIST_FILE: NO
+    postCompileScripts:
+      - name: Build and bundle the Rust engine
+        basedOnDependencyAnalysis: false
+        script: |
+          set -e
+          # Clean environment, so cargo sees the same settings as in Terminal
+          # and doesn't rebuild everything each time.
+          env -i HOME="$HOME" PATH="$HOME/.cargo/bin:/usr/bin:/bin" \
+            cargo build --release --quiet --manifest-path "$SRCROOT/../Cargo.toml"
+          mkdir -p "$TARGET_BUILD_DIR/$EXECUTABLE_FOLDER_PATH"
+          cp "$SRCROOT/../target/release/mac-cleaner" "$TARGET_BUILD_DIR/$EXECUTABLE_FOLDER_PATH/mac-cleaner"
+  MacCleanerTests:
+    type: bundle.unit-test
+    platform: macOS
+    # The core files are compiled straight into the tests (no host app), so
+    # running tests doesn't open the window or the menu bar item.
+    sources: [MacCleanerTests, MacCleaner/Core]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.maccleaner.tests
+        GENERATE_INFOPLIST_FILE: YES
+  Snapshots:
+    type: bundle.unit-test
+    platform: macOS
+    sources: [Snapshots, MacCleaner/Core, MacCleaner/Views]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.maccleaner.snapshots
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  MacCleaner:
+    build:
+      targets:
+        MacCleaner: all
+        MacCleanerTests: [test]
+    test:
+      targets: [MacCleanerTests]
+  Snapshots:
+    build:
+      targets:
+        Snapshots: [test]
+    test:
+      targets: [Snapshots]
