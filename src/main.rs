@@ -30,6 +30,53 @@ enum Cmd {
     Clean(CleanArgs),
     /// Show where your disk space goes, and how much of each folder can be freed.
     Map(MapArgs),
+    /// Gather clues about one folder: file types, last change, biggest items, owner app.
+    Inspect(InspectArgs),
+}
+
+#[derive(Args)]
+struct InspectArgs {
+    /// The folder to look at.
+    path: PathBuf,
+    /// Print JSON instead of text (for the app).
+    #[arg(long)]
+    json: bool,
+}
+
+fn run_inspect(a: InspectArgs, home: &std::path::Path) -> ExitCode {
+    let path = if let Ok(rest) = a.path.strip_prefix("~") { home.join(rest) } else { a.path.clone() };
+    let path_var = std::env::var("PATH").unwrap_or_default();
+    let env = Env::capture();
+    let Some(c) = roomy::inspect::inspect(&path, home, &apps_dir(), &path_var, &env, std::time::SystemTime::now()) else {
+        eprintln!("error: {} isn't a folder", path.display());
+        return ExitCode::FAILURE;
+    };
+    if a.json {
+        println!("{}", serde_json::to_string(&c).unwrap());
+        return ExitCode::SUCCESS;
+    }
+    println!("{}  {}  ({} files, {} folders)", tilde(&c.path, home), human_bytes(c.bytes), c.files, c.folders);
+    if let Some(d) = c.newest_days {
+        println!("Last change: {d} days ago");
+    }
+    if let Some(o) = &c.owner {
+        let state = match (o.installed, o.running) {
+            (_, true) => "running",
+            (Some(true), false) => "installed",
+            (Some(false), false) => "not installed",
+            (None, false) => "can't tell if installed",
+        };
+        println!("Belongs to: {} ({} {state})", o.name, o.kind);
+    }
+    let types: Vec<String> = c.types.iter().map(|t| format!(".{} {}", if t.ext.is_empty() { "?" } else { &t.ext }, human_bytes(t.bytes))).collect();
+    println!("File types: {}", types.join(", "));
+    for i in &c.biggest {
+        println!("  {:>9}  {}{}", human_bytes(i.bytes), i.name, if i.folder { "/" } else { "" });
+    }
+    for m in &c.markers {
+        println!("- {m}");
+    }
+    ExitCode::SUCCESS
 }
 
 #[derive(Args)]
@@ -40,6 +87,9 @@ struct MapArgs {
     /// How many levels the text tree shows.
     #[arg(long, default_value_t = 3)]
     depth: usize,
+    /// Extra rules file, added to the built-in rules.
+    #[arg(long)]
+    rules: Option<PathBuf>,
 }
 
 /// Where apps are installed. `ROOMY_APPS_DIR` overrides it for tests.
@@ -60,7 +110,7 @@ fn disk_space(path: &std::path::Path) -> Option<(u64, u64)> {
 
 fn run_map(a: MapArgs, home: &std::path::Path) -> ExitCode {
     use roomy::map;
-    let rules = match load_rules(None) {
+    let rules = match load_rules(a.rules.as_ref()) {
         Ok(r) => r,
         Err(e) => {
             eprintln!("error: {e}");
@@ -256,6 +306,7 @@ fn main() -> ExitCode {
         }
         Cmd::Clean(a) => run_clean(a, &home),
         Cmd::Map(a) => run_map(a, &home),
+        Cmd::Inspect(a) => run_inspect(a, &home),
     }
 }
 

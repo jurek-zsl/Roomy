@@ -65,6 +65,21 @@ Where does the disk actually go? The Space Map adds up every folder in your home
 - **Worth a look:** big folders that no rule explains. Roomy never touches these, but they're where the remaining space hides;
 - the part macOS manages itself (system data, snapshots, swap), so the numbers add up.
 
+### What is this folder? (on-device AI)
+
+<p align="center">
+  <img src="docs/images/insight.png" width="320" alt="The explain panel for ~/.cache/huggingface: Apple Intelligence says it holds downloaded AI models that come back by themselves, with Roomy's own facts below">
+</p>
+
+Click any big folder in **Worth a look** and Roomy explains it:
+
+- **Roomy's own facts:** which app or tool it belongs to and whether that's still installed, when anything inside last changed, file types, the biggest items, and hints like "93% of it is AI model weights".
+- **Apple Intelligence's reading of them**, written by Apple's on-device model. Nothing leaves your Mac, there's nothing to download, and it's free. Roomy sends it only those facts (names, sizes, dates), never file contents.
+- **Hard limits on top of the AI.** Your own files, data of installed apps and git repositories are always "keep", whatever the model says.
+- **You decide.** If you agree with a suggestion, **Add to Review** saves it as a rule. The folder then appears under *Review first* and goes through every normal check, your confirmation, and the Trash. AI never deletes anything.
+
+Without Apple Intelligence, you still get the facts, which often say enough on their own.
+
 ### Menu bar
 
 <p align="center">
@@ -108,6 +123,7 @@ Roomy is built so that a bug in a rule can't become a deleted Documents folder.
 - **Checks run twice:** at scan time, and again right before each item is cleaned, against a fresh list of running processes.
 - **Tools clean their own data.** Where a tool has a cleanup command (`brew cleanup`, `pnpm store prune`, `xcrun simctl runtime delete`), Roomy runs it with a time limit instead of deleting files under the tool.
 - **Some things never go to the Trash.** A `.git` folder or a simulator runtime is only ever handled by its own tool, even with "Move to Trash instead" turned on.
+- **AI only suggests.** An AI suggestion becomes a Review rule only when you accept it, and Roomy refuses to suggest your own files, installed apps' data or git repos.
 - **Review items always need you.** They're never ticked for you, and most go to the Trash, not straight to deletion.
 - **Everything is logged** to `~/Library/Logs/Roomy/clean.jsonl`.
 
@@ -139,6 +155,7 @@ cargo build --release
 ./target/release/roomy clean node-modules       # one rule
 ./target/release/roomy clean ~/code/old-app     # the safe items in one folder
 ./target/release/roomy clean --safe --trash     # move to the Trash instead of deleting
+./target/release/roomy inspect ~/.cache/foo     # facts about one folder: owner, types, last change
 ./target/release/roomy rules                    # list every rule
 ```
 
@@ -198,13 +215,14 @@ roomy scan --rules my-rules.toml
 | Command | Output |
 |---|---|
 | `scan --json` | `{free_bytes, elapsed_ms, findings[]}`. Each finding has `name`, `section` (`safe-now` / `review` / `blocked`), `method` and `trash_method` (`delete` / `trash` / `command`), and an optional `detail`. |
+| `inspect --json <folder>` | `{path, bytes, files, folders, newest_days, types[], biggest[], owner, markers[]}`: the facts the AI reasons over. |
 | `map --json` | `{total_bytes, used_bytes, free_bytes, mapped_bytes, cleanable_bytes, roots[]}`. Each node has `path`, `name`, `kind`, `bytes`, `cleanable` and `children`. |
 | `clean --json [--trash] -- <paths>` | One event per line: `plan`, then `item`…, then `done` (or `error`). |
 
 ## Development
 
 ```bash
-cargo test                                   # engine: 71 tests (real APFS clones, git repos, locks…)
+cargo test                                   # engine: 78 tests (real APFS clones, git repos, locks…)
 cd app && xcodegen generate
 xcodebuild test -project Roomy.xcodeproj -scheme Roomy -destination 'platform=macOS'
 xcodebuild test -project Roomy.xcodeproj -scheme Snapshots -destination 'platform=macOS'
@@ -214,6 +232,7 @@ The `Snapshots` scheme renders every screen, light and dark, to `app/build/snaps
 
 ## Roadmap
 
-- **AI for the folders no rule explains.** Ask Claude Code or Codex (using your own subscription or API key) about the "Worth a look" folders. The AI only sees folder names, sizes and dates, never file contents, and it can only suggest Review items. The engine's checks still decide what can be cleaned.
+- **Ask Claude Code or Codex** about hard cases, using your own subscription or API key, with a preview of exactly what's sent.
+- **Shared knowledge:** turn folders explained once into built-in rules, so every Mac gets the answer without AI.
 - A signed and notarized download.
 - Rules for more apps and tools. Contributions welcome!

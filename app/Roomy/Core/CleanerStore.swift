@@ -55,6 +55,20 @@ final class CleanerStore {
     /// Something was cleaned since the map was made.
     private(set) var mapIsStale = false
 
+    enum Insight: Equatable {
+        case loading
+        /// Roomy's facts, and the AI's reading of them when it's available.
+        case ready(FolderClues, FolderAdvice?)
+        case failed(String)
+    }
+
+    /// Explanations of folders, by path. Kept until the app quits.
+    private(set) var insights: [String: Insight] = [:]
+    /// Folders you agreed to review (as rules), by path.
+    private(set) var accepted: Set<String> = []
+    @ObservationIgnored let advisor: any FolderAdvisor
+    @ObservationIgnored let userRules: UserRules
+
     /// Notify when free space drops under `lowSpaceThreshold` (once a day at most).
     var lowSpaceAlerts: Bool {
         didSet { defaults.set(lowSpaceAlerts, forKey: Keys.lowSpace) }
@@ -92,8 +106,11 @@ final class CleanerStore {
     @ObservationIgnored private var freeTask: Task<Void, Never>?
     @ObservationIgnored private let notify: @Sendable (String) -> Void
 
-    init(engine: any CleanEngine, defaults: UserDefaults = .standard, notify: @escaping @Sendable (String) -> Void = { _ in }) {
+    init(engine: any CleanEngine, defaults: UserDefaults = .standard, notify: @escaping @Sendable (String) -> Void = { _ in },
+         advisor: any FolderAdvisor = AppleAdvisor(), userRules: UserRules = .standard) {
         self.engine = engine
+        self.advisor = advisor
+        self.userRules = userRules
         self.defaults = defaults
         self.notify = notify
         trashInstead = defaults.bool(forKey: Keys.trash)
@@ -213,6 +230,62 @@ final class CleanerStore {
         summary = s
         if diskMap != nil { mapIsStale = true }
         await performScan()
+    }
+
+    var advisorStatus: AdvisorStatus { advisor.status() }
+
+    func isAccepted(_ path: String) -> Bool {
+        accepted.contains(path) || userRules.contains(path)
+    }
+
+    /// Gather the facts about a folder, then ask the on-device AI what it is.
+    /// Without the AI, the facts alone are shown.
+    func explain(_ path: String) async {
+        if case .ready(_, let advice) = insights[path], advice != nil || advisor.status() != .ready { return }
+        if insights[path] == .loading { return }
+        insights[path] = .loading
+        do {
+            let clues = try await engine.inspect(path: path)
+            var advice: FolderAdvice?
+            if advisor.status() == .ready {
+                insights[path] = .ready(clues, nil)
+                advice = try await advisor.advise(clues)
+            }
+            insights[path] = .ready(clues, advice)
+        } catch {
+            if case .ready(let clues, _) = insights[path] {
+                insights[path] = .ready(clues, nil)
+                self.adviceError = error.localizedDescription
+            } else {
+                insights[path] = .failed(error.localizedDescription)
+            }
+        }
+    }
+
+    /// Set when the AI failed after the facts came in.
+    var adviceError: String?
+
+    /// You agree: list this folder under Review first from now on. It is
+    /// cleaned like any rule (checked, confirmed, to the Trash).
+    func acceptSuggestion(_ path: String) async {
+        guard case .ready(let clues, let advice?) = insights[path] else { return }
+        let name = clues.owner.map { "\($0.name) \(advice.kind.title.lowercased())" } ?? clues.name
+        let explain = "\(advice.summary) \(advice.why) (Suggested by \(advisor.name) on this Mac; you agreed to review it.)"
+        do {
+            try userRules.add(path: path, name: name, explain: explain)
+            accepted.insert(path)
+            if diskMap != nil { mapIsStale = true }
+            await scan()
+        } catch {
+            adviceError = "Couldn't save the rule: \(error.localizedDescription)"
+        }
+    }
+
+    func removeSuggestion(_ path: String) async {
+        try? userRules.remove(path)
+        accepted.remove(path)
+        if diskMap != nil { mapIsStale = true }
+        await scan()
     }
 
     /// Map where the disk space goes. Read-only, so it may run next to a scan.

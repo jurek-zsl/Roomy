@@ -359,4 +359,26 @@ match = { path = "~/Downloads/*.dmg", older_than_days = 14 }
         assert_eq!(w.repos, [root.join("code/a"), root.join("code/a/sub")], "a .git file is a worktree, not a repo");
         assert!(walk_projects(&rules(), &opts, false).repos.is_empty());
     }
+
+    /// The app writes user rules for exact folders with glob characters
+    /// escaped as `[x]`; such a pattern must match that folder only.
+    #[test]
+    fn escaped_patterns_match_one_folder() {
+        let home = tempfile::tempdir().unwrap();
+        mk(&home.path().join("a [b] *c?"));
+        mk(&home.path().join("a b xcy"));
+        let rules = parse_rules(
+            r#"
+[[rule]]
+id = "user-x"
+category = "ai"
+risk = "review"
+explain = "e"
+match = { path = "~/a [[]b[]] [*]c[?]" }
+"#,
+        )
+        .unwrap();
+        let c = path_candidates_in(&rules, home.path(), None);
+        assert_eq!(c.iter().map(|c| c.path.clone()).collect::<Vec<_>>(), vec![home.path().join("a [b] *c?")]);
+    }
 }

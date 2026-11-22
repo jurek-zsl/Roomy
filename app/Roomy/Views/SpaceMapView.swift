@@ -7,6 +7,8 @@ struct SpaceMapView: View {
     @Environment(CleanerStore.self) private var store
     /// The folders opened, from a root down.
     @State private var trail: [MapNode] = []
+    /// The folder shown in the side panel.
+    @State private var inspected: MapNode?
 
     var body: some View {
         Group {
@@ -14,7 +16,13 @@ struct SpaceMapView: View {
                 VStack(spacing: 0) {
                     MapHeader(map: map)
                     Divider()
-                    MapBrowser(map: map, trail: $trail)
+                    MapBrowser(map: map, trail: $trail, inspected: $inspected)
+                }
+                .inspector(isPresented: Binding(get: { inspected != nil }, set: { if !$0 { inspected = nil } })) {
+                    if let node = inspected {
+                        FolderInsightView(node: node)
+                            .inspectorColumnWidth(min: 280, ideal: 320, max: 420)
+                    }
                 }
             } else if case .failed(let message) = store.mapState {
                 ContentUnavailableView {
@@ -44,7 +52,10 @@ struct SpaceMapView: View {
                 }
             }
         }
-        .onChange(of: store.diskMap) { trail = [] }
+        .onChange(of: store.diskMap) {
+            trail = []
+            inspected = nil
+        }
     }
 }
 
@@ -175,6 +186,7 @@ private struct FlowLegend: View {
 private struct MapBrowser: View {
     let map: DiskMap
     @Binding var trail: [MapNode]
+    @Binding var inspected: MapNode?
 
     private var unexplained: Set<String> { Set(map.unexplained(limit: 50).map(\.id)) }
 
@@ -188,14 +200,14 @@ private struct MapBrowser: View {
                 if !worth.isEmpty {
                     SwiftUI.Section {
                         ForEach(worth) { node in
-                            Button { open(node) } label: {
-                                WorthRow(node: node)
+                            Button { inspected = node } label: {
+                                WorthRow(node: node, selected: inspected?.id == node.id)
                             }
                             .buttonStyle(.plain)
                             .contextMenu { finder(node) }
                         }
                     } header: {
-                        sectionHeader("Worth a look", "Big folders no rule explains. Roomy won't touch them; check what they are.")
+                        sectionHeader("Worth a look", "Big folders no rule explains. Click one to see what it is.")
                     }
                 }
                 SwiftUI.Section {
@@ -222,14 +234,23 @@ private struct MapBrowser: View {
         ForEach(rows) { node in
             Button { if node.canOpen { trail.append(node) } } label: {
                 MapRow(node: node, title: trail.isEmpty ? rootTitle(node.path) : node.name,
-                       fraction: Double(node.bytes) / Double(biggest), flagged: flagged.contains(node.id))
+                       fraction: Double(node.bytes) / Double(biggest), flagged: flagged.contains(node.id),
+                       explain: node.kind == .folder && !trail.isEmpty ? { inspected = node } : nil)
             }
             .buttonStyle(.plain)
-            .contextMenu { finder(node) }
+            .contextMenu {
+                if node.kind == .folder {
+                    Button("What Is This?") { inspected = node }
+                }
+                finder(node)
+            }
         }
     }
 
     @ViewBuilder private func finder(_ node: MapNode) -> some View {
+        if trail.isEmpty, map.unexplained().contains(node) {
+            Button("Show Where It Is") { open(node) }
+        }
         Button("Show in Finder") {
             NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: node.path)])
         }
@@ -325,6 +346,8 @@ private struct MapRow: View {
     let title: String
     let fraction: Double
     let flagged: Bool
+    /// Shows a "What is this?" button.
+    var explain: (() -> Void)?
 
     var body: some View {
         HStack(spacing: 12) {
@@ -347,6 +370,13 @@ private struct MapRow: View {
                 }
             }
             .frame(minWidth: 96, alignment: .trailing)
+            if let explain {
+                Button(action: explain) {
+                    Image(systemName: "sparkles")
+                }
+                .buttonStyle(.borderless)
+                .help("What is this folder?")
+            }
             Image(systemName: "chevron.right")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.tertiary)
@@ -368,6 +398,7 @@ private struct MapRow: View {
 
 private struct WorthRow: View {
     let node: MapNode
+    var selected = false
 
     var body: some View {
         HStack(spacing: 12) {
@@ -382,7 +413,12 @@ private struct WorthRow: View {
             }
             Spacer()
             Text(formatBytes(node.bytes)).fontWeight(.semibold).monospacedDigit()
-            Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+            Label("What is this?", systemImage: "sparkles")
+                .font(.caption.weight(.medium))
+                .foregroundStyle(selected ? Color.white : Color.accentColor)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(selected ? Color.accentColor : Color.accentColor.opacity(0.12), in: Capsule())
         }
         .padding(.vertical, 3)
         .contentShape(Rectangle())

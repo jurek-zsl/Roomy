@@ -29,6 +29,9 @@ final class FakeEngine: CleanEngine, @unchecked Sendable {
         return try next.get()
     }
 
+    var clues: FolderClues = sampleClues()
+    func inspect(path: String) async throws -> FolderClues { clues }
+
     func map() async throws -> DiskMap {
         let r = lock.withLock { mapCount += 1; return mapResult }
         return try r.get()
@@ -284,4 +287,82 @@ func diskMap(cleanable: Int64 = 40) -> DiskMap {
     store.trashInstead = true
     #expect(store.method(for: gc) == .command("git -C /h/app gc --quiet"))
     #expect(store.method(for: plain) == .trash)
+}
+
+
+func sampleClues(path: String = "/h/Library/Application Support/OldApp", installed: Bool = false) -> FolderClues {
+    FolderClues(path: path, name: "OldApp", bytes: 2_000, files: 3, folders: 1, newestDays: 200,
+                types: [TypeShare(ext: "bin", bytes: 1_900, files: 2)],
+                biggest: [FolderItem(name: "Cache", bytes: 1_900, folder: true)],
+                owner: FolderOwner(name: "OldApp", kind: "app", installed: installed, running: false),
+                markers: ["It has cache or temp folders inside: Cache."])
+}
+
+final class FakeAdvisor: FolderAdvisor, @unchecked Sendable {
+    let name = "Fake AI"
+    var current: AdvisorStatus
+    var advice: FolderAdvice
+    private(set) var calls = 0
+    init(status: AdvisorStatus = .ready, advice: FolderAdvice = FolderAdvice(
+        summary: "Leftover cache of OldApp.", kind: .leftover, regrows: .no, verdict: .review, why: "OldApp isn't installed.")) {
+        current = status
+        self.advice = advice
+    }
+    func status() -> AdvisorStatus { current }
+    func advise(_ clues: FolderClues) async throws -> FolderAdvice {
+        calls += 1
+        return AdvisorPrompt.guarded(advice, clues)
+    }
+}
+
+func tempRules() -> UserRules {
+    UserRules(file: FileManager.default.temporaryDirectory.appending(path: "roomy-\(UUID().uuidString)/rules.toml"), home: "/h")
+}
+
+@MainActor @Test func explainShowsCluesAndAdvice() async {
+    let advisor = FakeAdvisor()
+    let store = CleanerStore(engine: FakeEngine(scans: [.success(scanResult([a]))]), defaults: freshDefaults(),
+                             advisor: advisor, userRules: tempRules())
+    let path = "/h/Library/Application Support/OldApp"
+    await store.explain(path)
+    guard case .ready(let clues, let advice) = store.insights[path] else { Issue.record("no insight"); return }
+    #expect(clues.owner?.name == "OldApp")
+    #expect(advice?.verdict == .review)
+    #expect(advisor.calls == 1)
+    await store.explain(path)
+    #expect(advisor.calls == 1, "answers are kept, not asked again")
+}
+
+@MainActor @Test func explainWithoutAppleIntelligenceStillShowsClues() async {
+    let advisor = FakeAdvisor(status: .notEnabled)
+    let store = CleanerStore(engine: FakeEngine(scans: [.success(scanResult([a]))]), defaults: freshDefaults(),
+                             advisor: advisor, userRules: tempRules())
+    await store.explain("/h/x")
+    guard case .ready(let clues, let advice) = store.insights["/h/x"] else { Issue.record("no insight"); return }
+    #expect(clues.name == "OldApp")
+    #expect(advice == nil)
+    #expect(advisor.calls == 0)
+    #expect(store.advisorStatus == .notEnabled)
+}
+
+@MainActor @Test func acceptingAddsAReviewRuleAndRescans() async throws {
+    let engine = FakeEngine(scans: [.success(scanResult([a]))])
+    engine.mapResult = .success(diskMap())
+    let rules = tempRules()
+    let store = CleanerStore(engine: engine, defaults: freshDefaults(), advisor: FakeAdvisor(), userRules: rules)
+    await store.loadMap()
+    let path = "/h/Library/Application Support/OldApp"
+    await store.explain(path)
+    let before = engine.scanCount
+    await store.acceptSuggestion(path)
+    #expect(rules.contains(path))
+    #expect(store.isAccepted(path))
+    #expect(engine.scanCount == before + 1)
+    #expect(store.mapIsStale)
+    let text = try String(contentsOf: rules.file, encoding: .utf8)
+    #expect(text.contains("risk = \"review\""))
+    #expect(text.contains("Apple Intelligence") == false, "named after the advisor in use")
+    #expect(text.contains("Fake AI"))
+    await store.removeSuggestion(path)
+    #expect(!rules.contains(path))
 }

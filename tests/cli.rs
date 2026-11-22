@@ -77,3 +77,46 @@ fn json_map_shows_folders_and_what_can_be_freed() {
     assert_eq!(bun["cleanable"], bun["children"][0]["cleanable"]);
     assert_eq!(v["roots"].as_array().unwrap().len(), 2, "home and the apps folder only, in tests");
 }
+
+#[test]
+fn json_inspect_gives_clues() {
+    let home = tempfile::tempdir().unwrap();
+    let h = home.path().to_str().unwrap();
+    let dir = format!("{h}/Library/Application Support/OldApp");
+    std::fs::create_dir_all(format!("{dir}/Cache")).unwrap();
+    std::fs::write(format!("{dir}/Cache/x.bin"), vec![1u8; 10_000]).unwrap();
+    let out = Command::new(env!("CARGO_BIN_EXE_roomy"))
+        .args(["inspect", "--json", &dir])
+        .env("HOME", h)
+        .env("ROOMY_APPS_DIR", format!("{h}/Applications"))
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(v["name"], "OldApp");
+    assert_eq!(v["owner"]["name"], "OldApp");
+    assert_eq!(v["owner"]["installed"], false, "an app that is missing");
+    assert_eq!(v["biggest"][0]["name"], "Cache");
+    let bad = Command::new(env!("CARGO_BIN_EXE_roomy")).args(["inspect", "--json", "/nonexistent"]).output().unwrap();
+    assert!(!bad.status.success());
+}
+
+#[test]
+fn map_uses_extra_rules() {
+    let home = tempfile::tempdir().unwrap();
+    let h = home.path().to_str().unwrap();
+    std::fs::create_dir_all(format!("{h}/stuff/junk")).unwrap();
+    std::fs::write(format!("{h}/stuff/junk/x"), vec![1u8; 60_000_000]).unwrap();
+    let rules = format!("{h}/rules.toml");
+    std::fs::write(&rules, "[[rule]]\nid = \"user-junk\"\ncategory = \"ai\"\nrisk = \"review\"\nexplain = \"e\"\nmatch = { path = \"~/stuff/junk\" }\n").unwrap();
+    let out = Command::new(env!("CARGO_BIN_EXE_roomy"))
+        .args(["map", "--json", "--rules", &rules])
+        .env("HOME", h)
+        .env("TMPDIR", h)
+        .env("ROOMY_APPS_DIR", format!("{h}/Applications"))
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert!(v["cleanable_bytes"].as_u64().unwrap() >= 60_000_000, "{}", v["cleanable_bytes"]);
+}

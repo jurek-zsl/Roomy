@@ -54,6 +54,7 @@ struct CategoryStyle {
         case "xcode": (symbol, tint) = ("iphone", .blue)
         case "download": (symbol, tint) = ("arrow.down.circle.fill", .cyan)
         case "browser": (symbol, tint) = ("globe", .blue)
+        case "ai": (symbol, tint) = ("sparkles", .purple)
         default: (symbol, tint) = ("folder.fill", .gray)
         }
     }

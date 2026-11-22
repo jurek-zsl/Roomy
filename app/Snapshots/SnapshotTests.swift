@@ -37,6 +37,14 @@ final class FixtureEngine: CleanEngine, @unchecked Sendable {
         result = try ScanResult.decode(Data(contentsOf: url))
     }
     func scan() async throws -> ScanResult { result }
+    func inspect(path: String) async throws -> FolderClues {
+        FolderClues(path: path, name: "huggingface", bytes: 4_100_000_000, files: 212, folders: 40, newestDays: 96,
+                    types: [TypeShare(ext: "safetensors", bytes: 3_800_000_000, files: 9), TypeShare(ext: "json", bytes: 2_000_000, files: 60)],
+                    biggest: [FolderItem(name: "hub", bytes: 4_000_000_000, folder: true), FolderItem(name: "xet", bytes: 90_000_000, folder: true)],
+                    owner: FolderOwner(name: "huggingface", kind: "tool", installed: nil, running: false),
+                    markers: ["93% of it is AI model weight files (.safetensors, .gguf, .bin, ...); they download again when needed."])
+    }
+
     func map() async throws -> DiskMap {
         let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appending(path: "map.json")
         return try DiskMap.decode(Data(contentsOf: url))
@@ -75,4 +83,27 @@ func scannedStore() async throws -> CleanerStore {
     s.skipped = [SummaryLine(name: "uv Python cache", path: "/Users/you/.cache/uv", reason: "another program is using it (lock held)")]
     store.summary = s
     try Snap.render("summary", SummarySheet(summary: s).environment(store), size: CGSize(width: 460, height: 380))
+}
+
+
+struct SnapAdvisor: FolderAdvisor {
+    let name = "Apple Intelligence"
+    let current: AdvisorStatus
+    func status() -> AdvisorStatus { current }
+    func advise(_ clues: FolderClues) async throws -> FolderAdvice {
+        FolderAdvice(summary: "Downloaded AI models from Hugging Face, kept so Python tools don't fetch them again.",
+                     kind: .aiModels, regrows: .yes, verdict: .review,
+                     why: "Nothing used them for 96 days, and they download again when a tool needs them.")
+    }
+}
+
+@MainActor @Test func snapshotInsight() async throws {
+    let node = MapNode(path: "/Users/you/.cache/huggingface", name: "huggingface", kind: .folder, bytes: 4_100_000_000, cleanable: 0, children: [])
+    for (status, file) in [(AdvisorStatus.ready, "insight"), (.notEnabled, "insight-no-ai")] {
+        let d = UserDefaults(suiteName: "snap-\(UUID().uuidString)")!
+        let store = CleanerStore(engine: try FixtureEngine(), defaults: d, advisor: SnapAdvisor(current: status),
+                                 userRules: UserRules(file: FileManager.default.temporaryDirectory.appending(path: "snap-\(UUID())/r.toml"), home: "/Users/you"))
+        await store.explain(node.path)
+        try Snap.render(file, FolderInsightView(node: node).environment(store), size: CGSize(width: 340, height: 720))
+    }
 }

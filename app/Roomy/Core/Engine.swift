@@ -6,6 +6,8 @@ protocol CleanEngine: Sendable {
     func scan() async throws -> ScanResult
     /// Where the disk space goes (`map --json`). Read-only; takes up to a minute.
     func map() async throws -> DiskMap
+    /// Clues about one folder (`inspect --json`). Read-only.
+    func inspect(path: String) async throws -> FolderClues
     func clean(paths: [String], trash: Bool) -> AsyncThrowingStream<CleanEvent, Error>
 }
 
@@ -13,23 +15,34 @@ protocol CleanEngine: Sendable {
 /// directly (no shell), so paths with spaces or quotes are safe.
 struct Engine: CleanEngine {
     let binary: URL
+    /// Your accepted Review rules, added to the built-in ones when the file exists.
+    var rulesFile: URL?
+
+    private var extraRules: [String] {
+        guard let f = rulesFile, FileManager.default.fileExists(atPath: f.path) else { return [] }
+        return ["--rules", f.path]
+    }
 
     /// The engine inside the app, or `ROOMY_ENGINE` if set.
     static func bundled() -> Engine {
         if let p = ProcessInfo.processInfo.environment["ROOMY_ENGINE"], !p.isEmpty {
-            return Engine(binary: URL(fileURLWithPath: p))
+            return Engine(binary: URL(fileURLWithPath: p), rulesFile: UserRules.standard.file)
         }
         let url = Bundle.main.url(forAuxiliaryExecutable: "roomy-engine")
             ?? Bundle.main.bundleURL.appending(path: "Contents/MacOS/roomy-engine")
-        return Engine(binary: url)
+        return Engine(binary: url, rulesFile: UserRules.standard.file)
     }
 
     func scan() async throws -> ScanResult {
-        try await Engine.json(binary, ["scan", "--json"], ScanResult.decode)
+        try await Engine.json(binary, ["scan", "--json"] + extraRules, ScanResult.decode)
     }
 
     func map() async throws -> DiskMap {
-        try await Engine.json(binary, ["map", "--json"], DiskMap.decode)
+        try await Engine.json(binary, ["map", "--json"] + extraRules, DiskMap.decode)
+    }
+
+    func inspect(path: String) async throws -> FolderClues {
+        try await Engine.json(binary, ["inspect", "--json", path], FolderClues.decode)
     }
 
     /// Run the engine once and decode what it prints. Blocking reads run on
@@ -59,7 +72,7 @@ struct Engine: CleanEngine {
     /// never blocks on a full pipe in the middle of cleaning.
     func clean(paths: [String], trash: Bool) -> AsyncThrowingStream<CleanEvent, Error> {
         let binary = binary
-        let args = ["clean", "--json"] + (trash ? ["--trash"] : []) + ["--"] + paths
+        let args = ["clean", "--json"] + extraRules + (trash ? ["--trash"] : []) + ["--"] + paths
         return AsyncThrowingStream { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
                 do {
