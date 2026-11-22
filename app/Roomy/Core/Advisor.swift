@@ -105,9 +105,14 @@ protocol FolderAdvisor: Sendable {
     func status() -> AdvisorStatus
     func statusMessage(_ status: AdvisorStatus) -> String
     func advise(_ clues: FolderClues) async throws -> FolderAdvice
+    /// Ask anything with a JSON schema (the whole-disk AI scan).
+    func request(system: String, prompt: String, schema: String, timeout: TimeInterval) async throws -> Data
 }
 
 extension FolderAdvisor {
+    func request(system: String, prompt: String, schema: String, timeout: TimeInterval) async throws -> Data {
+        throw EngineError.failed("\(name) can't scan the whole disk.")
+    }
     var id: String { name }
     var sendsOffMac: Bool { false }
     func statusMessage(_ status: AdvisorStatus) -> String { status.message }

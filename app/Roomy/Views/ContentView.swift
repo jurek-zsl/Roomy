@@ -1,12 +1,13 @@
 import SwiftUI
 
 enum MainTab: String, CaseIterable {
-    case clean, space
+    case clean, space, ai
 
     var title: String {
         switch self {
         case .clean: "Clean"
         case .space: "Space Map"
+        case .ai: "AI Scan"
         }
     }
 }
@@ -22,6 +23,8 @@ struct ContentView: View {
         Group {
             if store.hasSeenIntro && tab == .space {
                 SpaceMapView()
+            } else if store.hasSeenIntro && tab == .ai {
+                AIScanView(goToClean: { tab = .clean })
             } else {
                 content
             }
@@ -34,7 +37,7 @@ struct ContentView: View {
                             ForEach(MainTab.allCases, id: \.self) { Text($0.title).tag($0) }
                         }
                         .pickerStyle(.segmented)
-                        .frame(width: 220)
+                        .frame(width: 320)
                     }
                 }
                 ToolbarItem(placement: .primaryAction) {
@@ -44,7 +47,7 @@ struct ContentView: View {
                     .help("Settings (⌘,)")
                 }
                 ToolbarItem(placement: .primaryAction) {
-                    if tab == .space && store.hasSeenIntro {
+                    if tab != .clean && store.hasSeenIntro {
                         Button {
                             Task { await store.loadMap() }
                         } label: {

@@ -312,6 +312,11 @@ final class FakeAdvisor: FolderAdvisor, @unchecked Sendable {
         self.advice = advice
     }
     func status() -> AdvisorStatus { current }
+    var scanReply: Data?
+    func request(system: String, prompt: String, schema: String, timeout: TimeInterval) async throws -> Data {
+        guard let scanReply else { throw EngineError.failed("no reply") }
+        return scanReply
+    }
     func advise(_ clues: FolderClues) async throws -> FolderAdvice {
         calls += 1
         return AdvisorPrompt.guarded(advice, clues)
@@ -410,4 +415,28 @@ func tempRules() -> UserRules {
     let map = DiskMap(totalBytes: 10_000, usedBytes: 9_500, freeBytes: 500, mappedBytes: 9_000, cleanableBytes: 0, elapsedMs: 1, roots: [root])
     #expect(map.places.map(\.path) == ["/Users", "/private"])
     #expect(map.unexplained(min: 1_000).map(\.path) == ["/Users/me/.cache/x"], "macOS swap isn't worth a look")
+}
+
+@MainActor @Test func aiScanChecksEverySuggestion() async throws {
+    let advisor = FakeAdvisor()
+    advisor.scanReply = Data(#"""
+    {"overview":"Most space is in caches.","suggestions":[
+      {"path":"/h/Library/Application Support/OldApp","what":"OldApp's cache.","kind":"cache","regrows":"yes"}]}
+    """#.utf8)
+    let engine = FakeEngine(scans: [.success(scanResult([a])), .success(scanResult([a]))])
+    engine.mapResult = .success(DiskMap(totalBytes: 10, usedBytes: 9, freeBytes: 1, mappedBytes: 9, cleanableBytes: 0, elapsedMs: 1, roots: [
+        MapNode(path: "/h", name: "/h", kind: .folder, bytes: 9, cleanable: 0, children: [
+            MapNode(path: "/h/Library/Application Support/OldApp", name: "OldApp", kind: .folder, bytes: 9, cleanable: 0, children: [])])]))
+    let rules = tempRules()
+    let store = CleanerStore(engine: engine, defaults: freshDefaults(), advisors: [advisor], userRules: rules)
+    #expect(store.aiScanPreview == nil, "no map yet")
+    await store.runAIScan()
+    #expect(store.aiScanState == .ready)
+    let s = try #require(store.aiScan?.suggestions.first)
+    #expect(s.advice.verdict == .review)
+    #expect(store.aiScan?.overview == "Most space is in caches.")
+    #expect(store.aiSelected == [s.path], "what Roomy agrees with starts ticked")
+    await store.addAISuggestions()
+    #expect(rules.contains(s.path))
+    #expect(store.isAccepted(s.path))
 }

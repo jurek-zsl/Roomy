@@ -170,8 +170,12 @@ struct CLIAdvisor: FolderAdvisor {
 
     /// Ask anything with a JSON schema; returns the structured answer.
     func request(system: String, prompt: String, schema: String) async throws -> Data {
+        try await request(system: system, prompt: prompt, schema: schema, timeout: timeout)
+    }
+
+    func request(system: String, prompt: String, schema: String, timeout: TimeInterval) async throws -> Data {
         guard let binary else { throw EngineError.failed(statusMessage(.notInstalled)) }
-        let tool = tool, timeout = timeout
+        let tool = tool
         return try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Data, Error>) in
             DispatchQueue.global().async {
                 cont.resume(with: Result {

@@ -79,6 +79,22 @@ final class CleanerStore {
         }
     }
     var advisor: any FolderAdvisor { advisors.first { $0.id == advisorID } ?? advisors[0] }
+    enum AIScanState: Equatable {
+        case idle
+        case working(String)
+        case ready
+        case failed(String)
+    }
+
+    private(set) var aiScanState: AIScanState = .idle
+    private(set) var aiScan: AIScanResult?
+    /// Suggestions ticked to add to Review.
+    var aiSelected: Set<String> = []
+    /// Send the contents of Documents, Desktop and media folders too.
+    var aiScanIncludesPersonal: Bool {
+        didSet { defaults.set(aiScanIncludesPersonal, forKey: Keys.aiPersonal) }
+    }
+
     /// Folders waiting for an answer from the advisor.
     private(set) var asking: Set<String> = []
     @ObservationIgnored let userRules: UserRules
@@ -110,6 +126,7 @@ final class CleanerStore {
         static let lowSpace = "lowSpaceAlerts"
         static let lastAlert = "lastLowSpaceAlert"
         static let advisor = "advisor"
+        static let aiPersonal = "aiScanIncludesPersonal"
     }
 
     /// Ticks the user changed, by path. A choice counts only while the item
@@ -133,6 +150,7 @@ final class CleanerStore {
         trashInstead = defaults.bool(forKey: Keys.trash)
         hasSeenIntro = defaults.bool(forKey: Keys.intro)
         lowSpaceAlerts = defaults.bool(forKey: Keys.lowSpace)
+        aiScanIncludesPersonal = defaults.bool(forKey: Keys.aiPersonal)
     }
 
     var storage: StorageBreakdown? {
@@ -320,6 +338,74 @@ final class CleanerStore {
     func removeSuggestion(_ path: String) async {
         try? userRules.remove(path)
         accepted.remove(path)
+        if diskMap != nil { mapIsStale = true }
+        await scan()
+    }
+
+    // MARK: AI scan
+
+    /// Exactly what the AI scan sends, once there's a map.
+    var aiScanPreview: String? {
+        guard let map = diskMap else { return nil }
+        return AIScanPrompt.outline(map, home: userRules.home, includePersonal: aiScanIncludesPersonal,
+                                    apps: AIScanPrompt.installedApps(home: userRules.home))
+    }
+
+    /// Map the disk if needed, let the AI read all of it in one request,
+    /// then check each folder it names the same way as "What is this?".
+    func runAIScan() async {
+        if case .working = aiScanState { return }
+        aiScanState = .working("Mapping the disk…")
+        // Use the map whose text you were shown; map only if there is none yet.
+        if diskMap == nil { await loadMap() }
+        guard diskMap != nil, let prompt = aiScanPreview, let map = diskMap else {
+            aiScanState = .failed("Roomy couldn't map the disk, so there's nothing to send.")
+            return
+        }
+        let advisor = advisor
+        aiScanState = .working("\(advisor.name) is reading the map…")
+        do {
+            let data = try await advisor.request(system: AIScanPrompt.instructions, prompt: prompt,
+                                                 schema: AIScanPrompt.schema, timeout: 600)
+            let reply = try JSONDecoder().decode(AIScanReply.self, from: data)
+            aiScanState = .working("Checking each folder…")
+            var found: [AISuggestion] = []
+            for (node, item) in AIScanPrompt.validate(reply, map: map, home: userRules.home) {
+                let advice: FolderAdvice
+                if let clues = try? await engine.inspect(path: node.path) {
+                    advice = AdvisorPrompt.advice(summary: item.what, kind: item.kind, regrows: item.regrows,
+                                                  clues: clues, home: userRules.home)
+                } else {
+                    advice = FolderAdvice(summary: item.what, kind: item.kind, regrows: item.regrows, verdict: .keep,
+                                          why: "Roomy couldn't look inside it, so it stays.", override: nil)
+                }
+                let name = node.kind == .bundle ? (node.name as NSString).deletingPathExtension : node.name
+                found.append(AISuggestion(path: node.path, name: name, bytes: node.bytes, advice: advice))
+            }
+            aiScan = AIScanResult(overview: reply.overview, suggestions: found, advisor: advisor.name, date: .now)
+            aiSelected = Set(found.filter { $0.advice.verdict == .review && !isAccepted($0.path) }.map(\.path))
+            aiScanState = .ready
+        } catch {
+            aiScanState = .failed(error.localizedDescription)
+        }
+    }
+
+    /// Add the ticked suggestions as rules: they show up under Review first
+    /// and go through every check, your confirmation and the Trash.
+    func addAISuggestions() async {
+        guard let result = aiScan else { return }
+        let picked = result.suggestions.filter { aiSelected.contains($0.path) }
+        guard !picked.isEmpty else { return }
+        do {
+            for s in picked {
+                let explain = "\(s.advice.summary) \(s.advice.why) (Suggested by \(result.advisor) in an AI scan; you agreed to review it.)"
+                try userRules.add(path: s.path, name: s.name, explain: explain)
+                accepted.insert(s.path)
+            }
+        } catch {
+            aiScanState = .failed("Couldn't save the rules: \(error.localizedDescription)")
+        }
+        aiSelected = []
         if diskMap != nil { mapIsStale = true }
         await scan()
     }
