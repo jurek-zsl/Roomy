@@ -316,7 +316,7 @@ The `Snapshots` scheme renders every screen, light and dark, to `app/build/snaps
 Roomy knows the folders on the Macs it was tested on. Every Mac has different apps, so the best way to fill the gaps is to let an AI agent look at yours and send what it finds back. Paste this into Claude Code, Codex, Gemini or any agent that can run commands:
 
 ```text
-You're helping improve Roomy, an open-source Mac cleaner (https://github.com/jurek-zsl/Roomy).
+You're helping improve Roomy, a Mac cleaner whose code is on GitHub (https://github.com/jurek-zsl/Roomy).
 Roomy ships a list of known folders in rules/known.toml. Find big folders on this Mac
 that the list doesn't know yet, and add them. Don't delete or change anything on this Mac.
 
