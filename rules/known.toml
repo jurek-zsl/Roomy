@@ -1,0 +1,3330 @@
+# Roomy's known folders.
+#
+# What the big folders on a Mac are, so Roomy can explain them at once,
+# offline, without an AI. Add your own in
+# ~/Library/Application Support/Roomy/known.toml (yours win).
+#
+#   path     a folder or a list of them. ~ is your home; * matches inside
+#            one folder name, /**/ any number of folders.
+#   name     a short name
+#   owner    the app or tool it belongs to
+#   what     one or two plain sentences: what it is, whether it comes back
+#   kind     cache | appData | userFiles | buildOutput | aiModels |
+#            toolchain | installers | logs | system
+#   regrows  yes: it comes back by itself when it's needed
+#            no: it's gone for good (or you have to fetch it yourself)
+#            unsure
+#   how      the proper way to free it, if there is one
+#
+# Roomy decides from kind and regrows (caches, models and build output that
+# come back, logs and installers are worth reviewing; the rest is kept), and
+# its usual checks still apply: a running app, your own folders, databases.
+#
+# The first match wins, so specific folders come before general patterns.
+
+# ===========================================================================
+# macOS itself
+# ===========================================================================
+
+[[folder]]
+path = "/System/Library/AssetsV2/com_apple_MobileAsset_iOSSimulatorRuntime"
+name = "iOS Simulator runtimes"
+owner = "Xcode"
+what = "The iOS versions Xcode's Simulator runs, stored by macOS. They only come back if you download them again in Xcode."
+kind = "toolchain"
+regrows = "no"
+how = "Xcode > Settings > Components, or xcrun simctl runtime delete"
+
+[[folder]]
+path = ["/System/Library/AssetsV2/com_apple_MobileAsset_watchOSSimulatorRuntime", "/System/Library/AssetsV2/com_apple_MobileAsset_tvOSSimulatorRuntime", "/System/Library/AssetsV2/com_apple_MobileAsset_xrOSSimulatorRuntime", "/System/Library/AssetsV2/com_apple_MobileAsset_visionOSSimulatorRuntime"]
+name = "Simulator runtimes"
+owner = "Xcode"
+what = "watchOS, tvOS or visionOS versions for Xcode's Simulator. They only come back if you download them again in Xcode."
+kind = "toolchain"
+regrows = "no"
+how = "Xcode > Settings > Components, or xcrun simctl runtime delete"
+
+[[folder]]
+path = "/System/Library/AssetsV2/com_apple_MobileAsset_MetalToolchain"
+name = "Metal toolchain"
+owner = "Xcode"
+what = "The Metal shader compiler Xcode downloads. Xcode needs it to build apps with Metal shaders."
+kind = "toolchain"
+regrows = "no"
+how = "Xcode > Settings > Components"
+
+[[folder]]
+path = "/System/Library/AssetsV2/com_apple_MobileAsset_UAF_*"
+name = "Apple Intelligence and Siri models"
+owner = "macOS"
+what = "On-device models for Apple Intelligence, Siri, dictation, Photos and translation. macOS manages them and downloads them again if they're missing."
+kind = "system"
+regrows = "unsure"
+how = "Turn the feature off in System Settings; macOS then removes its models"
+
+[[folder]]
+path = "/System/Library/AssetsV2"
+name = "macOS downloaded assets"
+owner = "macOS"
+what = "Fonts, voices, models, simulator runtimes and other parts macOS downloads when a feature needs them. macOS manages this folder."
+kind = "system"
+regrows = "unsure"
+
+[[folder]]
+path = ["/System/Library/AssetsV2/*", "/System/Library/Assets"]
+name = "macOS asset"
+owner = "macOS"
+what = "A part macOS downloaded for one of its features, such as a voice, font, dictionary or model. macOS manages it."
+kind = "system"
+regrows = "unsure"
+
+[[folder]]
+path = "/System"
+name = "macOS"
+owner = "macOS"
+what = "macOS itself. It's on a sealed, read-only part of the disk."
+kind = "system"
+regrows = "no"
+
+[[folder]]
+path = ["/System/Library", "/System/Applications", "/System/iOSSupport", "/System/Cryptexes", "/System/DriverKit"]
+name = "macOS system files"
+owner = "macOS"
+what = "Part of macOS itself, on the sealed system volume."
+kind = "system"
+regrows = "no"
+
+[[folder]]
+path = "/private/var/vm"
+name = "Swap and sleep image"
+owner = "macOS"
+what = "Memory macOS moved to disk, and the copy of memory it keeps for sleep. macOS creates and removes these files itself."
+kind = "system"
+regrows = "yes"
+how = "Restart the Mac; macOS shrinks swap on its own"
+
+[[folder]]
+path = "/private/var/db/diagnostics"
+name = "System logs"
+owner = "macOS"
+what = "macOS's unified log. macOS removes old entries by itself after a few days."
+kind = "system"
+regrows = "yes"
+
+[[folder]]
+path = "/private/var/db/uuidtext"
+name = "Log symbol data"
+owner = "macOS"
+what = "Text macOS needs to read its own logs. macOS manages it together with the system log."
+kind = "system"
+regrows = "yes"
+
+[[folder]]
+path = "/private/var/db/oah"
+name = "Rosetta translations"
+owner = "macOS"
+what = "Intel apps that Rosetta already translated for Apple silicon. macOS translates them again when they're needed."
+kind = "system"
+regrows = "yes"
+
+[[folder]]
+path = ["/private/var/db/dyld", "/private/var/db/KernelExtensionManagement", "/private/var/db/SystemPolicyConfiguration", "/private/var/db/Spotlight-V100", "/private/var/db/receipts", "/private/var/db/com.apple.xpc.roleaccountd.staging"]
+name = "macOS database"
+owner = "macOS"
+what = "Data macOS keeps for itself: installed package receipts, security policy, Spotlight or system caches."
+kind = "system"
+regrows = "unsure"
+
+[[folder]]
+path = "/private/var/db"
+name = "macOS databases"
+owner = "macOS"
+what = "Data macOS keeps for itself: logs, security settings, Spotlight, package receipts. macOS manages it."
+kind = "system"
+regrows = "unsure"
+
+[[folder]]
+path = "/private/var/folders"
+name = "Temporary and cache files"
+owner = "macOS"
+what = "macOS's per-user temporary and cache folders. macOS clears them on its own, mostly when you restart."
+kind = "system"
+regrows = "yes"
+how = "Restart the Mac"
+
+[[folder]]
+path = "/private/var/folders/*/*/C/clang/ModuleCache"
+name = "Clang module cache"
+owner = "Xcode"
+what = "Compiled headers the Clang compiler keeps to build faster. It's made again on the next build."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["/private/var/folders/*/*/C/com.apple.DeveloperTools", "/private/var/folders/*/*/C/com.apple.dt.Xcode", "/private/var/folders/*/*/C/com.apple.dt.instruments"]
+name = "Xcode temporary cache"
+owner = "Xcode"
+what = "Caches Xcode and its tools keep in macOS's temporary folder. They're made again when needed."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = "/private/var/folders/*/*/C/org.blenderfoundation.blender"
+name = "Blender shader cache"
+owner = "Blender"
+what = "Shaders Blender compiled for your graphics card. Blender compiles them again when it starts."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = "/private/var/folders/*/*/C"
+name = "App caches (system temp)"
+owner = "macOS"
+what = "Caches apps keep in macOS's per-user temporary folder. macOS clears it on its own; apps rebuild what they need."
+kind = "system"
+regrows = "yes"
+how = "Restart the Mac"
+
+[[folder]]
+path = "/private/var/folders/*/*/T"
+name = "Temporary files"
+owner = "macOS"
+what = "Temporary files apps made while working. macOS clears them on its own, mostly at restart."
+kind = "system"
+regrows = "yes"
+how = "Restart the Mac"
+
+[[folder]]
+path = "/private/var/folders/*/*/X"
+name = "Code signing clones"
+owner = "macOS"
+what = "Temporary copies macOS makes to check app signatures. macOS removes them by itself."
+kind = "system"
+regrows = "yes"
+
+[[folder]]
+path = "/private/var/folders/*/*"
+name = "Your temporary folder"
+owner = "macOS"
+what = "macOS's temporary and cache folder for one user. macOS clears it on its own."
+kind = "system"
+regrows = "yes"
+how = "Restart the Mac"
+
+[[folder]]
+path = "/private/var/log"
+name = "System log files"
+owner = "macOS"
+what = "Older text logs of macOS and installed services. macOS rotates and removes them itself."
+kind = "logs"
+regrows = "yes"
+
+[[folder]]
+path = ["/private/var/tmp", "/private/tmp"]
+name = "Shared temporary files"
+owner = "macOS"
+what = "Temporary files apps and tools left. macOS removes old ones, and restarting clears /private/tmp."
+kind = "system"
+regrows = "yes"
+
+[[folder]]
+path = "/private/var/tmp/_bazel_*"
+name = "Bazel output"
+owner = "Bazel"
+what = "Bazel's build outputs and caches. Bazel builds them again."
+kind = "buildOutput"
+regrows = "yes"
+how = "bazel clean --expunge"
+
+[[folder]]
+path = ["/private/var", "/private"]
+name = "macOS data"
+owner = "macOS"
+what = "Data macOS keeps for itself: swap, logs, temporary files and databases."
+kind = "system"
+regrows = "unsure"
+
+[[folder]]
+path = ["/private/var/protected", "/private/var/root", "/private/var/networkd", "/private/var/MobileSoftwareUpdate", "/private/var/sntpd", "/private/var/spool"]
+name = "macOS service data"
+owner = "macOS"
+what = "Data one of macOS's own services keeps."
+kind = "system"
+regrows = "unsure"
+
+[[folder]]
+path = "/usr"
+name = "Unix system files"
+owner = "macOS"
+what = "Command-line tools and libraries. /usr/local is where some installers put their files."
+kind = "system"
+regrows = "no"
+
+[[folder]]
+path = ["/bin", "/sbin", "/usr/bin", "/usr/sbin", "/usr/lib", "/usr/libexec", "/usr/share", "/cores", "/Library/Apple", "/Library/Extensions", "/Library/Frameworks"]
+name = "System files"
+owner = "macOS"
+what = "Part of macOS or of apps that installed system parts."
+kind = "system"
+regrows = "no"
+
+[[folder]]
+path = "/Library/Updates"
+name = "Downloaded macOS updates"
+owner = "macOS"
+what = "Updates macOS downloaded and hasn't installed yet. Software Update downloads them again."
+kind = "installers"
+regrows = "yes"
+
+[[folder]]
+path = "/Library/Application Support/com.apple.idleassetsd"
+name = "Aerial wallpapers"
+owner = "macOS"
+what = "The moving aerial wallpapers and screen savers macOS downloaded. It downloads one again when you pick it."
+kind = "cache"
+regrows = "yes"
+how = "Pick a different wallpaper, then remove the videos in Customer"
+
+[[folder]]
+path = "/Library/Application Support/com.apple.idleassetsd/Customer"
+name = "Aerial wallpaper videos"
+owner = "macOS"
+what = "Downloaded aerial wallpaper and screen saver videos. macOS downloads the one you use again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = "/Library/Audio/Apple Loops"
+name = "Apple Loops"
+owner = "GarageBand and Logic"
+what = "The sound library GarageBand and Logic Pro downloaded. You can download it again from the app."
+kind = "cache"
+regrows = "unsure"
+how = "Remove sounds in GarageBand or Logic: Sound Library > Reinstall or remove"
+
+[[folder]]
+path = ["/Library/Application Support/GarageBand", "/Library/Application Support/Logic"]
+name = "GarageBand and Logic sounds"
+owner = "GarageBand and Logic"
+what = "Instruments and sound packs for GarageBand or Logic Pro. You can download them again from the app."
+kind = "cache"
+regrows = "unsure"
+how = "In the app: Sound Library > Reinstall or remove"
+
+[[folder]]
+path = "/Library/Caches"
+name = "Shared caches"
+owner = "macOS"
+what = "Caches macOS and installed apps share between users. They're made again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = "/Library/Logs"
+name = "Shared logs"
+owner = "macOS"
+what = "Logs and crash reports from macOS and installed apps. Nothing needs them to run."
+kind = "logs"
+regrows = "yes"
+
+[[folder]]
+path = "/Library/Developer/CommandLineTools"
+name = "Command Line Tools"
+owner = "Xcode"
+what = "Apple's compilers, git and SDKs for the command line. Homebrew and many developer tools need them."
+kind = "toolchain"
+regrows = "no"
+how = "xcode-select --install puts them back"
+
+[[folder]]
+path = "/Library/Developer/CommandLineTools/SDKs"
+name = "macOS SDKs"
+owner = "Xcode"
+what = "macOS SDKs for the command-line compilers. Old versions stay when the tools update."
+kind = "toolchain"
+regrows = "no"
+
+[[folder]]
+path = ["/Library/Developer/CoreSimulator/Volumes", "/Library/Developer/CoreSimulator/Images", "/Library/Developer/CoreSimulator/Cryptex"]
+name = "Simulator runtimes"
+owner = "Xcode"
+what = "Disk images with the iOS, watchOS or visionOS versions the Simulator runs. They come back only if you download them in Xcode."
+kind = "toolchain"
+regrows = "no"
+how = "Xcode > Settings > Components, or xcrun simctl runtime delete"
+
+[[folder]]
+path = "/Library/Developer/CoreSimulator/Profiles/Runtimes"
+name = "Simulator runtimes (old style)"
+owner = "Xcode"
+what = "Simulator runtimes installed the older way. You can download them again in Xcode."
+kind = "toolchain"
+regrows = "no"
+how = "Xcode > Settings > Components"
+
+[[folder]]
+path = "/Library/Developer"
+name = "Developer tools"
+owner = "Xcode"
+what = "Apple's command-line tools and Simulator runtimes, shared by all users."
+kind = "toolchain"
+regrows = "no"
+
+[[folder]]
+path = ["/Library/Java/JavaVirtualMachines", "/Library/Java"]
+name = "Java installations"
+owner = "Java"
+what = "Installed Java versions (JDKs). Apps and tools built on Java need the one they use."
+kind = "toolchain"
+regrows = "no"
+
+[[folder]]
+path = "/Library/Printers"
+name = "Printer drivers"
+owner = "macOS"
+what = "Drivers for printers and scanners. macOS downloads the one a printer needs when you add it."
+kind = "toolchain"
+regrows = "yes"
+
+[[folder]]
+path = "/Library/Fonts"
+name = "Installed fonts"
+owner = "macOS"
+what = "Fonts installed for all users."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = "/Library/Application Support/Apple"
+name = "Apple apps data"
+owner = "macOS"
+what = "Shared data for Apple apps and macOS features."
+kind = "system"
+regrows = "unsure"
+
+[[folder]]
+path = "/Library/Application Support/Microsoft/MAU2.0"
+name = "Microsoft AutoUpdate"
+owner = "Microsoft Office"
+what = "Microsoft AutoUpdate and its downloaded Office updates."
+kind = "installers"
+regrows = "yes"
+
+[[folder]]
+path = "/Library/Application Support/Adobe"
+name = "Adobe shared data"
+owner = "Adobe"
+what = "Shared parts of Adobe apps, such as Creative Cloud, licensing and common libraries."
+kind = "appData"
+regrows = "no"
+how = "Uninstall Adobe apps with the Creative Cloud app"
+
+[[folder]]
+path = "/Users/Shared/Epic Games"
+name = "Unreal Engine and Epic games"
+owner = "Epic Games"
+what = "Unreal Engine versions and games installed through the Epic Games Launcher."
+kind = "toolchain"
+regrows = "no"
+how = "Uninstall from the Epic Games Launcher"
+
+[[folder]]
+path = "/Users/Shared/Battle.net"
+name = "Battle.net games"
+owner = "Battle.net"
+what = "Blizzard games and the Battle.net app's shared files."
+kind = "appData"
+regrows = "no"
+how = "Uninstall games in the Battle.net app"
+
+[[folder]]
+path = "/Users/Shared"
+name = "Shared folder"
+owner = "macOS"
+what = "Files every user on this Mac can see. Some apps install content here."
+kind = "userFiles"
+regrows = "no"
+
+[[folder]]
+path = "/Users"
+name = "Users"
+owner = "macOS"
+what = "Every user's home folder."
+kind = "userFiles"
+regrows = "no"
+
+[[folder]]
+path = "/Applications"
+name = "Applications"
+owner = "macOS"
+what = "Your apps. Remove one by moving it to the Trash, or with its own uninstaller."
+kind = "toolchain"
+regrows = "no"
+
+[[folder]]
+path = "/Library"
+name = "Shared library"
+owner = "macOS"
+what = "Settings, drivers, fonts and support files shared by all users and apps."
+kind = "system"
+regrows = "no"
+
+[[folder]]
+path = "/opt"
+name = "Optional software"
+owner = "macOS"
+what = "Where Homebrew and some other tools install software."
+kind = "toolchain"
+regrows = "no"
+
+# ===========================================================================
+# Your home: what's yours, and what macOS keeps for you
+# ===========================================================================
+
+[[folder]]
+path = ["~/Documents", "~/Desktop", "~/Movies", "~/Pictures", "~/Music", "~/Public"]
+name = "Your files"
+owner = "You"
+what = "One of your own folders. Roomy never suggests removing what you made."
+kind = "userFiles"
+regrows = "no"
+
+[[folder]]
+path = "~/Downloads"
+name = "Downloads"
+owner = "You"
+what = "Files you downloaded. Old installers and archives here are often safe to remove once used."
+kind = "userFiles"
+regrows = "no"
+
+[[folder]]
+path = "~/.Trash"
+name = "Trash"
+owner = "macOS"
+what = "Files you moved to the Trash. They're gone for good once you empty it."
+kind = "userFiles"
+regrows = "no"
+how = "Empty the Trash in Finder"
+
+[[folder]]
+path = ["~/Library/Mobile Documents", "~/Library/Mobile Documents/com~apple~CloudDocs"]
+name = "iCloud Drive"
+owner = "iCloud"
+what = "Your iCloud Drive files kept on this Mac. Turn on Optimize Mac Storage to keep only recent files here."
+kind = "userFiles"
+regrows = "no"
+how = "System Settings > Apple Account > iCloud > Optimize Mac Storage"
+
+[[folder]]
+path = "~/Library/Mobile Documents/*"
+name = "App files in iCloud"
+owner = "iCloud"
+what = "Documents an app keeps in iCloud Drive. They're your files, synced across your devices."
+kind = "userFiles"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/CloudStorage", "~/Library/CloudStorage/*"]
+name = "Cloud drive files"
+owner = "Cloud storage"
+what = "Files from Dropbox, Google Drive, OneDrive or Box kept on this Mac. Make them online-only in that app to free space."
+kind = "userFiles"
+regrows = "no"
+how = "In Finder, right-click > Remove Download, or set files to online-only"
+
+[[folder]]
+path = "~/Library/Mail"
+name = "Mail"
+owner = "Mail"
+what = "Your email and its attachments, downloaded by Mail. Mail downloads them again from the server, but only for accounts that keep mail there."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = "~/Library/Containers/com.apple.mail/Data/Library/Mail Downloads"
+name = "Mail attachment downloads"
+owner = "Mail"
+what = "Copies of attachments you opened from Mail. The originals stay in the emails."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = "~/Library/Messages"
+name = "Messages"
+owner = "Messages"
+what = "Your message history and its photos, videos and files."
+kind = "appData"
+regrows = "no"
+how = "Messages > Settings: keep messages for 1 year, or delete large attachments in System Settings > General > Storage"
+
+[[folder]]
+path = "~/Library/Messages/Attachments"
+name = "Messages attachments"
+owner = "Messages"
+what = "Photos, videos and files people sent you in Messages. Without Messages in iCloud they're only here."
+kind = "userFiles"
+regrows = "no"
+how = "System Settings > General > Storage > Messages"
+
+[[folder]]
+path = "~/Library/Application Support/MobileSync/Backup"
+name = "iPhone and iPad backups"
+owner = "Finder"
+what = "Backups of your iPhone or iPad made on this Mac. Old ones of devices you no longer have are often worth removing."
+kind = "userFiles"
+regrows = "no"
+how = "Finder > your device > Manage Backups"
+
+[[folder]]
+path = "~/Library/Application Support/MobileSync"
+name = "Device sync"
+owner = "Finder"
+what = "Backups and sync data for iPhones and iPads connected to this Mac."
+kind = "userFiles"
+regrows = "no"
+
+[[folder]]
+path = ["~/Pictures/Photos Library.photoslibrary", "~/Pictures/*.photoslibrary"]
+name = "Photos library"
+owner = "Photos"
+what = "Your Photos library. Turn on Optimize Mac Storage in Photos to keep smaller copies here."
+kind = "userFiles"
+regrows = "no"
+how = "Photos > Settings > iCloud > Optimize Mac Storage"
+
+[[folder]]
+path = "~/Music/Music"
+name = "Music library"
+owner = "Music"
+what = "Your music and the Music app's library."
+kind = "userFiles"
+regrows = "no"
+
+[[folder]]
+path = "~/Movies/TV"
+name = "TV app downloads"
+owner = "TV"
+what = "Films and shows you downloaded in the TV app. You can stream or download them again."
+kind = "userFiles"
+regrows = "no"
+how = "In the TV app, remove downloads"
+
+[[folder]]
+path = ["~/Movies/CacheClip", "~/Movies/.gallery", "~/Movies/ProxyMedia"]
+name = "Video editing cache"
+owner = "DaVinci Resolve"
+what = "Render cache and proxy media a video editor made. It's made again when needed."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = "~/Library/Containers/com.apple.podcasts"
+name = "Podcasts"
+owner = "Podcasts"
+what = "The Podcasts app and its downloaded episodes."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = "~/Library/Group Containers/243LU875E5.groups.com.apple.podcasts"
+name = "Podcast downloads"
+owner = "Podcasts"
+what = "Episodes the Podcasts app downloaded. You can stream or download them again."
+kind = "appData"
+regrows = "no"
+how = "Podcasts > Settings: remove played downloads"
+
+[[folder]]
+path = ["~/Library/Metadata/CoreSpotlight", "~/Library/Metadata"]
+name = "Spotlight index"
+owner = "macOS"
+what = "Spotlight's search index for your apps' content. macOS builds it again."
+kind = "system"
+regrows = "yes"
+
+[[folder]]
+path = ["~/Library/Biome", "~/Library/Suggestions", "~/Library/IntelligencePlatform", "~/Library/Trial", "~/Library/DuetExpertCenter", "~/Library/Assistant", "~/Library/PersonalizationPortrait"]
+name = "Siri and suggestions data"
+owner = "macOS"
+what = "What macOS learns for Siri, suggestions and Apple Intelligence. macOS manages it."
+kind = "system"
+regrows = "unsure"
+
+[[folder]]
+path = ["~/Library/Application Support/com.apple.wallpaper", "~/Library/Containers/com.apple.wallpaper.agent", "~/Library/Containers/com.apple.wallpaper.extension.aerials"]
+name = "Wallpapers"
+owner = "macOS"
+what = "Wallpapers and aerial videos macOS downloaded. It downloads the one you pick again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/Library/Application Support/AddressBook", "~/Library/Calendars", "~/Library/Reminders", "~/Library/Group Containers/group.com.apple.notes", "~/Library/Group Containers/group.com.apple.reminders", "~/Library/Containers/com.apple.Notes"]
+name = "Contacts, calendars, notes"
+owner = "macOS"
+what = "Your contacts, calendars, reminders or notes."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Safari", "~/Library/Containers/com.apple.Safari"]
+name = "Safari"
+owner = "Safari"
+what = "Safari's history, bookmarks, reading list and website data."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Caches/com.apple.Safari", "~/Library/Containers/com.apple.Safari/Data/Library/Caches"]
+name = "Safari cache"
+owner = "Safari"
+what = "Web pages and images Safari saved to load sites faster. It's made again as you browse."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = "~/Library/Containers/com.apple.mediaanalysisd"
+name = "Photo and video analysis"
+owner = "macOS"
+what = "What macOS learned about your photos and videos (faces, objects, text). macOS manages it."
+kind = "system"
+regrows = "unsure"
+
+[[folder]]
+path = ["~/Library/Containers/com.apple.Music", "~/Library/Caches/com.apple.Music"]
+name = "Music app cache"
+owner = "Music"
+what = "Artwork and streaming cache of the Music app. It's made again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = "~/Library/Containers/com.apple.iWork.Keynote"
+name = "Keynote"
+owner = "Keynote"
+what = "Keynote's settings, themes and local documents."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Containers/com.apple.iMovieApp", "~/Library/Containers/com.apple.FinalCut"]
+name = "Video app data"
+owner = "iMovie or Final Cut Pro"
+what = "Settings and cache of iMovie or Final Cut Pro. Your libraries are in Movies."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = "~/Library/Containers/com.apple.geod"
+name = "Maps cache"
+owner = "Maps"
+what = "Map tiles Maps downloaded. It downloads them again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/Library/Application Support/CrashReporter", "~/Library/Logs/DiagnosticReports"]
+name = "Crash reports"
+owner = "macOS"
+what = "Reports about apps that crashed. Nothing needs them to run."
+kind = "logs"
+regrows = "yes"
+
+[[folder]]
+path = "~/Library/Logs"
+name = "Your logs"
+owner = "macOS"
+what = "Logs apps write while they run. They only help with fixing problems."
+kind = "logs"
+regrows = "yes"
+
+[[folder]]
+path = "~/Library/Caches"
+name = "Your caches"
+owner = "macOS"
+what = "Caches of the apps you use. Each app makes its cache again when it needs it."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = "~/Library/Containers"
+name = "App sandboxes"
+owner = "macOS"
+what = "Each sandboxed app's own folder: its settings, data and caches."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = "~/Library/Group Containers"
+name = "Shared app data"
+owner = "macOS"
+what = "Data an app shares with its helpers or with the same company's other apps."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = "~/Library/Application Support"
+name = "App data"
+owner = "macOS"
+what = "Where apps keep their data: settings, history, libraries, downloads."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = "~/Library"
+name = "Your library"
+owner = "macOS"
+what = "Settings, data and caches of your apps."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Fonts"]
+name = "Your fonts"
+owner = "macOS"
+what = "Fonts you installed."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = "~/Library/Saved Application State"
+name = "Saved window state"
+owner = "macOS"
+what = "Which windows each app had open, so it can reopen them."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/Library/HTTPStorages", "~/Library/WebKit"]
+name = "Web data of apps"
+owner = "macOS"
+what = "Cookies, web caches and storage of apps that show web pages."
+kind = "appData"
+regrows = "unsure"
+
+[[folder]]
+path = "~/Library/Containers/com.apple.AvatarUI.AvatarPickerMemojiPicker"
+name = "Memoji picker"
+owner = "macOS"
+what = "Memoji and sticker data."
+kind = "appData"
+regrows = "unsure"
+
+# ===========================================================================
+# Xcode and Apple development
+# ===========================================================================
+
+[[folder]]
+path = "~/Library/Developer/Xcode/DerivedData"
+name = "Xcode DerivedData"
+owner = "Xcode"
+what = "Xcode's builds, indexes and logs for every project you opened. Xcode makes them again on the next build."
+kind = "buildOutput"
+regrows = "yes"
+how = "Xcode > Settings > Locations > DerivedData, or quit Xcode and remove it"
+
+[[folder]]
+path = "~/Library/Developer/Xcode/DerivedData/*"
+name = "Xcode build data of one project"
+owner = "Xcode"
+what = "Builds, index and logs Xcode keeps for one project. Xcode makes them again on the next build."
+kind = "buildOutput"
+regrows = "yes"
+
+[[folder]]
+path = ["~/Library/Developer/Xcode/iOS DeviceSupport", "~/Library/Developer/Xcode/watchOS DeviceSupport", "~/Library/Developer/Xcode/tvOS DeviceSupport", "~/Library/Developer/Xcode/visionOS DeviceSupport", "~/Library/Developer/Xcode/xrOS DeviceSupport", "~/Library/Developer/Xcode/macOS DeviceSupport"]
+name = "Device support files"
+owner = "Xcode"
+what = "Symbols Xcode copied from each iPhone, Watch or other device you connected, one set per OS version. Xcode copies them again when you connect that device."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = "~/Library/Developer/Xcode/Archives"
+name = "Xcode archives"
+owner = "Xcode"
+what = "App builds you archived to submit or share, with the symbols to read their crash reports. Old ones of apps you no longer ship are usually fine to remove."
+kind = "userFiles"
+regrows = "no"
+how = "Xcode > Window > Organizer > Archives"
+
+[[folder]]
+path = ["~/Library/Developer/Xcode/Products", "~/Library/Developer/Xcode/Products.noindex"]
+name = "Xcode products"
+owner = "Xcode"
+what = "Built apps and frameworks Xcode keeps. It builds them again."
+kind = "buildOutput"
+regrows = "yes"
+
+[[folder]]
+path = ["~/Library/Developer/Xcode/UserData/Previews", "~/Library/Developer/Xcode/UserData/Previews/Simulator Devices"]
+name = "SwiftUI preview data"
+owner = "Xcode"
+what = "The builds and simulators Xcode uses for SwiftUI previews. Xcode makes them again."
+kind = "buildOutput"
+regrows = "yes"
+how = "xcrun simctl --set previews delete all"
+
+[[folder]]
+path = "~/Library/Developer/Xcode/UserData"
+name = "Xcode settings"
+owner = "Xcode"
+what = "Your Xcode settings, key bindings, code snippets and themes."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Developer/Xcode/DocumentationCache", "~/Library/Developer/Xcode/DocumentationIndex"]
+name = "Xcode documentation cache"
+owner = "Xcode"
+what = "Documentation Xcode downloaded and indexed. It downloads it again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = "~/Library/Developer/Xcode"
+name = "Xcode data"
+owner = "Xcode"
+what = "Xcode's builds, device support files, archives and settings."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = "~/Library/Developer/CoreSimulator/Devices"
+name = "Simulators"
+owner = "Xcode"
+what = "Every simulated iPhone, iPad and Watch, with the apps and data on it. Xcode makes new ones, but their contents are gone."
+kind = "appData"
+regrows = "no"
+how = "xcrun simctl delete unavailable removes simulators of runtimes you no longer have"
+
+[[folder]]
+path = "~/Library/Developer/CoreSimulator/Devices/*"
+name = "One simulator"
+owner = "Xcode"
+what = "One simulated device with the apps and data installed on it."
+kind = "appData"
+regrows = "no"
+how = "Xcode > Window > Devices and Simulators, or xcrun simctl delete"
+
+[[folder]]
+path = "~/Library/Developer/CoreSimulator/Caches"
+name = "Simulator caches"
+owner = "Xcode"
+what = "Shared caches the Simulator makes for each runtime. It makes them again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = "~/Library/Developer/CoreSimulator/Profiles/Runtimes"
+name = "Your simulator runtimes"
+owner = "Xcode"
+what = "Simulator runtimes installed for you. Download them again in Xcode if you need them."
+kind = "toolchain"
+regrows = "no"
+how = "Xcode > Settings > Components"
+
+[[folder]]
+path = ["~/Library/Developer/CoreSimulator", "~/Library/Developer"]
+name = "Developer data"
+owner = "Xcode"
+what = "Simulators, Xcode builds and other data from Apple's developer tools."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Developer/Toolchains", "/Library/Developer/Toolchains"]
+name = "Swift toolchains"
+owner = "Swift"
+what = "Extra Swift toolchains you installed beside Xcode's own."
+kind = "toolchain"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Caches/com.apple.dt.Xcode", "~/Library/Caches/com.apple.dt.Xcode.sourcecontrol.Git"]
+name = "Xcode cache"
+owner = "Xcode"
+what = "Xcode's download and source control caches. Xcode makes them again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/Library/Caches/org.swift.swiftpm", "~/Library/org.swift.swiftpm"]
+name = "Swift Package Manager cache"
+owner = "Swift Package Manager"
+what = "Swift packages SwiftPM downloaded. It downloads them again when a project needs them."
+kind = "cache"
+regrows = "yes"
+how = "swift package purge-cache"
+
+[[folder]]
+path = "/**/.build"
+name = "Swift build folder"
+owner = "Swift Package Manager"
+what = "What swift build made for a package. It's made again on the next build."
+kind = "buildOutput"
+regrows = "yes"
+
+[[folder]]
+path = "~/Library/Caches/CocoaPods"
+name = "CocoaPods cache"
+owner = "CocoaPods"
+what = "Pods CocoaPods downloaded. It downloads them again on pod install."
+kind = "cache"
+regrows = "yes"
+how = "pod cache clean --all"
+
+[[folder]]
+path = "~/.cocoapods/repos"
+name = "CocoaPods specs"
+owner = "CocoaPods"
+what = "The CocoaPods index of pods. pod install downloads it again if needed."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = "/**/Pods"
+name = "CocoaPods in a project"
+owner = "CocoaPods"
+what = "Pods installed into an Xcode project. pod install puts them back."
+kind = "buildOutput"
+regrows = "yes"
+
+[[folder]]
+path = ["~/Library/Caches/org.carthage.CarthageKit", "/**/Carthage/Build"]
+name = "Carthage cache"
+owner = "Carthage"
+what = "Frameworks Carthage downloaded or built. It makes them again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = "/Applications/Xcode.app"
+name = "Xcode"
+owner = "Xcode"
+what = "Apple's app for building apps. Remove it from Applications if you don't make apps; the Command Line Tools are separate."
+kind = "toolchain"
+regrows = "no"
+
+[[folder]]
+path = ["/Applications/Xcode-beta.app", "/Applications/Xcode-*.app"]
+name = "Another Xcode"
+owner = "Xcode"
+what = "A second copy of Xcode, often a beta or older version."
+kind = "toolchain"
+regrows = "no"
+
+# ===========================================================================
+# Homebrew, MacPorts, Nix
+# ===========================================================================
+
+[[folder]]
+path = ["~/Library/Caches/Homebrew", "~/Library/Caches/Homebrew/downloads"]
+name = "Homebrew downloads"
+owner = "Homebrew"
+what = "Bottles and installers Homebrew downloaded, and old versions. Homebrew downloads them again when needed."
+kind = "cache"
+regrows = "yes"
+how = "brew cleanup -s --prune=all"
+
+[[folder]]
+path = ["/opt/homebrew/Cellar", "/usr/local/Cellar"]
+name = "Homebrew packages"
+owner = "Homebrew"
+what = "Everything you installed with brew install, one folder per package. Remove packages with brew uninstall."
+kind = "toolchain"
+regrows = "no"
+how = "brew autoremove, then brew uninstall what you don't use"
+
+[[folder]]
+path = ["/opt/homebrew/Cellar/*", "/usr/local/Cellar/*"]
+name = "Homebrew package"
+owner = "Homebrew"
+what = "One package installed with Homebrew. Old versions are removed by brew cleanup."
+kind = "toolchain"
+regrows = "no"
+how = "brew uninstall, or brew cleanup for old versions"
+
+[[folder]]
+path = ["/opt/homebrew/Caskroom", "/usr/local/Caskroom"]
+name = "Homebrew apps"
+owner = "Homebrew"
+what = "Installers and files of apps installed with brew install --cask."
+kind = "toolchain"
+regrows = "no"
+how = "brew uninstall --cask"
+
+[[folder]]
+path = ["/opt/homebrew/Library/Taps", "/usr/local/Homebrew/Library/Taps"]
+name = "Homebrew taps"
+owner = "Homebrew"
+what = "Extra package lists you added with brew tap."
+kind = "toolchain"
+regrows = "no"
+how = "brew untap"
+
+[[folder]]
+path = ["/opt/homebrew/Library", "/usr/local/Homebrew"]
+name = "Homebrew itself"
+owner = "Homebrew"
+what = "Homebrew's own code and package lists."
+kind = "toolchain"
+regrows = "no"
+
+[[folder]]
+path = ["/opt/homebrew", "/opt/homebrew/share", "/opt/homebrew/lib", "/opt/homebrew/opt", "/opt/homebrew/var", "/opt/homebrew/include"]
+name = "Homebrew"
+owner = "Homebrew"
+what = "Software you installed with Homebrew."
+kind = "toolchain"
+regrows = "no"
+
+[[folder]]
+path = ["/opt/homebrew/share/google-cloud-sdk", "/usr/local/share/google-cloud-sdk", "~/google-cloud-sdk"]
+name = "Google Cloud SDK"
+owner = "Google Cloud SDK"
+what = "The gcloud command-line tools."
+kind = "toolchain"
+regrows = "no"
+
+[[folder]]
+path = "/usr/local"
+name = "Locally installed software"
+owner = "Installers"
+what = "Software installers put here, such as Homebrew on Intel Macs, .NET or other command-line tools."
+kind = "toolchain"
+regrows = "no"
+
+[[folder]]
+path = ["/usr/local/share/dotnet", "~/.dotnet"]
+name = ".NET SDK"
+owner = ".NET"
+what = "Microsoft's .NET SDKs and runtimes. Old SDK versions stay when new ones are installed."
+kind = "toolchain"
+regrows = "no"
+how = "dotnet-core-uninstall, or remove old versions in sdk"
+
+[[folder]]
+path = ["/opt/local", "/opt/local/var/macports"]
+name = "MacPorts"
+owner = "MacPorts"
+what = "Software installed with MacPorts."
+kind = "toolchain"
+regrows = "no"
+how = "sudo port uninstall inactive"
+
+[[folder]]
+path = ["/opt/local/var/macports/distfiles", "/opt/local/var/macports/software"]
+name = "MacPorts downloads"
+owner = "MacPorts"
+what = "Source and binary downloads of MacPorts. It downloads them again."
+kind = "cache"
+regrows = "yes"
+how = "sudo port clean --all installed"
+
+[[folder]]
+path = ["/nix", "/nix/store"]
+name = "Nix store"
+owner = "Nix"
+what = "Every package Nix built or downloaded."
+kind = "toolchain"
+regrows = "no"
+how = "nix-collect-garbage -d"
+
+# ===========================================================================
+# JavaScript
+# ===========================================================================
+
+[[folder]]
+path = "~/.npm/_cacache"
+name = "npm cache"
+owner = "npm"
+what = "Packages npm downloaded. npm downloads them again when needed."
+kind = "cache"
+regrows = "yes"
+how = "npm cache clean --force"
+
+[[folder]]
+path = "~/.npm/_npx"
+name = "npx downloads"
+owner = "npm"
+what = "Tools npx downloaded to run once. npx downloads them again the next time."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = "~/.npm/_logs"
+name = "npm logs"
+owner = "npm"
+what = "Logs of npm commands."
+kind = "logs"
+regrows = "yes"
+
+[[folder]]
+path = "~/.npm"
+name = "npm data"
+owner = "npm"
+what = "npm's download cache, npx tools and logs. It all comes back when needed."
+kind = "cache"
+regrows = "yes"
+how = "npm cache clean --force"
+
+[[folder]]
+path = ["~/.npm-global", "~/.npm-global/lib/node_modules", "/opt/homebrew/lib/node_modules", "/usr/local/lib/node_modules", "~/.npm-packages"]
+name = "Global npm packages"
+owner = "npm"
+what = "Command-line tools you installed with npm install -g. They don't come back by themselves."
+kind = "toolchain"
+regrows = "no"
+how = "npm ls -g, then npm uninstall -g what you don't use"
+
+[[folder]]
+path = ["~/Library/pnpm/store", "~/.pnpm-store", "~/.local/share/pnpm/store", "~/Library/pnpm/store/*"]
+name = "pnpm store"
+owner = "pnpm"
+what = "Packages pnpm downloaded and shares between projects. pnpm downloads them again when needed."
+kind = "cache"
+regrows = "yes"
+how = "pnpm store prune"
+
+[[folder]]
+path = ["~/Library/pnpm", "~/.local/share/pnpm"]
+name = "pnpm"
+owner = "pnpm"
+what = "pnpm's package store and globally installed tools."
+kind = "toolchain"
+regrows = "no"
+how = "pnpm store prune"
+
+[[folder]]
+path = ["~/Library/Caches/pnpm", "~/.cache/pnpm"]
+name = "pnpm metadata cache"
+owner = "pnpm"
+what = "Package information pnpm saved. It downloads it again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/Library/Caches/Yarn", "~/.yarn/berry/cache", "~/.cache/yarn", "~/.yarn-cache"]
+name = "Yarn cache"
+owner = "Yarn"
+what = "Packages Yarn downloaded. Yarn downloads them again when needed."
+kind = "cache"
+regrows = "yes"
+how = "yarn cache clean"
+
+[[folder]]
+path = "~/.yarn"
+name = "Yarn"
+owner = "Yarn"
+what = "Yarn's cache and globally installed tools."
+kind = "cache"
+regrows = "unsure"
+
+[[folder]]
+path = ["~/.bun/install/cache", "~/Library/Caches/bun"]
+name = "Bun cache"
+owner = "Bun"
+what = "Packages Bun downloaded. Bun downloads them again when needed."
+kind = "cache"
+regrows = "yes"
+how = "bun pm cache rm"
+
+[[folder]]
+path = "~/.bun"
+name = "Bun"
+owner = "Bun"
+what = "The Bun runtime, its cache and globally installed tools."
+kind = "toolchain"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Caches/deno", "~/.deno"]
+name = "Deno cache"
+owner = "Deno"
+what = "Modules Deno downloaded and compiled. It downloads them again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/Library/Caches/node-gyp", "~/.node-gyp", "~/.cache/node-gyp"]
+name = "node-gyp headers"
+owner = "node-gyp"
+what = "Node.js headers for building native packages. They download again when needed."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/.cache/node/corepack", "~/Library/Caches/node/corepack"]
+name = "Corepack cache"
+owner = "Node.js"
+what = "Versions of pnpm and Yarn that Corepack downloaded. It downloads them again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/.nvm/versions", "~/.nvm/versions/node"]
+name = "Node versions (nvm)"
+owner = "nvm"
+what = "Node.js versions you installed with nvm, each with its own global packages."
+kind = "toolchain"
+regrows = "no"
+how = "nvm ls, then nvm uninstall old versions"
+
+[[folder]]
+path = "~/.nvm/.cache"
+name = "nvm downloads"
+owner = "nvm"
+what = "Node.js downloads nvm keeps. It downloads them again."
+kind = "cache"
+regrows = "yes"
+how = "nvm cache clear"
+
+[[folder]]
+path = "~/.nvm"
+name = "nvm"
+owner = "nvm"
+what = "nvm and the Node.js versions it installed."
+kind = "toolchain"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Application Support/fnm", "~/.local/share/fnm", "~/.fnm", "~/.volta", "~/.n", "~/n"]
+name = "Node versions"
+owner = "Node version manager"
+what = "Node.js versions installed by fnm, Volta or n."
+kind = "toolchain"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Caches/ms-playwright", "~/.cache/ms-playwright"]
+name = "Playwright browsers"
+owner = "Playwright"
+what = "Browsers Playwright downloaded for tests, often several versions. They download again with npx playwright install."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/.cache/puppeteer", "~/Library/Caches/puppeteer"]
+name = "Puppeteer browsers"
+owner = "Puppeteer"
+what = "Chrome builds Puppeteer downloaded. They download again when needed."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/Library/Caches/Cypress", "~/.cache/Cypress"]
+name = "Cypress app"
+owner = "Cypress"
+what = "Cypress test runner binaries, one per version. They download again with npm install."
+kind = "cache"
+regrows = "yes"
+how = "npx cypress cache prune"
+
+[[folder]]
+path = ["~/Library/Caches/electron", "~/Library/Caches/electron-builder", "~/.cache/electron", "~/.electron"]
+name = "Electron downloads"
+owner = "Electron"
+what = "Electron builds downloaded for developing apps. They download again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/.cache/selenium", "~/.wdm", "~/.cache/chrome-for-testing"]
+name = "Browser drivers"
+owner = "Selenium"
+what = "Browsers and drivers downloaded for automated tests. They download again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/.expo", "~/Library/Caches/Expo"]
+name = "Expo cache"
+owner = "Expo"
+what = "Expo's downloads and cache for React Native development."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = "~/.turbo"
+name = "Turborepo cache"
+owner = "Turborepo"
+what = "Turborepo's local task cache. It's made again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/.vercel", "~/Library/Application Support/com.vercel.cli"]
+name = "Vercel CLI data"
+owner = "Vercel"
+what = "Vercel CLI settings and cache."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = "/**/node_modules"
+name = "node_modules"
+owner = "npm"
+what = "A JavaScript project's installed packages. npm install, pnpm install or yarn put them back."
+kind = "buildOutput"
+regrows = "yes"
+
+[[folder]]
+path = ["/**/.next", "/**/.next/cache", "/**/.nuxt", "/**/.svelte-kit", "/**/.turbo", "/**/.parcel-cache", "/**/.vite", "/**/.astro", "/**/.docusaurus", "/**/.angular", "/**/.vercel/output", "/**/.netlify", "/**/.expo", "/**/.wrangler"]
+name = "Web build cache"
+owner = "JavaScript build tool"
+what = "Build output and cache of a web framework (Next.js, Nuxt, SvelteKit, Vite, Turborepo and others). It's made again on the next build."
+kind = "buildOutput"
+regrows = "yes"
+
+# ===========================================================================
+# Python
+# ===========================================================================
+
+[[folder]]
+path = ["~/.cache/uv", "~/Library/Caches/uv"]
+name = "uv cache"
+owner = "uv"
+what = "Python packages and wheels uv downloaded and unpacked. uv downloads them again when a project needs them."
+kind = "cache"
+regrows = "yes"
+how = "uv cache clean, or uv cache prune for only unused entries"
+
+[[folder]]
+path = ["~/.cache/uv/archive-v0", "~/.cache/uv/wheels-v5", "~/.cache/uv/wheels-v4", "~/.cache/uv/wheels-v3", "~/.cache/uv/sdists-v10", "~/.cache/uv/sdists-v9", "~/.cache/uv/sdists-v8", "~/.cache/uv/simple-v18", "~/.cache/uv/simple-v16", "~/.cache/uv/simple-v15", "~/.cache/uv/builds-v0", "~/.cache/uv/environments-v2", "~/.cache/uv/git-v0", "~/.cache/uv/interpreter-v4", "~/.cache/uv/python-v0"]
+name = "uv cache part"
+owner = "uv"
+what = "Part of uv's download cache: unpacked packages, wheels, source builds or the package index. uv downloads it again."
+kind = "cache"
+regrows = "yes"
+how = "uv cache prune"
+
+[[folder]]
+path = "~/.local/share/uv/python"
+name = "uv Python versions"
+owner = "uv"
+what = "Python versions uv installed for your projects. uv installs one again when a project asks for it."
+kind = "toolchain"
+regrows = "yes"
+how = "uv python list, then uv python uninstall"
+
+[[folder]]
+path = "~/.local/share/uv/tools"
+name = "uv tools"
+owner = "uv"
+what = "Command-line tools you installed with uv tool install, each with its own Python packages."
+kind = "toolchain"
+regrows = "no"
+how = "uv tool list, then uv tool uninstall"
+
+[[folder]]
+path = "~/.local/share/uv/tools/*"
+name = "A uv tool"
+owner = "uv"
+what = "One command-line tool installed with uv tool install, with everything it needs."
+kind = "toolchain"
+regrows = "no"
+how = "uv tool uninstall"
+
+[[folder]]
+path = "~/.local/share/uv"
+name = "uv data"
+owner = "uv"
+what = "Python versions and tools installed by uv."
+kind = "toolchain"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Caches/pip", "~/.cache/pip"]
+name = "pip cache"
+owner = "pip"
+what = "Packages pip downloaded. pip downloads them again when needed."
+kind = "cache"
+regrows = "yes"
+how = "pip cache purge"
+
+[[folder]]
+path = ["~/Library/Caches/pypoetry", "~/.cache/pypoetry"]
+name = "Poetry cache"
+owner = "Poetry"
+what = "Packages Poetry downloaded. It downloads them again."
+kind = "cache"
+regrows = "yes"
+how = "poetry cache clear --all PyPI"
+
+[[folder]]
+path = ["~/Library/Caches/pypoetry/virtualenvs", "~/Library/Application Support/pypoetry/virtualenvs"]
+name = "Poetry environments"
+owner = "Poetry"
+what = "A Python environment per Poetry project. poetry install makes one again."
+kind = "buildOutput"
+regrows = "yes"
+how = "poetry env remove --all, inside each project"
+
+[[folder]]
+path = ["~/Library/Caches/pdm", "~/.cache/pdm", "~/Library/Caches/hatch", "~/.cache/hatch", "~/Library/Caches/pipenv", "~/.cache/pipenv", "~/.cache/pre-commit", "~/.cache/pipx", "~/Library/Caches/pipx"]
+name = "Python tool cache"
+owner = "Python tools"
+what = "Downloads and environments of PDM, Hatch, Pipenv, pre-commit or pipx. They come back when needed."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/.local/share/virtualenvs", "~/.virtualenvs", "~/Library/Application Support/hatch/env"]
+name = "Python environments"
+owner = "Python"
+what = "Python environments made by Pipenv, virtualenvwrapper or Hatch. They're made again from the project's requirements."
+kind = "buildOutput"
+regrows = "unsure"
+
+[[folder]]
+path = ["~/.local/pipx", "~/.local/share/pipx", "~/.local/pipx/venvs"]
+name = "pipx tools"
+owner = "pipx"
+what = "Command-line tools you installed with pipx."
+kind = "toolchain"
+regrows = "no"
+how = "pipx list, then pipx uninstall"
+
+[[folder]]
+path = ["~/.pyenv/versions", "~/.pyenv", "~/.asdf/installs/python"]
+name = "Python versions (pyenv)"
+owner = "pyenv"
+what = "Python versions you installed with pyenv."
+kind = "toolchain"
+regrows = "no"
+how = "pyenv versions, then pyenv uninstall"
+
+[[folder]]
+path = ["~/Library/Python", "~/Library/Python/*"]
+name = "Your Python packages"
+owner = "Python"
+what = "Packages installed with pip install --user, one folder per Python version. Versions of Python you no longer have are leftovers."
+kind = "toolchain"
+regrows = "no"
+
+[[folder]]
+path = ["~/miniconda3", "~/anaconda3", "~/miniforge3", "~/mambaforge", "~/opt/anaconda3", "~/opt/miniconda3", "/opt/miniconda3", "/opt/anaconda3", "/opt/homebrew/Caskroom/miniconda", "/opt/homebrew/Caskroom/miniforge"]
+name = "Conda"
+owner = "Conda"
+what = "A Conda installation with its environments and package cache."
+kind = "toolchain"
+regrows = "no"
+how = "conda clean --all removes the package cache"
+
+[[folder]]
+path = ["~/miniconda3/pkgs", "~/anaconda3/pkgs", "~/miniforge3/pkgs", "~/mambaforge/pkgs", "~/opt/anaconda3/pkgs", "~/opt/miniconda3/pkgs", "~/.conda/pkgs", "~/micromamba/pkgs", "~/.local/share/mamba/pkgs", "/opt/miniconda3/pkgs", "/opt/anaconda3/pkgs"]
+name = "Conda package cache"
+owner = "Conda"
+what = "Packages Conda downloaded and unpacked. Conda downloads them again when an environment needs them."
+kind = "cache"
+regrows = "yes"
+how = "conda clean --all"
+
+[[folder]]
+path = ["~/miniconda3/envs", "~/anaconda3/envs", "~/miniforge3/envs", "~/mambaforge/envs", "~/opt/anaconda3/envs", "~/.conda/envs", "~/micromamba/envs"]
+name = "Conda environments"
+owner = "Conda"
+what = "Your Conda environments, each with its own Python and packages."
+kind = "toolchain"
+regrows = "no"
+how = "conda env list, then conda env remove -n NAME"
+
+[[folder]]
+path = ["~/.conda", "~/micromamba", "~/.local/share/mamba"]
+name = "Conda data"
+owner = "Conda"
+what = "Conda or micromamba environments, settings and package cache."
+kind = "toolchain"
+regrows = "no"
+
+[[folder]]
+path = ["~/.ipython", "~/.jupyter", "~/Library/Jupyter"]
+name = "Jupyter data"
+owner = "Jupyter"
+what = "Jupyter and IPython settings, kernels and history."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["/**/.venv", "/**/venv"]
+name = "Python environment of a project"
+owner = "Python"
+what = "A project's own Python environment. uv sync or pip install -r requirements.txt makes it again."
+kind = "buildOutput"
+regrows = "unsure"
+
+[[folder]]
+path = ["/**/__pycache__", "/**/.pytest_cache", "/**/.mypy_cache", "/**/.ruff_cache", "/**/.tox", "/**/.nox", "/**/.hypothesis", "/**/.ipynb_checkpoints"]
+name = "Python cache in a project"
+owner = "Python"
+what = "Compiled files and caches of Python, pytest, mypy, Ruff or tox. They're made again on the next run."
+kind = "buildOutput"
+regrows = "yes"
+
+# ===========================================================================
+# Rust, Go, C and C++
+# ===========================================================================
+
+[[folder]]
+path = ["~/.cargo/registry", "~/.cargo/registry/cache", "~/.cargo/registry/src", "~/.cargo/registry/index"]
+name = "Cargo registry"
+owner = "Cargo"
+what = "Crates Cargo downloaded and unpacked. Cargo downloads them again when a project needs them."
+kind = "cache"
+regrows = "yes"
+how = "cargo cache --autoclean (cargo install cargo-cache), or remove registry/cache and registry/src"
+
+[[folder]]
+path = "~/.cargo/git"
+name = "Cargo git checkouts"
+owner = "Cargo"
+what = "Git dependencies Cargo cloned. It clones them again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = "~/.cargo/bin"
+name = "Cargo tools"
+owner = "Cargo"
+what = "Tools you installed with cargo install, and rustup's commands."
+kind = "toolchain"
+regrows = "no"
+how = "cargo install --list, then cargo uninstall"
+
+[[folder]]
+path = "~/.cargo"
+name = "Cargo"
+owner = "Cargo"
+what = "Rust's package manager: downloaded crates, installed tools and settings."
+kind = "toolchain"
+regrows = "no"
+
+[[folder]]
+path = ["~/.rustup/toolchains", "~/.rustup/toolchains/*"]
+name = "Rust toolchains"
+owner = "rustup"
+what = "Rust versions rustup installed. Old or nightly ones you don't use can go."
+kind = "toolchain"
+regrows = "no"
+how = "rustup toolchain list, then rustup toolchain uninstall"
+
+[[folder]]
+path = "~/.rustup/toolchains/*/share/doc"
+name = "Rust documentation"
+owner = "rustup"
+what = "Offline Rust documentation installed with the toolchain."
+kind = "toolchain"
+regrows = "no"
+how = "rustup component remove rust-docs"
+
+[[folder]]
+path = ["~/.rustup/downloads", "~/.rustup/tmp", "~/.rustup/update-hashes"]
+name = "rustup downloads"
+owner = "rustup"
+what = "Downloads rustup left behind. It downloads again when it updates."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = "~/.rustup"
+name = "rustup"
+owner = "rustup"
+what = "Rust toolchains installed by rustup."
+kind = "toolchain"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Caches/sccache", "~/Library/Caches/Mozilla.sccache", "~/.cache/sccache"]
+name = "sccache"
+owner = "sccache"
+what = "Compiled code sccache keeps to build faster. It's made again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/go/pkg/mod", "~/go/pkg/mod/cache"]
+name = "Go module cache"
+owner = "Go"
+what = "Go modules downloaded for your projects. Go downloads them again."
+kind = "cache"
+regrows = "yes"
+how = "go clean -modcache"
+
+[[folder]]
+path = "~/Library/Caches/go-build"
+name = "Go build cache"
+owner = "Go"
+what = "Compiled Go packages kept to build faster. Go makes them again."
+kind = "cache"
+regrows = "yes"
+how = "go clean -cache"
+
+[[folder]]
+path = ["~/go", "~/go/pkg"]
+name = "Go workspace"
+owner = "Go"
+what = "Go's module cache and installed tools (go/bin)."
+kind = "toolchain"
+regrows = "no"
+how = "go clean -modcache frees the module cache"
+
+[[folder]]
+path = ["~/Library/Caches/ccache", "~/.ccache", "~/.cache/ccache"]
+name = "ccache"
+owner = "ccache"
+what = "Compiled C and C++ code ccache keeps to build faster. It's made again."
+kind = "cache"
+regrows = "yes"
+how = "ccache -C"
+
+[[folder]]
+path = ["~/.cache/bazel", "~/Library/Caches/bazel", "~/.cache/bazelisk", "~/Library/Caches/bazelisk"]
+name = "Bazel cache"
+owner = "Bazel"
+what = "Bazel's build outputs, downloads and Bazel versions. They're made again."
+kind = "cache"
+regrows = "yes"
+how = "bazel clean --expunge in each workspace"
+
+[[folder]]
+path = ["~/.conan", "~/.conan2", "~/.conan2/p"]
+name = "Conan packages"
+owner = "Conan"
+what = "C and C++ packages Conan downloaded and built. It downloads them again."
+kind = "cache"
+regrows = "yes"
+how = "conan remove '*' -c"
+
+[[folder]]
+path = ["~/.cache/vcpkg", "~/vcpkg", "~/.vcpkg"]
+name = "vcpkg"
+owner = "vcpkg"
+what = "vcpkg and the C and C++ libraries it built."
+kind = "cache"
+regrows = "unsure"
+
+[[folder]]
+path = ["~/.cache/zig", "~/Library/Caches/zig"]
+name = "Zig cache"
+owner = "Zig"
+what = "Zig's global build cache. It's made again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = "/**/zig-cache"
+name = "Zig project cache"
+owner = "Zig"
+what = "A Zig project's build cache. It's made again."
+kind = "buildOutput"
+regrows = "yes"
+
+[[folder]]
+path = ["/**/CMakeFiles", "/**/cmake-build-debug", "/**/cmake-build-release"]
+name = "CMake build folder"
+owner = "CMake"
+what = "What CMake and the compiler made for a C or C++ project. It's made again on the next build."
+kind = "buildOutput"
+regrows = "yes"
+
+# ===========================================================================
+# Java, Kotlin, Android
+# ===========================================================================
+
+[[folder]]
+path = ["~/.gradle/caches", "~/.gradle/caches/modules-2", "~/.gradle/caches/transforms-3", "~/.gradle/caches/transforms-4", "~/.gradle/caches/build-cache-1", "~/.gradle/caches/jars-9"]
+name = "Gradle cache"
+owner = "Gradle"
+what = "Libraries and build results Gradle downloaded or made. Gradle downloads them again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = "~/.gradle/wrapper/dists"
+name = "Gradle versions"
+owner = "Gradle"
+what = "Gradle versions downloaded by projects' wrappers, often several. Each project downloads its own again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = "~/.gradle/daemon"
+name = "Gradle daemon logs"
+owner = "Gradle"
+what = "Logs of Gradle's background build process."
+kind = "logs"
+regrows = "yes"
+
+[[folder]]
+path = ["~/.gradle/jdks", "~/.gradle/native"]
+name = "Gradle JDKs"
+owner = "Gradle"
+what = "Java versions and native parts Gradle downloaded for builds. It downloads them again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = "~/.gradle"
+name = "Gradle"
+owner = "Gradle"
+what = "Gradle's caches, downloaded Gradle versions and settings."
+kind = "cache"
+regrows = "unsure"
+
+[[folder]]
+path = "/**/.gradle"
+name = "Gradle project cache"
+owner = "Gradle"
+what = "A project's own Gradle cache. It's made again on the next build."
+kind = "buildOutput"
+regrows = "yes"
+
+[[folder]]
+path = ["~/.m2/repository", "~/.m2"]
+name = "Maven repository"
+owner = "Maven"
+what = "Libraries Maven downloaded. Maven downloads them again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/.ivy2/cache", "~/.ivy2", "~/.sbt", "~/Library/Caches/Coursier", "~/.cache/coursier"]
+name = "Scala and sbt cache"
+owner = "sbt"
+what = "Libraries sbt, Ivy or Coursier downloaded. They download again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/.konan", "~/.konan/dependencies"]
+name = "Kotlin/Native"
+owner = "Kotlin"
+what = "Kotlin/Native compilers and dependencies Gradle downloaded. They download again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/.sdkman/candidates", "~/.sdkman", "~/.jdks", "~/Library/Java/JavaVirtualMachines", "~/.asdf/installs/java"]
+name = "Java versions"
+owner = "Java"
+what = "Java versions (JDKs) installed by SDKMAN, IntelliJ or by hand."
+kind = "toolchain"
+regrows = "no"
+
+[[folder]]
+path = "~/.sdkman/archives"
+name = "SDKMAN downloads"
+owner = "SDKMAN"
+what = "Downloads SDKMAN keeps after installing. It downloads again."
+kind = "cache"
+regrows = "yes"
+how = "sdk flush archives"
+
+[[folder]]
+path = ["~/Library/Android/sdk", "~/Library/Android"]
+name = "Android SDK"
+owner = "Android Studio"
+what = "Android's SDK: platforms, build tools, emulator images and the NDK. Remove what you don't use in Android Studio's SDK Manager."
+kind = "toolchain"
+regrows = "no"
+how = "Android Studio > Settings > SDK Manager"
+
+[[folder]]
+path = "~/Library/Android/sdk/system-images"
+name = "Android emulator images"
+owner = "Android Studio"
+what = "System images the Android emulator runs, one per Android version. Download them again in the SDK Manager."
+kind = "toolchain"
+regrows = "no"
+how = "Android Studio > SDK Manager"
+
+[[folder]]
+path = ["~/Library/Android/sdk/ndk", "~/Library/Android/sdk/ndk-bundle"]
+name = "Android NDK"
+owner = "Android Studio"
+what = "Android's native development kits, often several versions."
+kind = "toolchain"
+regrows = "no"
+how = "Android Studio > SDK Manager > SDK Tools"
+
+[[folder]]
+path = "~/.android/avd"
+name = "Android emulators"
+owner = "Android Studio"
+what = "Your Android virtual devices with the apps and data on them."
+kind = "appData"
+regrows = "no"
+how = "Android Studio > Device Manager"
+
+[[folder]]
+path = ["~/.android/cache", "~/.android/build-cache"]
+name = "Android build cache"
+owner = "Android Studio"
+what = "Caches the Android tools make. They're made again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = "~/.android"
+name = "Android settings"
+owner = "Android Studio"
+what = "Android tools' settings, emulators and debug keys."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Caches/Google/AndroidStudio*", "~/Library/Caches/Google"]
+name = "Android Studio cache"
+owner = "Android Studio"
+what = "Indexes and caches of Android Studio, one folder per version. Old versions' folders are leftovers."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = "~/Library/Application Support/Google/AndroidStudio*"
+name = "Android Studio settings"
+owner = "Android Studio"
+what = "Android Studio's settings and plugins for one version. Old versions' folders are leftovers."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Logs/Google", "~/Library/Logs/Google/AndroidStudio*"]
+name = "Android Studio logs"
+owner = "Android Studio"
+what = "Logs of Android Studio."
+kind = "logs"
+regrows = "yes"
+
+[[folder]]
+path = ["~/.pub-cache", "~/Library/Caches/flutter", "~/.dartServer", "~/.dart-tool", "~/.dart"]
+name = "Dart and Flutter cache"
+owner = "Flutter"
+what = "Dart packages and analysis caches. They download or build again."
+kind = "cache"
+regrows = "yes"
+how = "flutter pub cache clean"
+
+[[folder]]
+path = ["~/flutter", "~/development/flutter", "~/fvm", "~/.fvm", "~/Library/Caches/fvm"]
+name = "Flutter SDK"
+owner = "Flutter"
+what = "The Flutter SDK, or several versions installed by FVM."
+kind = "toolchain"
+regrows = "no"
+
+[[folder]]
+path = "/**/.dart_tool"
+name = "Dart project cache"
+owner = "Flutter"
+what = "A Dart or Flutter project's tool cache. flutter pub get makes it again."
+kind = "buildOutput"
+regrows = "yes"
+
+# ===========================================================================
+# .NET, Ruby, PHP, Elixir, Haskell and other languages
+# ===========================================================================
+
+[[folder]]
+path = ["~/.nuget/packages", "~/.nuget", "~/.local/share/NuGet"]
+name = "NuGet packages"
+owner = ".NET"
+what = "NuGet packages .NET downloaded. dotnet restore downloads them again."
+kind = "cache"
+regrows = "yes"
+how = "dotnet nuget locals all --clear"
+
+[[folder]]
+path = ["~/.gem", "~/.local/share/gem", "~/.rbenv/versions", "~/.rbenv", "~/.rvm", "~/.rubies", "~/.asdf/installs/ruby"]
+name = "Ruby versions and gems"
+owner = "Ruby"
+what = "Ruby versions and gems you installed."
+kind = "toolchain"
+regrows = "no"
+how = "gem cleanup removes old gem versions"
+
+[[folder]]
+path = ["~/.bundle/cache", "~/Library/Caches/bundler"]
+name = "Bundler cache"
+owner = "Bundler"
+what = "Gems Bundler downloaded. It downloads them again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/.composer/cache", "~/Library/Caches/composer", "~/.cache/composer"]
+name = "Composer cache"
+owner = "Composer"
+what = "PHP packages Composer downloaded. It downloads them again."
+kind = "cache"
+regrows = "yes"
+how = "composer clear-cache"
+
+[[folder]]
+path = ["~/.hex", "~/.mix", "~/Library/Caches/rebar3", "~/.cache/rebar3"]
+name = "Elixir and Erlang packages"
+owner = "Elixir"
+what = "Hex packages and build tools for Elixir and Erlang. They download again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/.stack", "~/.ghcup", "~/.cabal", "~/.cabal/packages"]
+name = "Haskell tools"
+owner = "Haskell"
+what = "GHC compilers and Haskell packages installed by ghcup, Stack or Cabal."
+kind = "toolchain"
+regrows = "no"
+
+[[folder]]
+path = ["~/.opam", "~/.elan", "~/.julia", "~/.julia/packages", "~/.julia/artifacts", "~/.nimble", "~/.deno/bin", "~/.local/share/swiftly", "~/.swiftpm"]
+name = "Language toolchain"
+owner = "Language tools"
+what = "A language's compilers and packages: OCaml (opam), Lean (elan), Julia, Nim or Swift."
+kind = "toolchain"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/R", "~/Library/R/*"]
+name = "R packages"
+owner = "R"
+what = "R packages you installed, one folder per R version."
+kind = "toolchain"
+regrows = "no"
+
+[[folder]]
+path = ["~/.asdf", "~/.local/share/mise", "~/.local/share/rtx", "~/.local/share/mise/installs", "~/.asdf/installs"]
+name = "Tool versions (asdf, mise)"
+owner = "asdf or mise"
+what = "Versions of languages and tools installed by asdf or mise."
+kind = "toolchain"
+regrows = "no"
+how = "mise prune, or asdf uninstall for old versions"
+
+[[folder]]
+path = ["~/.cache/mise", "~/Library/Caches/mise"]
+name = "mise downloads"
+owner = "mise"
+what = "Downloads mise keeps. They download again."
+kind = "cache"
+regrows = "yes"
+how = "mise cache clear"
+
+# ===========================================================================
+# Containers and virtual machines
+# ===========================================================================
+
+[[folder]]
+path = ["~/Library/Containers/com.docker.docker", "~/Library/Containers/com.docker.docker/Data", "~/Library/Containers/com.docker.docker/Data/vms"]
+name = "Docker Desktop disk"
+owner = "Docker"
+what = "Docker's virtual disk with all your images, containers and volumes. Free space inside it with docker system prune, not by removing the file."
+kind = "appData"
+regrows = "no"
+how = "docker system prune -a, or Docker Desktop > Troubleshoot > Clean / Purge data"
+
+[[folder]]
+path = ["~/Library/Group Containers/group.com.docker", "~/.docker"]
+name = "Docker settings"
+owner = "Docker"
+what = "Docker's settings, contexts and helper data."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/.docker/buildx", "~/.docker/scout"]
+name = "Docker build cache"
+owner = "Docker"
+what = "Docker Buildx and Scout data. It's made again."
+kind = "cache"
+regrows = "yes"
+how = "docker buildx prune"
+
+[[folder]]
+path = ["~/.orbstack", "~/Library/Group Containers/HUAQ24HBR6.dev.orbstack", "~/OrbStack"]
+name = "OrbStack data"
+owner = "OrbStack"
+what = "OrbStack's Linux machines, containers and images. Free space with docker system prune or by deleting machines in OrbStack."
+kind = "appData"
+regrows = "no"
+how = "docker system prune -a, or remove machines in OrbStack"
+
+[[folder]]
+path = ["~/.colima", "~/.lima", "~/.local/share/containers", "~/.config/containers", "~/.rd", "~/Library/Application Support/rancher-desktop", "~/.finch"]
+name = "Container engine data"
+owner = "Colima, Lima, Podman or Rancher"
+what = "Virtual machines and images of Colima, Lima, Podman, Rancher Desktop or Finch."
+kind = "appData"
+regrows = "no"
+how = "Prune images with that tool, or delete its machine"
+
+[[folder]]
+path = ["~/.minikube", "~/.kube/cache", "~/.kind"]
+name = "Kubernetes local data"
+owner = "Kubernetes"
+what = "Local Kubernetes clusters and caches (minikube, kind)."
+kind = "cache"
+regrows = "unsure"
+how = "minikube delete --all"
+
+[[folder]]
+path = ["~/Library/Containers/com.utmapp.UTM", "~/Library/Containers/com.utmapp.UTM/Data/Documents"]
+name = "UTM virtual machines"
+owner = "UTM"
+what = "Your UTM virtual machines and their disks."
+kind = "userFiles"
+regrows = "no"
+
+[[folder]]
+path = ["~/Parallels", "~/Library/Parallels", "~/Applications (Parallels)", "~/Virtual Machines.localized", "~/Documents/Virtual Machines.localized", "~/VirtualBox VMs", "~/.tart", "~/.tart/vms", "~/Library/Containers/com.parallels.desktop.appstore"]
+name = "Virtual machines"
+owner = "Parallels, VMware, VirtualBox or Tart"
+what = "Virtual machines and their disks. Delete a machine you don't use from its app."
+kind = "userFiles"
+regrows = "no"
+
+[[folder]]
+path = ["~/.tart/cache", "~/.vagrant.d/boxes", "~/.vagrant.d"]
+name = "VM images"
+owner = "Tart or Vagrant"
+what = "Base images Tart or Vagrant downloaded to make machines from. They download again."
+kind = "cache"
+regrows = "yes"
+how = "vagrant box prune, or tart prune"
+
+[[folder]]
+path = ["~/Library/Application Support/multipassd", "/var/root/Library/Application Support/multipassd"]
+name = "Multipass machines"
+owner = "Multipass"
+what = "Ubuntu virtual machines made with Multipass."
+kind = "appData"
+regrows = "no"
+how = "multipass delete --all --purge"
+
+# ===========================================================================
+# AI models and AI tools
+# ===========================================================================
+
+[[folder]]
+path = ["~/.cache/huggingface", "~/.cache/huggingface/hub", "~/.cache/huggingface/xet"]
+name = "Hugging Face models"
+owner = "Hugging Face"
+what = "AI models and datasets Python tools downloaded from Hugging Face. They download again the next time a program needs them."
+kind = "aiModels"
+regrows = "yes"
+how = "hf cache scan, then hf cache delete"
+
+[[folder]]
+path = "~/.cache/huggingface/hub/*"
+name = "A Hugging Face model"
+owner = "Hugging Face"
+what = "One model or dataset downloaded from Hugging Face. It downloads again when a program needs it."
+kind = "aiModels"
+regrows = "yes"
+how = "hf cache delete"
+
+[[folder]]
+path = "~/.cache/huggingface/datasets"
+name = "Hugging Face datasets"
+owner = "Hugging Face"
+what = "Datasets downloaded and prepared by the datasets library. They download again."
+kind = "aiModels"
+regrows = "yes"
+
+[[folder]]
+path = ["~/.ollama/models", "~/.ollama"]
+name = "Ollama models"
+owner = "Ollama"
+what = "AI models you pulled with Ollama. They don't come back by themselves; pull one again if you need it."
+kind = "aiModels"
+regrows = "no"
+how = "ollama list, then ollama rm"
+
+[[folder]]
+path = "~/Library/Caches/ollama"
+name = "Ollama update downloads"
+owner = "Ollama"
+what = "Updates of the Ollama app it downloaded. They download again."
+kind = "installers"
+regrows = "yes"
+
+[[folder]]
+path = ["~/.lmstudio/models", "~/.cache/lm-studio/models", "~/.lmstudio", "~/.cache/lm-studio"]
+name = "LM Studio models"
+owner = "LM Studio"
+what = "AI models you downloaded in LM Studio. Download them again in LM Studio if you need them."
+kind = "aiModels"
+regrows = "no"
+how = "LM Studio > My Models"
+
+[[folder]]
+path = ["~/Library/Application Support/nomic.ai/GPT4All", "~/Library/Application Support/Jan", "~/jan", "~/Library/Application Support/msty", "~/.msty", "~/Library/Application Support/com.ollama.ollama"]
+name = "Local AI app models"
+owner = "Local AI apps"
+what = "Models and chats of GPT4All, Jan or Msty. Models download again from the app; chats don't."
+kind = "aiModels"
+regrows = "no"
+how = "Remove models in the app"
+
+[[folder]]
+path = ["~/Library/Containers/com.liuliu.draw-things", "~/Library/Containers/com.liuliu.draw-things/Data/Documents/Models", "~/.diffusionbee", "~/Library/Application Support/DiffusionBee"]
+name = "Image generation models"
+owner = "Draw Things or DiffusionBee"
+what = "Stable Diffusion and other image models you downloaded. Download them again in the app."
+kind = "aiModels"
+regrows = "no"
+how = "Remove models in the app"
+
+[[folder]]
+path = ["~/.cache/torch", "~/.cache/torch/hub", "~/.cache/whisper", "~/.cache/clip", "~/.keras", "~/.keras/models", "~/.cache/modelscope", "~/.cache/kagglehub", "~/.cache/fastembed", "~/.cache/chroma", "~/.cache/llama.cpp", "~/.cache/mlx", "~/.EasyOCR", "~/.u2net", "~/.insightface", "~/.deepface", "~/.paddleocr", "~/.cache/doctr", "~/.cache/sentence_transformers", "~/.cache/argos-translate", "~/.local/share/argos-translate", "~/.cache/pyannote", "~/.cache/nltk_data", "~/nltk_data", "~/.cache/spacy", "~/.cache/docling", "~/.cache/rembg", "~/.cache/ultralytics", "~/.cache/coqui", "~/.local/share/tts", "~/.cache/suno", "~/.cache/outlines", "~/.cache/vllm", "~/.cache/kokoro", "~/.cache/piper"]
+name = "Downloaded AI models"
+owner = "Python AI tools"
+what = "Model weights a Python AI library (PyTorch, Whisper, Keras, OCR, speech or embedding tools) downloaded. It downloads them again the next time it needs them."
+kind = "aiModels"
+regrows = "yes"
+
+[[folder]]
+path = ["~/Library/Application Support/Claude/vm_bundles", "~/Library/Application Support/Claude/vm_bundles/claudevm.bundle"]
+name = "Claude's virtual machine"
+owner = "Claude"
+what = "The Linux virtual machine Claude's desktop app uses to run code and Cowork tasks. Claude downloads it again when it needs it."
+kind = "cache"
+regrows = "yes"
+how = "Quit Claude first"
+
+[[folder]]
+path = ["~/Library/Application Support/Claude/claude-code", "~/Library/Application Support/Claude/claude-code-vm"]
+name = "Claude Code for the desktop app"
+owner = "Claude"
+what = "Copies of Claude Code the desktop app downloaded, one per version. Old versions stay after updates; the app downloads the one it needs."
+kind = "cache"
+regrows = "yes"
+how = "Quit Claude first; it keeps the newest version"
+
+[[folder]]
+path = "~/Library/Application Support/Claude/scratch-workspaces"
+name = "Claude scratch workspaces"
+owner = "Claude"
+what = "Folders Claude made for chats and tasks without a project folder. Claude removes each one after a week without changes."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Application Support/Claude/local-agent-mode-sessions", "~/Library/Application Support/Claude/claude-code-sessions"]
+name = "Claude sessions"
+owner = "Claude"
+what = "Data of your Claude Code and Cowork sessions in the desktop app."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = "~/Library/Application Support/Claude"
+name = "Claude desktop app data"
+owner = "Claude"
+what = "The Claude app's data: its virtual machine, Claude Code copies, sessions and caches."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = "~/.local/share/claude/versions"
+name = "Claude Code versions"
+owner = "Claude Code"
+what = "Claude Code versions the installer downloaded. The newest one is the claude command, so leave the folder; Claude Code removes old versions as it updates."
+kind = "toolchain"
+regrows = "no"
+how = "claude update"
+
+[[folder]]
+path = ["~/.local/share/claude", "~/.claude/local"]
+name = "Claude Code"
+owner = "Claude Code"
+what = "Claude Code itself, as installed by its installer."
+kind = "toolchain"
+regrows = "no"
+
+[[folder]]
+path = "~/.claude/projects"
+name = "Claude Code conversations"
+owner = "Claude Code"
+what = "The history of your Claude Code sessions, one folder per project. Claude Code needs it to resume a session."
+kind = "appData"
+regrows = "no"
+how = "Claude Code removes sessions older than cleanupPeriodDays (in settings.json)"
+
+[[folder]]
+path = ["~/.claude/plugins", "~/.claude/plugins/marketplaces", "~/.claude/plugins/cache"]
+name = "Claude Code plugins"
+owner = "Claude Code"
+what = "Plugins and plugin marketplaces you added to Claude Code. They download again when you install them."
+kind = "toolchain"
+regrows = "no"
+how = "/plugin in Claude Code"
+
+[[folder]]
+path = ["~/.claude/shell-snapshots", "~/.claude/statsig", "~/.claude/debug", "~/.claude/telemetry", "~/.claude/paste-cache", "~/.claude/image-cache"]
+name = "Claude Code cache"
+owner = "Claude Code"
+what = "Short-lived caches and debug logs of Claude Code. It makes them again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/.claude/file-history", "~/.claude/todos", "~/.claude/session-env", "~/.claude/history.jsonl"]
+name = "Claude Code session data"
+owner = "Claude Code"
+what = "Edit history and to-do lists of your Claude Code sessions, used to undo and resume."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = "~/.claude"
+name = "Claude Code settings and history"
+owner = "Claude Code"
+what = "Claude Code's settings, memory, plugins and session history."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/.codex/sessions", "~/.codex/archived_sessions"]
+name = "Codex sessions"
+owner = "Codex"
+what = "The history of your Codex sessions. Codex needs it to resume them."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/.codex/packages", "~/.codex/packages/standalone", "~/.codex/packages/standalone/releases"]
+name = "Codex versions"
+owner = "Codex"
+what = "Versions of the Codex CLI its installer downloaded. Old versions stay after updates."
+kind = "toolchain"
+regrows = "no"
+
+[[folder]]
+path = ["~/.codex/plugins", "~/.codex/plugins/.plugin-appserver"]
+name = "Codex plugins"
+owner = "Codex"
+what = "Plugins of the Codex app and the Codex CLI copy they use."
+kind = "toolchain"
+regrows = "no"
+
+[[folder]]
+path = ["~/.codex/log", "~/.codex/logs"]
+name = "Codex logs"
+owner = "Codex"
+what = "Logs of Codex."
+kind = "logs"
+regrows = "yes"
+
+[[folder]]
+path = "~/.codex"
+name = "Codex data"
+owner = "Codex"
+what = "Codex's settings, session history, plugins and installed versions."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/.cache/codex-runtimes", "~/.cache/codex-runtimes/*"]
+name = "Codex runtimes"
+owner = "Codex"
+what = "Node, Python and other runtimes the Codex app downloaded for its tools. It downloads them again when needed."
+kind = "cache"
+regrows = "yes"
+how = "Quit Codex first"
+
+[[folder]]
+path = ["~/Library/Application Support/com.openai.chat", "~/Library/Application Support/com.openai.codex", "~/Library/Application Support/Codex"]
+name = "ChatGPT and Codex app data"
+owner = "ChatGPT"
+what = "The ChatGPT and Codex app's settings and conversation cache."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/.gemini/antigravity/conversations", "~/.gemini/antigravity/brain", "~/.gemini/antigravity/implicit", "~/.gemini/antigravity/annotations"]
+name = "Antigravity conversations"
+owner = "Antigravity"
+what = "Your Antigravity agent conversations, plans and the memory it keeps of them."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = "~/.gemini/antigravity/scratch"
+name = "Antigravity scratch projects"
+owner = "Antigravity"
+what = "Projects Antigravity made for tasks without a folder of their own. They may hold work you want to keep."
+kind = "userFiles"
+regrows = "no"
+
+[[folder]]
+path = ["~/.gemini/antigravity", "~/.gemini"]
+name = "Gemini and Antigravity data"
+owner = "Antigravity"
+what = "Settings, conversations and caches of Antigravity and the Gemini CLI."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/.gemini/tmp", "~/.gemini/antigravity/browser_recordings", "~/.gemini/antigravity/code_tracker"]
+name = "Antigravity temporary data"
+owner = "Antigravity"
+what = "Temporary files, browser recordings and code tracking data of Antigravity agents."
+kind = "cache"
+regrows = "unsure"
+
+[[folder]]
+path = ["~/Library/Application Support/kiro-cli", "~/.kiro", "~/Library/Application Support/Kiro"]
+name = "Kiro data"
+owner = "Kiro"
+what = "Kiro's settings, extensions and the runtime it downloaded."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/.cursor", "~/.cursor/extensions"]
+name = "Cursor extensions"
+owner = "Cursor"
+what = "Extensions and settings of the Cursor editor."
+kind = "toolchain"
+regrows = "no"
+
+[[folder]]
+path = ["~/.codeium", "~/.windsurf", "~/.windsurf/extensions", "~/.codeium/windsurf"]
+name = "Windsurf data"
+owner = "Windsurf"
+what = "Windsurf and Codeium's extensions, indexes and settings."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/.continue", "~/.aider", "~/.config/github-copilot", "~/.copilot", "~/.qwen", "~/.opencode", "~/.local/share/opencode", "~/.goose", "~/.config/goose", "~/.local/share/goose", "~/.amp", "~/.factory", "~/.augment", "~/.roo", "~/.cline"]
+name = "AI coding tool data"
+owner = "AI coding tools"
+what = "Settings, indexes and session history of an AI coding assistant (Continue, Aider, Copilot, OpenCode, Goose and others)."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/.happy", "~/.happy/dist"]
+name = "Happy"
+owner = "Happy"
+what = "The Happy app's settings and downloaded versions."
+kind = "toolchain"
+regrows = "no"
+
+# ===========================================================================
+# Editors and IDEs
+# ===========================================================================
+
+[[folder]]
+path = ["~/.vscode/extensions", "~/.vscode", "~/.vscode-insiders/extensions", "~/.vscode-oss/extensions", "~/.antigravity/extensions", "~/.kiro/extensions", "~/.trae/extensions", "~/.positron/extensions"]
+name = "Editor extensions"
+owner = "VS Code"
+what = "Extensions you installed in VS Code or an editor built on it. Old versions are removed when the editor updates them."
+kind = "toolchain"
+regrows = "no"
+how = "Remove unused extensions in the editor"
+
+[[folder]]
+path = ["~/Library/Application Support/Code/User/workspaceStorage", "~/Library/Application Support/Cursor/User/workspaceStorage", "~/Library/Application Support/Antigravity/User/workspaceStorage", "~/Library/Application Support/Windsurf/User/workspaceStorage", "~/Library/Application Support/Kiro/User/workspaceStorage", "~/Library/Application Support/Code - Insiders/User/workspaceStorage", "~/Library/Application Support/VSCodium/User/workspaceStorage"]
+name = "Editor workspace data"
+owner = "VS Code"
+what = "Per-project state the editor keeps: open files, extension caches and AI chat history. Old projects' folders pile up here."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Application Support/Code/User/globalStorage", "~/Library/Application Support/Cursor/User/globalStorage", "~/Library/Application Support/Antigravity/User/globalStorage", "~/Library/Application Support/Windsurf/User/globalStorage"]
+name = "Editor extension data"
+owner = "VS Code"
+what = "Data extensions keep across all your projects, such as downloaded language servers and chat history."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Application Support/Code/CachedExtensionVSIXs", "~/Library/Application Support/Cursor/CachedExtensionVSIXs", "~/Library/Application Support/Antigravity/CachedExtensionVSIXs", "~/Library/Application Support/Windsurf/CachedExtensionVSIXs", "~/Library/Application Support/Code/CachedData", "~/Library/Application Support/Cursor/CachedData", "~/Library/Application Support/Antigravity/CachedData", "~/Library/Application Support/Windsurf/CachedData", "~/Library/Application Support/Code/CachedProfilesData", "~/Library/Application Support/Code/User/History"]
+name = "Editor cache"
+owner = "VS Code"
+what = "Downloaded extension packages and compiled code the editor keeps to start faster. It's made again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/Library/Application Support/Code", "~/Library/Application Support/Cursor", "~/Library/Application Support/Antigravity", "~/Library/Application Support/Windsurf", "~/Library/Application Support/Code - Insiders", "~/Library/Application Support/VSCodium", "~/Library/Application Support/Trae", "~/Library/Application Support/Positron", "~/Library/Application Support/Void"]
+name = "Editor data"
+owner = "VS Code"
+what = "Settings, caches and per-project data of VS Code or an editor built on it."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Caches/JetBrains", "~/Library/Caches/JetBrains/*"]
+name = "JetBrains caches"
+owner = "JetBrains"
+what = "Indexes and caches of IntelliJ, PyCharm, WebStorm and other JetBrains IDEs, one folder per version. Old versions' folders are leftovers."
+kind = "cache"
+regrows = "yes"
+how = "In the IDE: File > Invalidate Caches, or remove folders of old versions"
+
+[[folder]]
+path = ["~/Library/Application Support/JetBrains", "~/Library/Application Support/JetBrains/*"]
+name = "JetBrains settings"
+owner = "JetBrains"
+what = "Settings and plugins of JetBrains IDEs, one folder per version. Old versions' folders are leftovers."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = "~/Library/Application Support/JetBrains/Toolbox/apps"
+name = "JetBrains IDEs"
+owner = "JetBrains Toolbox"
+what = "IDEs installed by JetBrains Toolbox."
+kind = "toolchain"
+regrows = "no"
+how = "Uninstall in JetBrains Toolbox"
+
+[[folder]]
+path = "~/Library/Logs/JetBrains"
+name = "JetBrains logs"
+owner = "JetBrains"
+what = "Logs of JetBrains IDEs."
+kind = "logs"
+regrows = "yes"
+
+[[folder]]
+path = ["~/Library/Application Support/Zed", "~/.local/share/zed"]
+name = "Zed data"
+owner = "Zed"
+what = "Zed's settings, extensions and the language servers and Node it downloaded."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Application Support/Zed/languages", "~/Library/Application Support/Zed/node", "~/Library/Application Support/Zed/copilot", "~/Library/Caches/Zed"]
+name = "Zed downloads"
+owner = "Zed"
+what = "Language servers, Node.js and caches Zed downloaded. It downloads them again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/Library/Application Support/Sublime Text", "~/Library/Application Support/Nova", "~/Library/Application Support/BBEdit", "~/Library/Application Support/Panic"]
+name = "Editor settings"
+owner = "Text editors"
+what = "Settings and packages of Sublime Text, Nova or BBEdit."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Application Support/dev.warp.Warp-Stable", "~/.warp", "~/Library/Application Support/com.mitchellh.ghostty", "~/Library/Application Support/iTerm2"]
+name = "Terminal app data"
+owner = "Terminal apps"
+what = "Settings and history of Warp, Ghostty or iTerm2."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Application Support/Postman", "~/Library/Application Support/Insomnia", "~/Library/Application Support/Bruno", "~/Library/Application Support/com.tinyapp.TablePlus", "~/Library/Application Support/DBeaverData", "~/Library/Application Support/GitHub Desktop", "~/Library/Application Support/Fork", "~/Library/Application Support/SourceTree", "~/Library/Application Support/Tower"]
+name = "Developer app data"
+owner = "Developer apps"
+what = "Settings, saved requests or connections of a developer app (Postman, Insomnia, TablePlus, DBeaver, Git clients)."
+kind = "appData"
+regrows = "no"
+
+# ===========================================================================
+# Cloud and DevOps tools
+# ===========================================================================
+
+[[folder]]
+path = ["~/.terraform.d/plugin-cache", "~/.terraform.d", "/**/.terraform"]
+name = "Terraform providers"
+owner = "Terraform"
+what = "Terraform providers and modules downloaded. terraform init downloads them again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/Library/Caches/helm", "~/.cache/helm", "~/.pulumi/plugins", "~/.cache/pulumi", "~/.aws/cli/cache", "~/.aws/sso/cache", "~/.azure/logs", "~/.config/gcloud/logs", "~/.cache/cloud-code"]
+name = "Cloud tool cache"
+owner = "Cloud tools"
+what = "Downloads, plugins and logs of Helm, Pulumi or a cloud CLI. They come back when needed."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/.aws", "~/.azure", "~/.config/gcloud", "~/.oci", "~/.kube", "~/.ssh", "~/.gnupg", "~/.pulumi", "~/.config/gh", "~/.netrc"]
+name = "Accounts and keys"
+owner = "Command-line tools"
+what = "Sign-ins, keys and settings of cloud and developer tools. Removing them signs you out or loses keys."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/.serverless", "/**/.serverless", "/**/.aws-sam", "/**/cdk.out"]
+name = "Deploy build output"
+owner = "Serverless tools"
+what = "Packages Serverless, SAM or CDK built to deploy. They're made again on the next deploy."
+kind = "buildOutput"
+regrows = "yes"
+
+[[folder]]
+path = ["~/.config", "~/.local", "~/.local/share", "~/.local/state"]
+name = "Tool data"
+owner = "Command-line tools"
+what = "Where command-line tools keep settings (.config), data (.local) and caches (.cache)."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = "~/.cache"
+name = "Tool caches"
+owner = "Command-line tools"
+what = "The shared cache folder of command-line tools: downloads, models and build caches. Each tool makes its part again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = "~/.local/bin"
+name = "Your commands"
+owner = "Command-line tools"
+what = "Commands installed for you by tools like uv, pipx and Claude Code."
+kind = "toolchain"
+regrows = "no"
+
+[[folder]]
+path = ["~/.local/state/*", "~/.local/state/*/logs"]
+name = "Tool state"
+owner = "Command-line tools"
+what = "State and logs a command-line tool keeps, such as history."
+kind = "appData"
+regrows = "unsure"
+
+# ===========================================================================
+# Browsers
+# ===========================================================================
+
+[[folder]]
+path = ["~/Library/Application Support/Google/Chrome/OptGuideOnDeviceModel", "~/Library/Application Support/Google/Chrome Canary/OptGuideOnDeviceModel", "~/Library/Application Support/Microsoft Edge/EdgeLLMOnDeviceModel"]
+name = "Chrome's built-in AI model"
+owner = "Google Chrome"
+what = "Gemini Nano, the AI model Chrome downloaded for its built-in AI features. Chrome downloads it again unless you turn those features off."
+kind = "aiModels"
+regrows = "yes"
+how = "Chrome > Settings > System: turn off On-device AI"
+
+[[folder]]
+path = ["~/Library/Application Support/Google/Chrome/*/Service Worker", "~/Library/Application Support/Google/Chrome/*/Service Worker/CacheStorage", "~/Library/Application Support/BraveSoftware/Brave-Browser/*/Service Worker", "~/Library/Application Support/Microsoft Edge/*/Service Worker", "~/Library/Application Support/Arc/User Data/*/Service Worker", "~/Library/Application Support/Vivaldi/*/Service Worker", "~/Library/Application Support/Chromium/*/Service Worker", "~/Library/Application Support/net.imput.helium/*/Service Worker", "~/Library/Application Support/Dia/User Data/*/Service Worker", "~/Library/Application Support/com.operasoftware.Opera/Service Worker"]
+name = "Website offline storage"
+owner = "Chromium browsers"
+what = "Files websites stored to work offline and load faster. Sites download them again; some may sign you out or lose offline data."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/Library/Application Support/Google/Chrome/*/IndexedDB", "~/Library/Application Support/BraveSoftware/Brave-Browser/*/IndexedDB", "~/Library/Application Support/Microsoft Edge/*/IndexedDB", "~/Library/Application Support/Arc/User Data/*/IndexedDB"]
+name = "Website databases"
+owner = "Chromium browsers"
+what = "Data websites saved in the browser, such as offline mail or documents."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Application Support/Google/Chrome/component_crx_cache", "~/Library/Application Support/Google/Chrome/Snapshots", "~/Library/Application Support/Google/Chrome/GrShaderCache", "~/Library/Application Support/Google/Chrome/ShaderCache", "~/Library/Application Support/Google/Chrome/extensions_crx_cache", "~/Library/Application Support/Google/Chrome/screen_ai", "~/Library/Application Support/Google/Chrome/SODA", "~/Library/Application Support/Google/Chrome/SODALanguagePacks", "~/Library/Application Support/Google/Chrome/optimization_guide_model_store", "~/Library/Application Support/Google/Chrome/WasmTtsEngine"]
+name = "Chrome components"
+owner = "Google Chrome"
+what = "Parts Chrome downloads by itself: shader caches, speech and screen-reading models, update snapshots. Chrome gets them again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/Library/Application Support/Google/Chrome", "~/Library/Application Support/Google/Chrome Canary", "~/Library/Application Support/Google/Chrome Beta", "~/Library/Application Support/Chromium"]
+name = "Chrome profiles"
+owner = "Google Chrome"
+what = "Your Chrome profiles: bookmarks, history, passwords, extensions and website data."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Application Support/Google/Chrome/Default", "~/Library/Application Support/Google/Chrome/Profile *"]
+name = "A Chrome profile"
+owner = "Google Chrome"
+what = "One Chrome profile: bookmarks, history, passwords, extensions and website data."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Caches/Google/Chrome", "~/Library/Caches/Google/Chrome Canary", "~/Library/Caches/Chromium", "~/Library/Caches/BraveSoftware", "~/Library/Caches/Microsoft Edge", "~/Library/Caches/Arc", "~/Library/Caches/Vivaldi", "~/Library/Caches/com.operasoftware.Opera", "~/Library/Caches/Firefox", "~/Library/Caches/Mozilla", "~/Library/Caches/net.imput.helium", "~/Library/Caches/company.thebrowser.Browser", "~/Library/Caches/company.thebrowser.dia", "~/Library/Caches/zen", "~/Library/Caches/com.kagi.kagimacOS"]
+name = "Browser cache"
+owner = "Browsers"
+what = "Web pages, images and scripts the browser saved to load sites faster. It's made again as you browse."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/Library/Application Support/BraveSoftware/Brave-Browser", "~/Library/Application Support/BraveSoftware", "~/Library/Application Support/Microsoft Edge", "~/Library/Application Support/Arc", "~/Library/Application Support/Arc/User Data", "~/Library/Application Support/Vivaldi", "~/Library/Application Support/com.operasoftware.Opera", "~/Library/Application Support/net.imput.helium", "~/Library/Application Support/Dia", "~/Library/Application Support/Orion", "~/Library/Application Support/zen", "~/Library/Application Support/Comet", "~/Library/Application Support/Yab"]
+name = "Browser profiles"
+owner = "Browsers"
+what = "A browser's profiles: bookmarks, history, passwords, extensions and website data."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Application Support/Firefox", "~/Library/Application Support/Firefox/Profiles", "~/Library/Application Support/Firefox/Profiles/*", "~/Library/Application Support/LibreWolf", "~/Library/Application Support/Floorp", "~/Library/Application Support/Waterfox"]
+name = "Firefox profiles"
+owner = "Firefox"
+what = "Your Firefox profiles: bookmarks, history, passwords, add-ons and website data."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Application Support/Firefox/Profiles/*/storage", "~/Library/Application Support/Firefox/Profiles/*/storage/default"]
+name = "Firefox website storage"
+owner = "Firefox"
+what = "Data websites stored in Firefox, including offline caches. Clear it per site in Firefox settings."
+kind = "appData"
+regrows = "unsure"
+how = "Firefox > Settings > Privacy > Manage Data"
+
+# ===========================================================================
+# Chat, office and everyday apps
+# ===========================================================================
+
+[[folder]]
+path = ["~/Library/Application Support/Slack", "~/Library/Containers/com.tinyspeck.slackmacgap"]
+name = "Slack data"
+owner = "Slack"
+what = "Slack's sign-ins, settings and cached messages and files."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Application Support/discord", "~/Library/Application Support/discordptb", "~/Library/Application Support/discordcanary"]
+name = "Discord data"
+owner = "Discord"
+what = "Discord's sign-in, settings, caches and app modules."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Application Support/discord/0.0.*", "~/Library/Application Support/discord/*/modules"]
+name = "Discord app modules"
+owner = "Discord"
+what = "Parts of the Discord app it downloaded, one folder per version. Discord downloads the one it needs."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/Library/Containers/com.microsoft.teams2", "~/Library/Group Containers/UBF8T346G9.com.microsoft.teams", "~/Library/Application Support/Microsoft/Teams"]
+name = "Microsoft Teams data"
+owner = "Microsoft Teams"
+what = "Teams' sign-in, settings and cached chats and files."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Containers/com.microsoft.teams2/Data/Library/Caches", "~/Library/Containers/com.microsoft.teams2/Data/Library/Application Support/Microsoft/MSTeams/EBWebView"]
+name = "Teams cache"
+owner = "Microsoft Teams"
+what = "Teams' web cache. It's made again; Teams may ask you to sign in."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/Library/Group Containers/UBF8T346G9.Office", "~/Library/Group Containers/UBF8T346G9.OfficeOsfWebHost", "~/Library/Group Containers/UBF8T346G9.ms"]
+name = "Microsoft Office data"
+owner = "Microsoft Office"
+what = "Shared data of Word, Excel, PowerPoint and Outlook: settings, fonts, add-ins and Outlook mail."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Containers/com.microsoft.Word", "~/Library/Containers/com.microsoft.Excel", "~/Library/Containers/com.microsoft.Powerpoint", "~/Library/Containers/com.microsoft.Outlook", "~/Library/Containers/com.microsoft.onenote.mac", "~/Library/Containers/com.microsoft.OneDrive-mac"]
+name = "Office app data"
+owner = "Microsoft Office"
+what = "One Office app's settings, templates and caches."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Group Containers/UBF8T346G9.Office/Outlook", "~/Library/Group Containers/UBF8T346G9.Office/Outlook/Outlook 15 Profiles"]
+name = "Outlook mail"
+owner = "Outlook"
+what = "Mail and calendars Outlook downloaded. Accounts that keep mail on the server download it again."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Application Support/zoom.us", "~/Library/Application Support/zoom.us/data"]
+name = "Zoom data"
+owner = "Zoom"
+what = "Zoom's settings, chat history and downloaded parts."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Documents/Zoom"]
+name = "Zoom recordings"
+owner = "Zoom"
+what = "Meetings you recorded on this Mac."
+kind = "userFiles"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Group Containers/group.net.whatsapp.WhatsApp.shared", "~/Library/Containers/net.whatsapp.WhatsApp", "~/Library/Application Support/WhatsApp"]
+name = "WhatsApp data"
+owner = "WhatsApp"
+what = "Your WhatsApp chats and the photos, videos and files in them."
+kind = "appData"
+regrows = "no"
+how = "WhatsApp > Settings > Storage and Data > Manage Storage"
+
+[[folder]]
+path = ["~/Library/Group Containers/6N38VWS5BX.ru.keepcoder.Telegram", "~/Library/Application Support/Telegram Desktop"]
+name = "Telegram data"
+owner = "Telegram"
+what = "Telegram's sign-in and the media it downloaded from chats. Telegram keeps messages in the cloud."
+kind = "appData"
+regrows = "no"
+how = "Telegram > Settings > Data and Storage > Storage Usage > Clear cache"
+
+[[folder]]
+path = ["~/Library/Group Containers/6N38VWS5BX.ru.keepcoder.Telegram/stable/account-*/postbox/media", "~/Library/Group Containers/6N38VWS5BX.ru.keepcoder.Telegram/appstore/account-*/postbox/media"]
+name = "Telegram media cache"
+owner = "Telegram"
+what = "Photos, videos and files Telegram downloaded from chats. They stay in Telegram's cloud and download again when you open them."
+kind = "cache"
+regrows = "yes"
+how = "Telegram > Settings > Data and Storage > Storage Usage > Clear cache"
+
+[[folder]]
+path = ["~/Library/Application Support/Signal", "~/Library/Application Support/Element", "~/Library/Application Support/Viber", "~/Library/Application Support/Skype", "~/Library/Containers/com.facebook.archon", "~/Library/Application Support/Messenger", "~/Library/Application Support/Beeper", "~/Library/Containers/com.wire.WireSwift"]
+name = "Messaging app data"
+owner = "Messaging apps"
+what = "A messaging app's chats and attachments. Some, like Signal, keep messages only on your devices."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Application Support/Notion", "~/Library/Application Support/Notion Calendar", "~/Library/Application Support/Notion Mail"]
+name = "Notion data"
+owner = "Notion"
+what = "The Notion app's offline pages, sign-in and caches. Your pages live in Notion's cloud."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Application Support/Notion/Partitions/notion/Service Worker", "~/Library/Application Support/Notion/Partitions/notion/Cache", "~/Library/Application Support/Notion/Partitions/notion/Code Cache"]
+name = "Notion cache"
+owner = "Notion"
+what = "Notion's web app files and caches. Notion downloads them again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/Library/Application Support/obsidian", "~/Library/Application Support/Figma", "~/Library/Application Support/Linear", "~/Library/Application Support/Todoist", "~/Library/Application Support/Craft", "~/Library/Application Support/Bear", "~/Library/Group Containers/9K33E3U3T4.net.shinyfrog.bear", "~/Library/Application Support/Things 3", "~/Library/Application Support/1Password", "~/Library/Group Containers/2BUA8C4S2C.com.1password", "~/Library/Application Support/Bitwarden", "~/Library/Application Support/Raindrop.io", "~/Library/Application Support/Superhuman", "~/Library/Application Support/Spark", "~/Library/Application Support/Canva", "~/Library/Application Support/Miro", "~/Library/Application Support/ClickUp", "~/Library/Application Support/Trello", "~/Library/Application Support/Asana", "~/Library/Application Support/Loom", "~/Library/Application Support/Arc Search"]
+name = "App data"
+owner = "Productivity apps"
+what = "A productivity app's settings, sign-in and offline data."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Application Support/Figma/DesktopProfile", "~/Library/Application Support/Figma/DesktopProfile/*/Cache"]
+name = "Figma cache"
+owner = "Figma"
+what = "Figma's offline cache of files and fonts. Figma downloads them again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/Library/Caches/com.spotify.client", "~/Library/Application Support/Spotify/PersistentCache", "~/Library/Caches/com.spotify.client/Data"]
+name = "Spotify cache"
+owner = "Spotify"
+what = "Songs Spotify saved while streaming, and artwork. It saves them again as you listen. Downloaded playlists are separate."
+kind = "cache"
+regrows = "yes"
+how = "Spotify > Settings > Storage > Clear cache"
+
+[[folder]]
+path = ["~/Library/Application Support/Spotify", "~/Library/Application Support/Spotify/Users"]
+name = "Spotify data"
+owner = "Spotify"
+what = "Spotify's settings and downloaded playlists."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Application Support/com.raycast.macos", "~/Library/Application Support/com.raycast.macos/extensions"]
+name = "Raycast data"
+owner = "Raycast"
+what = "Raycast's settings, clipboard history, extensions and notes."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Application Support/com.raycast.macos/node", "~/Library/Application Support/com.raycast.macos/node/runtime"]
+name = "Raycast's Node.js"
+owner = "Raycast"
+what = "The Node.js runtime Raycast downloaded to run extensions. It downloads it again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/Library/Application Support/Google/DriveFS", "~/Library/Application Support/Google/DriveFS/*/content_cache"]
+name = "Google Drive cache"
+owner = "Google Drive"
+what = "Files Google Drive keeps on this Mac to open them fast. Files you didn't make available offline download again."
+kind = "cache"
+regrows = "unsure"
+how = "Google Drive > Settings > Preferences > clear the cache, or set a smaller cache"
+
+[[folder]]
+path = ["~/Dropbox", "~/Library/CloudStorage/Dropbox", "~/OneDrive", "~/Google Drive", "~/Box", "~/pCloud Drive", "~/Sync", "~/Nextcloud"]
+name = "Synced folder"
+owner = "Cloud storage"
+what = "Files synced with a cloud service. Make them online-only in that app to free space."
+kind = "userFiles"
+regrows = "no"
+
+[[folder]]
+path = ["~/Dropbox/.dropbox.cache", "~/Library/CloudStorage/Dropbox/.dropbox.cache"]
+name = "Dropbox cache"
+owner = "Dropbox"
+what = "Old and deleted files Dropbox keeps for a few days. Dropbox clears it by itself."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/.dropbox", "~/Library/Application Support/Dropbox", "~/Library/Application Support/OneDrive", "~/Library/Containers/com.microsoft.OneDrive-mac/Data/Library/Application Support/OneDrive", "~/Library/Application Support/Box"]
+name = "Sync app data"
+owner = "Cloud storage"
+what = "The sync app's own settings and file index."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Application Support/CleanMyMac X", "~/Library/Application Support/CleanMyMac", "~/Library/Application Support/DaisyDisk", "~/Library/Application Support/Setapp"]
+name = "Utility app data"
+owner = "Utility apps"
+what = "A utility app's settings and databases."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Application Support/Steam", "~/Library/Application Support/Steam/steamapps", "~/Library/Application Support/Steam/steamapps/common"]
+name = "Steam games"
+owner = "Steam"
+what = "Games installed through Steam. Uninstall games you don't play from Steam; you can download them again anytime."
+kind = "appData"
+regrows = "no"
+how = "Steam > Library > right-click a game > Manage > Uninstall"
+
+[[folder]]
+path = ["~/Library/Application Support/Steam/steamapps/shadercache", "~/Library/Application Support/Steam/steamapps/downloading", "~/Library/Application Support/Steam/appcache", "~/Library/Application Support/Steam/logs", "~/Library/Application Support/Steam/depotcache"]
+name = "Steam cache"
+owner = "Steam"
+what = "Shader caches, download leftovers and logs of Steam. Steam makes them again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/Library/Application Support/Epic", "~/Library/Application Support/Epic/EpicGamesLauncher"]
+name = "Epic Games Launcher"
+owner = "Epic Games"
+what = "The Epic Games Launcher's data and caches."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Application Support/Epic/UnrealEngine/Common/DerivedDataCache", "~/Library/Application Support/Unreal Engine/Common/DerivedDataCache"]
+name = "Unreal Engine cache"
+owner = "Unreal Engine"
+what = "Shaders and assets Unreal Engine compiled. It compiles them again, which takes a while."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/Library/Application Support/minecraft", "~/Library/Application Support/minecraft/saves"]
+name = "Minecraft"
+owner = "Minecraft"
+what = "Your Minecraft worlds, settings, mods and game versions."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Application Support/minecraft/versions", "~/Library/Application Support/minecraft/libraries", "~/Library/Application Support/minecraft/assets", "~/Library/Application Support/minecraft/runtime"]
+name = "Minecraft game files"
+owner = "Minecraft"
+what = "Game versions, libraries and sounds the launcher downloaded. It downloads them again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/Library/Application Support/PrismLauncher", "~/Library/Application Support/PrismLauncher/instances", "~/Library/Application Support/MultiMC", "~/Library/Application Support/ModrinthApp", "~/Library/Application Support/com.modrinth.theseus", "~/Library/Application Support/CurseForge", "~/Documents/curseforge"]
+name = "Minecraft launcher"
+owner = "Minecraft launchers"
+what = "Your Minecraft instances: worlds, mods and settings."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Application Support/PrismLauncher/assets", "~/Library/Application Support/PrismLauncher/libraries", "~/Library/Application Support/PrismLauncher/meta", "~/Library/Application Support/PrismLauncher/cache", "~/Library/Application Support/PrismLauncher/java", "~/Library/Application Support/ModrinthApp/meta", "~/Library/Application Support/ModrinthApp/caches"]
+name = "Minecraft launcher downloads"
+owner = "Minecraft launchers"
+what = "Game files, libraries and Java versions the launcher downloaded. It downloads them again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/Library/Roblox", "~/Library/Application Support/Roblox"]
+name = "Roblox"
+owner = "Roblox"
+what = "Roblox's settings, logs and the copy of the player it unpacked."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Roblox/UnzippedBundle", "~/Library/Roblox/Downloads", "~/Library/Logs/Roblox", "/private/var/folders/*/*/T/Roblox"]
+name = "Roblox downloads"
+owner = "Roblox"
+what = "Roblox player files and game assets it downloaded or unpacked. Roblox downloads them again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/Library/Application Support/Godot", "~/Library/Application Support/Godot/export_templates"]
+name = "Godot data"
+owner = "Godot"
+what = "Godot's settings and export templates. Export templates download again from the editor."
+kind = "toolchain"
+regrows = "no"
+how = "Godot > Editor > Manage Export Templates"
+
+[[folder]]
+path = ["~/Library/Unity/cache", "~/Library/Unity/Asset Store-5.x", "~/Library/Caches/com.unity3d.UnityEditor5.x", "~/Library/Unity/cache/packages", "~/Library/Unity/Caches"]
+name = "Unity cache"
+owner = "Unity"
+what = "Unity packages and Asset Store downloads. Unity downloads them again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["/Applications/Unity/Hub/Editor", "/Applications/Unity", "~/Library/Application Support/UnityHub"]
+name = "Unity editors"
+owner = "Unity"
+what = "Unity editor versions installed with Unity Hub."
+kind = "toolchain"
+regrows = "no"
+how = "Uninstall versions in Unity Hub"
+
+[[folder]]
+path = ["~/Library/Application Support/Blender", "~/Library/Application Support/Blender/*"]
+name = "Blender settings"
+owner = "Blender"
+what = "Blender's settings, add-ons and extensions, one folder per version. Old versions' folders are leftovers."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Application Support/Adobe/Common/Media Cache Files", "~/Library/Application Support/Adobe/Common/Media Cache", "~/Library/Application Support/Adobe/Common/Peak Files", "~/Library/Caches/Adobe", "~/Library/Application Support/Adobe/Common/PTX"]
+name = "Adobe media cache"
+owner = "Adobe"
+what = "Audio and video caches of Premiere Pro, After Effects and Audition. They're made again when you open a project."
+kind = "cache"
+regrows = "yes"
+how = "Premiere Pro > Settings > Media Cache > Delete"
+
+[[folder]]
+path = ["~/Library/Application Support/Adobe", "~/Library/Application Support/Adobe/CoreSync", "~/Library/Application Support/Adobe/Lightroom", "~/Library/Application Support/Adobe/Creative Cloud Libraries"]
+name = "Adobe app data"
+owner = "Adobe"
+what = "Settings, synced libraries and presets of Adobe apps."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Application Support/Blackmagic Design", "~/Library/Application Support/Blackmagic Design/DaVinci Resolve"]
+name = "DaVinci Resolve data"
+owner = "DaVinci Resolve"
+what = "DaVinci Resolve's settings, project databases and LUTs."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Containers/com.lemon.lvoverseas", "~/Movies/CapCut", "~/Library/Containers/com.lemon.lvoverseas/Data/Movies/CapCut/User Data/Cache"]
+name = "CapCut data"
+owner = "CapCut"
+what = "CapCut's projects, drafts and caches."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Application Support/obs-studio", "~/Library/Application Support/obs-studio/plugin_config"]
+name = "OBS settings"
+owner = "OBS Studio"
+what = "OBS's scenes, profiles and logs. Recordings go to Movies."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Music/Audio Music Apps", "~/Music/GarageBand", "~/Music/Logic"]
+name = "Music projects"
+owner = "GarageBand and Logic"
+what = "Your GarageBand and Logic projects, samples and patches."
+kind = "userFiles"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Application Support/Native Instruments", "/Library/Application Support/Native Instruments", "~/Library/Application Support/Splice", "~/Library/Application Support/Ableton", "~/Music/Ableton"]
+name = "Music production data"
+owner = "Music apps"
+what = "Sound libraries, presets and settings of music production apps."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Application Support/RetroArch", "~/Library/Application Support/Dolphin", "~/Library/Application Support/Ryujinx", "~/Library/Application Support/Cemu", "~/Library/Application Support/PPSSPP", "~/Library/Application Support/OpenEmu", "~/Library/Application Support/DofinEmu"]
+name = "Emulator data"
+owner = "Emulators"
+what = "An emulator's games, saves, shader caches and settings."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Application Support/Plex Media Server", "~/Library/Application Support/Plex Media Server/Cache", "~/Library/Application Support/Plex Media Server/Media"]
+name = "Plex server data"
+owner = "Plex"
+what = "Plex Media Server's library database, artwork and transcoding cache."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Containers/com.apple.Safari.WebApp", "~/Library/Containers/com.apple.Safari.WebApp/Data"]
+name = "Web apps"
+owner = "Safari"
+what = "Web apps you added to the Dock from Safari, with their website data."
+kind = "appData"
+regrows = "no"
+
+# ===========================================================================
+# General patterns: anything above wins over these
+# ===========================================================================
+
+[[folder]]
+path = ["/Applications/*.app", "/Applications/*/*.app", "~/Applications/*.app", "/Applications/Utilities/*.app"]
+name = "An app"
+owner = "Apps"
+what = "An app you installed. If you don't use it, move it to the Trash or use its uninstaller; Roomy's unused-apps check lists apps you haven't opened in a long time."
+kind = "toolchain"
+regrows = "no"
+
+[[folder]]
+path = ["/Applications/*", "~/Applications"]
+name = "App folder"
+owner = "Apps"
+what = "A folder of apps and their helpers."
+kind = "toolchain"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Application Support/*/Cache", "~/Library/Application Support/*/*/Cache", "~/Library/Application Support/*/*/*/Cache", "~/Library/Application Support/*/*/*/*/Cache", "~/Library/Application Support/*/Cache_Data", "~/Library/Application Support/*/Cache/Cache_Data", "~/Library/Application Support/*/*/Cache/Cache_Data", "~/Library/Application Support/*/*/*/Cache/Cache_Data", "~/Library/Application Support/*/Caches", "~/Library/Application Support/*/*/Caches", "~/Library/Application Support/*/cache", "~/Library/Application Support/*/*/cache"]
+name = "App cache"
+owner = "An app"
+what = "A web cache an app keeps (most apps built with Electron or Chromium have one). It's made again; quit the app first."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/Library/Application Support/*/Code Cache", "~/Library/Application Support/*/*/Code Cache", "~/Library/Application Support/*/*/*/Code Cache", "~/Library/Application Support/*/*/*/*/Code Cache", "~/Library/Application Support/*/GPUCache", "~/Library/Application Support/*/*/GPUCache", "~/Library/Application Support/*/*/*/GPUCache", "~/Library/Application Support/*/DawnCache", "~/Library/Application Support/*/*/DawnCache", "~/Library/Application Support/*/DawnGraphiteCache", "~/Library/Application Support/*/*/DawnGraphiteCache", "~/Library/Application Support/*/*/*/DawnGraphiteCache", "~/Library/Application Support/*/DawnWebGPUCache", "~/Library/Application Support/*/*/DawnWebGPUCache", "~/Library/Application Support/*/*/*/DawnWebGPUCache", "~/Library/Application Support/*/GrShaderCache", "~/Library/Application Support/*/*/GrShaderCache", "~/Library/Application Support/*/ShaderCache", "~/Library/Application Support/*/*/ShaderCache", "~/Library/Application Support/*/CachedData", "~/Library/Application Support/*/*/CachedData", "~/Library/Application Support/*/component_crx_cache", "~/Library/Application Support/*/*/component_crx_cache"]
+name = "Compiled code and shader cache"
+owner = "An app"
+what = "Compiled scripts and graphics shaders an app keeps to start faster. It's made again when the app runs."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/Library/Application Support/*/Service Worker", "~/Library/Application Support/*/*/Service Worker", "~/Library/Application Support/*/*/*/Service Worker", "~/Library/Application Support/*/*/*/*/Service Worker", "~/Library/Application Support/*/Service Worker/CacheStorage", "~/Library/Application Support/*/*/Service Worker/CacheStorage", "~/Library/Application Support/*/*/*/Service Worker/CacheStorage", "~/Library/Application Support/*/*/*/*/Service Worker/CacheStorage", "~/Library/Application Support/*/Service Worker/ScriptCache", "~/Library/Application Support/*/*/Service Worker/ScriptCache", "~/Library/Application Support/*/*/*/Service Worker/ScriptCache"]
+name = "Offline web files"
+owner = "An app"
+what = "Web files an app or website stored to work offline and load faster. It downloads them again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/Library/Application Support/*/Crashpad", "~/Library/Application Support/*/*/Crashpad", "~/Library/Application Support/*/logs", "~/Library/Application Support/*/Logs", "~/Library/Application Support/*/*/logs", "~/Library/Application Support/*/*/Logs", "~/Library/Application Support/*/log", "~/Library/Application Support/*/crashes", "~/Library/Application Support/*/Crash Reports", "~/Library/Application Support/*/*/Crash Reports"]
+name = "App logs and crash reports"
+owner = "An app"
+what = "Logs and crash reports an app wrote. Nothing needs them to run."
+kind = "logs"
+regrows = "yes"
+
+[[folder]]
+path = ["~/Library/Application Support/*/Partitions", "~/Library/Application Support/*/Partitions/*"]
+name = "App web sessions"
+owner = "An app"
+what = "Web sessions of an Electron app: sign-ins, local storage and caches."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Application Support/*/IndexedDB", "~/Library/Application Support/*/*/IndexedDB", "~/Library/Application Support/*/Local Storage", "~/Library/Application Support/*/*/Local Storage", "~/Library/Application Support/*/blob_storage", "~/Library/Application Support/*/*/blob_storage", "~/Library/Application Support/*/databases", "~/Library/Application Support/*/WebStorage", "~/Library/Application Support/*/*/WebStorage", "~/Library/Application Support/*/Session Storage"]
+name = "App web storage"
+owner = "An app"
+what = "Data an app or website saved: sign-ins, offline content, drafts. It may not come back."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Application Support/*/Updates", "~/Library/Application Support/*/updates", "~/Library/Application Support/*/update", "~/Library/Application Support/*/pending", "~/Library/Application Support/*/Downloads"]
+name = "App update downloads"
+owner = "An app"
+what = "Updates an app downloaded for itself. It downloads them again if they're still needed."
+kind = "installers"
+regrows = "yes"
+
+[[folder]]
+path = "~/Library/Application Support/*"
+name = "An app's data"
+owner = "An app"
+what = "Where one app keeps its data: settings, libraries, history or downloads. If the app is gone, this is probably a leftover."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Containers/*/Data/Library/Caches", "~/Library/Containers/*/Data/Library/Caches/*", "~/Library/Group Containers/*/Library/Caches", "~/Library/Containers/*/Data/tmp"]
+name = "Sandboxed app cache"
+owner = "An app"
+what = "Cache or temporary files of a sandboxed app. It's made again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/Library/Containers/*/Data/Library/Logs", "~/Library/Group Containers/*/Library/Logs"]
+name = "Sandboxed app logs"
+owner = "An app"
+what = "Logs a sandboxed app wrote."
+kind = "logs"
+regrows = "yes"
+
+[[folder]]
+path = ["~/Library/Containers/*", "~/Library/Containers/*/Data", "~/Library/Group Containers/*"]
+name = "An app's sandbox"
+owner = "An app"
+what = "A sandboxed app's own folder with its settings, data and caches. If the app is gone, this is probably a leftover."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["~/Library/Caches/*", "~/Library/HTTPStorages/*"]
+name = "An app's cache"
+owner = "An app"
+what = "Files one app saved to work faster, such as downloads, thumbnails or web data. The app makes them again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/Library/Caches/*.ShipIt", "~/Library/Caches/*.ShipIt/*"]
+name = "App update download"
+owner = "An app"
+what = "An update an app downloaded for itself. It downloads again if needed."
+kind = "installers"
+regrows = "yes"
+
+[[folder]]
+path = "~/Library/Logs/*"
+name = "An app's logs"
+owner = "An app"
+what = "Logs one app wrote. Nothing needs them to run."
+kind = "logs"
+regrows = "yes"
+
+[[folder]]
+path = ["/Library/Caches/*", "/Library/Logs/*"]
+name = "Shared cache or logs"
+owner = "An app"
+what = "Caches or logs an installed app or service keeps for all users."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = "/Library/Application Support/*"
+name = "Shared app data"
+owner = "An app"
+what = "Support files an app installed for all users, such as plug-ins, licenses or helpers."
+kind = "appData"
+regrows = "no"
+
+[[folder]]
+path = ["/**/.git", "/**/.git/objects"]
+name = "Git history"
+owner = "git"
+what = "A project's full git history. It's part of the project; if it's pushed, git gc or a fresh clone makes it smaller."
+kind = "userFiles"
+regrows = "no"
+how = "git gc --aggressive"
+
+[[folder]]
+path = ["/**/DerivedData", "/**/.gradle-cache", "/**/.cxx", "/**/.externalNativeBuild"]
+name = "Project build cache"
+owner = "Build tools"
+what = "Build output and caches inside a project. They're made again on the next build."
+kind = "buildOutput"
+regrows = "yes"
+
+[[folder]]
+path = "~/.cache/cycles"
+name = "Blender Cycles kernels"
+owner = "Blender"
+what = "GPU kernels Blender's Cycles renderer compiled for this Mac. Blender compiles them again on the next render."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/.config/raycast", "~/.config/raycast/extensions"]
+name = "Raycast extensions"
+owner = "Raycast"
+what = "Raycast extensions you installed and their settings."
+kind = "toolchain"
+regrows = "no"
+
+[[folder]]
+path = ["/Library/SystemExtensions", "/Library/LaunchDaemons", "/Library/PrivilegedHelperTools", "/Library/StagedExtensions"]
+name = "System extensions and helpers"
+owner = "macOS"
+what = "Drivers, network filters and helper tools that apps installed into macOS. Remove them with the app that installed them."
+kind = "system"
+regrows = "no"
+
+[[folder]]
+path = ["/usr/local/share", "/usr/local/lib", "/usr/local/bin", "/usr/local/include", "/usr/local/opt"]
+name = "Locally installed files"
+owner = "Installers"
+what = "Programs, libraries and data that installers or Homebrew (on Intel Macs) put in /usr/local."
+kind = "toolchain"
+regrows = "no"
+
+[[folder]]
+path = "~"
+name = "Your home"
+owner = "You"
+what = "Your home folder: your files, and your apps' settings and data in Library."
+kind = "userFiles"
+regrows = "no"
+
+[[folder]]
+path = "~/.cache/*"
+name = "A tool's cache"
+owner = "A command-line tool"
+what = "Files a command-line tool saved in the shared cache folder, such as downloads or models. Tools download or build them again."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = ["~/.config/*", "~/.local/share/*"]
+name = "A tool's settings and data"
+owner = "A command-line tool"
+what = "Settings or data a command-line tool keeps."
+kind = "appData"
+regrows = "no"

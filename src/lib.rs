@@ -5,6 +5,7 @@ pub mod clean;
 pub mod finders;
 pub mod inspect;
 pub mod json;
+pub mod known;
 pub mod map;
 pub mod report;
 pub mod rules;

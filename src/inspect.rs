@@ -55,6 +55,8 @@ pub struct Clues {
     pub owner: Option<Owner>,
     /// Plain-language facts that help tell what this is.
     pub markers: Vec<String>,
+    /// What Roomy's list of known folders says it is (or the known folder it's in).
+    pub known: Option<crate::known::Known>,
 }
 
 /// Where apps keep their data; the next path part names the app.
@@ -222,6 +224,7 @@ pub fn inspect(path: &Path, home: &Path, apps_dir: &Path, path_var: &str, env: &
         types: type_list,
         biggest,
         owner,
+        known: None,
     })
 }
 

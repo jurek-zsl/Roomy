@@ -36,6 +36,9 @@ pub struct Node {
     pub bytes: u64,
     /// How much of this the scan can free.
     pub cleanable: u64,
+    /// What Roomy's list of known folders says this is.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub known: Option<crate::known::Known>,
     pub children: Vec<Node>,
 }
 
@@ -137,7 +140,7 @@ impl Walk<'_> {
     fn node(&self, path: &Path, name: String, depth: usize) -> Node {
         let kind = kind_of(path, &name, &self.opts.home);
         let Ok(rd) = fs::read_dir(path) else {
-            return Node { path: path.to_path_buf(), name, kind: Kind::Unreadable, bytes: 0, cleanable: 0, children: vec![] };
+            return Node { path: path.to_path_buf(), name, kind: Kind::Unreadable, bytes: 0, cleanable: 0, known: None, children: vec![] };
         };
         let mut files = 0u64;
         let mut dirs = Vec::new();
@@ -179,11 +182,11 @@ impl Walk<'_> {
             children.sort_by(|a, b| b.bytes.cmp(&a.bytes));
             children.extend(locked);
         }
-        Node { path: path.to_path_buf(), name, kind, bytes, cleanable: 0, children }
+        Node { path: path.to_path_buf(), name, kind, bytes, cleanable: 0, known: None, children }
     }
 
     fn leaf(&self, parent: &Path, name: &str, kind: Kind, bytes: u64) -> Node {
-        Node { path: parent.to_path_buf(), name: name.into(), kind, bytes, cleanable: 0, children: vec![] }
+        Node { path: parent.to_path_buf(), name: name.into(), kind, bytes, cleanable: 0, known: None, children: vec![] }
     }
 
     /// Just the size of a folder, no tree.
@@ -215,7 +218,7 @@ impl Walk<'_> {
             }
         }
         let kind = if readable { kind_of(path, &name, &self.opts.home) } else { Kind::Unreadable };
-        Node { path: path.to_path_buf(), name, kind, bytes, cleanable: 0, children: vec![] }
+        Node { path: path.to_path_buf(), name, kind, bytes, cleanable: 0, known: None, children: vec![] }
     }
 }
 
@@ -229,6 +232,16 @@ pub fn annotate(node: &mut Node, findings: &[&Finding]) {
     node.cleanable = mine.iter().map(|f| f.bytes_freed).sum::<u64>().min(node.bytes.max(1));
     for c in &mut node.children {
         annotate(c, &mine);
+    }
+}
+
+/// Say what each mapped folder is, from Roomy's list of known folders.
+pub fn label(node: &mut Node, catalog: &crate::known::Catalog) {
+    if matches!(node.kind, Kind::Folder | Kind::Bundle | Kind::Personal) {
+        node.known = catalog.lookup(&node.path);
+    }
+    for c in &mut node.children {
+        label(c, catalog);
     }
 }
 
@@ -285,9 +298,23 @@ mod tests {
     use crate::verify::Status;
 
     #[test]
+    fn labels_known_folders() {
+        let home = Path::new("/Users/me");
+        let list = "[[folder]]\npath = \"~/.cache/uv\"\nname = \"uv cache\"\nowner = \"uv\"\nwhat = \"x.\"\nkind = \"cache\"\nregrows = \"yes\"\n";
+        let cat = crate::known::Catalog::parse(&[list], home).unwrap();
+        let uv = Node { path: "/Users/me/.cache/uv".into(), name: "uv".into(), kind: Kind::Folder, bytes: 1, cleanable: 0, known: None, children: vec![] };
+        let files = Node { path: "/Users/me/.cache/uv".into(), name: "Files".into(), kind: Kind::Files, bytes: 1, cleanable: 0, known: None, children: vec![] };
+        let mut root = Node { path: "/Users/me/.cache".into(), name: ".cache".into(), kind: Kind::Folder, bytes: 2, cleanable: 0, known: None, children: vec![uv, files] };
+        label(&mut root, &cat);
+        assert!(root.known.is_none());
+        assert_eq!(root.children[0].known.as_ref().unwrap().name, "uv cache");
+        assert!(root.children[1].known.is_none(), "loose files aren't the folder");
+    }
+
+    #[test]
     fn data_volume_shows_as_root() {
-        let leaf = Node { path: "/System/Volumes/Data/Users/me/x".into(), name: "x".into(), kind: Kind::Folder, bytes: 1, cleanable: 0, children: vec![] };
-        let mut n = Node { path: DATA_VOLUME.into(), name: DATA_VOLUME.into(), kind: Kind::Folder, bytes: 1, cleanable: 0, children: vec![leaf] };
+        let leaf = Node { path: "/System/Volumes/Data/Users/me/x".into(), name: "x".into(), kind: Kind::Folder, bytes: 1, cleanable: 0, known: None, children: vec![] };
+        let mut n = Node { path: DATA_VOLUME.into(), name: DATA_VOLUME.into(), kind: Kind::Folder, bytes: 1, cleanable: 0, known: None, children: vec![leaf] };
         rebase(&mut n);
         assert_eq!(n.path, PathBuf::from("/"));
         assert_eq!(n.name, "/");

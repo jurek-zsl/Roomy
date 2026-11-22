@@ -47,13 +47,20 @@ fn run_inspect(a: InspectArgs, home: &std::path::Path) -> ExitCode {
     let path = if let Ok(rest) = a.path.strip_prefix("~") { home.join(rest) } else { a.path.clone() };
     let path_var = std::env::var("PATH").unwrap_or_default();
     let env = Env::capture();
-    let Some(c) = roomy::inspect::inspect(&path, home, &apps_dir(), &path_var, &env, std::time::SystemTime::now()) else {
+    let Some(mut c) = roomy::inspect::inspect(&path, home, &apps_dir(), &path_var, &env, std::time::SystemTime::now()) else {
         eprintln!("error: {} isn't a folder", path.display());
         return ExitCode::FAILURE;
     };
+    c.known = roomy::known::Catalog::standard(home).lookup_within(&path).map(|k| roomy::known::Known { running: env.is_running(&k.owner), ..k });
     if a.json {
         println!("{}", serde_json::to_string(&c).unwrap());
         return ExitCode::SUCCESS;
+    }
+    if let Some(k) = &c.known {
+        println!("{}{} ({}): {}", if k.inside { "Inside " } else { "" }, k.name, k.owner, k.what);
+        if let Some(how) = &k.how {
+            println!("How to free it: {how}");
+        }
     }
     println!("{}  {}  ({} files, {} folders)", tilde(&c.path, home), human_bytes(c.bytes), c.files, c.folders);
     if let Some(d) = c.newest_days {
@@ -129,7 +136,11 @@ fn run_map(a: MapArgs, home: &std::path::Path) -> ExitCode {
     if roots.is_empty() {
         roots = vec![home.to_path_buf(), apps];
     }
-    let nodes = map::build(&roots, &findings, &map::MapOptions::new(home));
+    let mut nodes = map::build(&roots, &findings, &map::MapOptions::new(home));
+    let catalog = roomy::known::Catalog::standard(home);
+    for n in &mut nodes {
+        map::label(n, &catalog);
+    }
     let space = disk_space(home);
     let doc = map::MapDocument {
         total_bytes: space.map(|s| s.0),
