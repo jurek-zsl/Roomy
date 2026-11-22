@@ -299,6 +299,8 @@ fn main() -> ExitCode {
         eprintln!("HOME is not set");
         return ExitCode::FAILURE;
     };
+    // SAFETY: set once at startup, before any threads start.
+    unsafe { std::env::set_var("PATH", roomy::full_path(&std::env::var("PATH").unwrap_or_default(), &home)) };
     match cli.cmd {
         Cmd::Rules(a) => match load_rules(a.rules.as_ref()) {
             Ok(rules) => {

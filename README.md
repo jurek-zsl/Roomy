@@ -135,7 +135,7 @@ Both are in Settings too, under the gear button next to Scan Again.
 
 ## What it finds
 
-61 rules ship with Roomy, plus built-in **finders** for things a path pattern can't describe.
+65 rules ship with Roomy, plus built-in **finders** for things a path pattern can't describe.
 
 | Area | Examples |
 |---|---|
@@ -143,10 +143,12 @@ Both are in Settings too, under the gear button next to Scan Again.
 | **Build output** | `node_modules`, `target`, `.next`, `.venv`, `dist`, `build`, `.build`, `Pods`, `.godot`… in every project under your home folder |
 | **App caches** | Web caches of Electron and Chromium apps (Slack, Notion, Discord, VS Code…), sent crash reports |
 | **Browsers** | Chrome, Brave, Edge, Arc, Vivaldi and Firefox page caches (never history, logins or tabs) |
-| **Xcode** | DerivedData, old device support files, archives, simulator caches, **unused Simulator runtimes** (5–10 GB each), broken simulators |
+| **Xcode** | DerivedData, old device support files, archives, simulator caches, **unused Simulator runtimes** (5–10 GB each), **a beta runtime once its final release is installed**, broken simulators |
 | **Old projects** | Whole git projects untouched for 6 months, but only when every file is committed and every commit is pushed |
 | **Git** | Unpacked objects that `git gc` packs together |
 | **Unused apps** | Apps not opened in 4 months, using the last-opened date macOS keeps |
+| **Unused tools** | Global npm, uv and pipx tools whose commands haven't run in 2 months, going by when their files were last read. Removed with `npm uninstall -g`, `uv tool uninstall` or `pipx uninstall` |
+| **Big forgotten files** | Files over 500 MB in Downloads, and disk images, installers, app packages and archives in Desktop and Documents, not opened in 6 months. Always under Review, never ticked for you, and they go to the Trash. Your documents, photos and videos are never listed |
 | **Leftovers** | Updater downloads, unfinished downloads, old installers in Downloads, old tool versions, temp-folder leftovers |
 
 <p align="center">

@@ -86,11 +86,32 @@ fn finder_candidates(opts: &ScanOptions, repos: &[PathBuf], env: &Env) -> Vec<sc
                 simulator_runtimes(&simctl(&["runtime", "list", "-j"]).unwrap_or_default(), devices(), now, idle_days)
             }
             rules::FinderKind::SimulatorDevices if xcode => unavailable_simulators(devices()),
+            rules::FinderKind::LargeFiles => large_files(&opts.home, &spotlight_usage, now, idle_days, min_mb * MB),
+            // Only where the tool's own uninstall command works: its active folder.
+            rules::FinderKind::UnusedNpmTools => match tool_output("npm", &["root", "-g"]) {
+                Some(root) => unused_tools(&npm_tools(Path::new(&root)), env, now, idle_days, created),
+                None => Vec::new(),
+            },
+            rules::FinderKind::UnusedUvTools => match tool_output("uv", &["tool", "dir"]) {
+                Some(dir) => unused_tools(&uv_tools(Path::new(&dir)), env, now, idle_days, created),
+                None => Vec::new(),
+            },
+            rules::FinderKind::UnusedPipxTools => match tool_output("pipx", &["environment", "--value", "PIPX_LOCAL_VENVS"]) {
+                Some(dir) => unused_tools(&pipx_tools(Path::new(&dir)), env, now, idle_days, created),
+                None => Vec::new(),
+            },
             _ => Vec::new(),
         };
         out.extend(found.into_iter().map(|f| scan::Candidate { rule: i, path: f.path.clone(), found: Some(f) }));
     }
     out
+}
+
+/// The first line a tool prints, if it's installed and succeeds.
+fn tool_output(program: &str, args: &[&str]) -> Option<String> {
+    let out = std::process::Command::new(program).args(args).stderr(std::process::Stdio::null()).output().ok()?;
+    let line = String::from_utf8_lossy(&out.stdout).lines().next()?.trim().to_string();
+    (out.status.success() && !line.is_empty()).then_some(line)
 }
 
 /// Find, measure and check everything. Sorted biggest first.
@@ -174,6 +195,24 @@ pub fn subtract_nested(findings: &mut [Finding], rules: &[Rule]) {
     }
 }
 
+/// Where developer tools usually live. An app opened from Finder only gets
+/// macOS's short PATH, so `brew`, `npm` or `uv` wouldn't be found.
+pub fn full_path(current: &str, home: &Path) -> String {
+    let mut dirs: Vec<PathBuf> = std::env::split_paths(current).collect();
+    let extra = [
+        home.join(".local/bin"), home.join(".cargo/bin"), home.join(".bun/bin"), home.join(".volta/bin"),
+        home.join(".npm-global/bin"), home.join("go/bin"), home.join(".deno/bin"),
+        PathBuf::from("/opt/homebrew/bin"), PathBuf::from("/opt/homebrew/sbin"), PathBuf::from("/usr/local/bin"),
+        PathBuf::from("/usr/bin"), PathBuf::from("/bin"), PathBuf::from("/usr/sbin"), PathBuf::from("/sbin"),
+    ];
+    for d in extra {
+        if !dirs.contains(&d) {
+            dirs.push(d);
+        }
+    }
+    std::env::join_paths(dirs).map(|p| p.to_string_lossy().into_owned()).unwrap_or_else(|_| current.to_string())
+}
+
 /// Fill `{path}` and `{parent}` in a clean command, shell-quoted.
 pub fn fill_command(template: &str, path: &Path) -> String {
     fill_command_id(template, path, None)
@@ -201,6 +240,14 @@ fn shell_quote(p: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn path_gets_the_usual_tool_folders() {
+        let p = full_path("/usr/bin:/bin", Path::new("/Users/me"));
+        assert!(p.starts_with("/usr/bin:/bin:"), "what was there stays first");
+        assert!(p.contains("/Users/me/.local/bin") && p.contains("/opt/homebrew/bin"));
+        assert_eq!(p.matches("/usr/bin").count(), 1, "no duplicates");
+    }
 
     #[test]
     fn fills_and_quotes_commands() {

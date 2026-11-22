@@ -81,6 +81,13 @@ pub enum FinderKind {
     SimulatorRuntimes,
     /// Simulators whose runtime is gone.
     SimulatorDevices,
+    /// Big files in Downloads (and disk images, installers, archives in
+    /// Desktop and Documents) not opened for `idle_days`, at least `min_mb`.
+    LargeFiles,
+    /// Global npm, uv or pipx tools whose commands didn't run for `idle_days`.
+    UnusedNpmTools,
+    UnusedUvTools,
+    UnusedPipxTools,
 }
 
 impl FinderKind {
@@ -91,6 +98,10 @@ impl FinderKind {
             "git-garbage" => FinderKind::GitGarbage,
             "simulator-runtimes" => FinderKind::SimulatorRuntimes,
             "simulator-devices" => FinderKind::SimulatorDevices,
+            "large-files" => FinderKind::LargeFiles,
+            "unused-npm-tools" => FinderKind::UnusedNpmTools,
+            "unused-uv-tools" => FinderKind::UnusedUvTools,
+            "unused-pipx-tools" => FinderKind::UnusedPipxTools,
             _ => return None,
         })
     }

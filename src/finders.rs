@@ -304,10 +304,13 @@ pub fn simulator_runtimes(runtimes_json: &str, devices_json: &str, now: SystemTi
             .max()
     };
     let str_of = |v: &serde_json::Value, k: &str| v[k].as_str().unwrap_or("").to_string();
-    let mut newest: HashMap<String, Vec<u64>> = HashMap::new();
-    for rt in rts.values() {
+    // Apple's beta builds end in a letter (24B91016s); releases don't (24B8117).
+    let is_beta = |rt: &serde_json::Value| str_of(rt, "build").ends_with(|c: char| c.is_ascii_lowercase());
+    // The newest final release of each platform.
+    let mut final_release: HashMap<String, Vec<u64>> = HashMap::new();
+    for rt in rts.values().filter(|rt| !is_beta(rt)) {
         let key = version_key(&str_of(rt, "version"));
-        let e = newest.entry(str_of(rt, "platformIdentifier")).or_default();
+        let e = final_release.entry(str_of(rt, "platformIdentifier")).or_default();
         if key > *e {
             *e = key;
         }
@@ -318,15 +321,21 @@ pub fn simulator_runtimes(runtimes_json: &str, devices_json: &str, now: SystemTi
         .filter_map(|rt| {
             let platform = str_of(rt, "platformIdentifier");
             let version = str_of(rt, "version");
-            let label = format!("{} {version}", platform_name(&platform));
-            let replaced = newest.get(&platform).is_some_and(|n| *n > version_key(&version));
+            let beta = is_beta(rt);
+            let label = format!("{} {version}{}", platform_name(&platform), if beta { " beta" } else { "" });
+            // A beta whose final release (or a later one) is installed too.
+            let beta_done = beta && final_release.get(&platform).is_some_and(|n| *n >= version_key(&version));
+            // Only a final release replaces a runtime; a newer beta doesn't.
+            let replaced = final_release.get(&platform).is_some_and(|n| *n > version_key(&version));
             let booted = last_boot(&str_of(rt, "runtimeIdentifier"));
             let idle = booted.is_none_or(|t| days_since(t, now) >= idle_days);
             let used = match booted {
                 Some(t) => format!("a simulator last ran on it {} ago", span(days_since(t, now))),
                 None => "there's no record of a simulator running on it".into(),
             };
-            let detail = if replaced {
+            let detail = if beta_done {
+                format!("{label} ({}): the final {} {version} is installed too, so the beta isn't needed.", str_of(rt, "build"), platform_name(&platform))
+            } else if replaced {
                 format!("{label}: a newer {} runtime is installed, and {used}.", platform_name(&platform))
             } else if idle {
                 format!("{label}: {used}. Xcode downloads it again if you need it.")
@@ -369,6 +378,242 @@ pub fn unavailable_simulators(devices_json: &str) -> Vec<Found> {
         })
         .collect();
     out.sort_by(|a, b| a.path.cmp(&b.path));
+    out
+}
+
+// ---------------------------------------------------------------- big old files
+
+/// Where to look, relative to home, and whether any file counts or only
+/// throwaway kinds (disk images, installers, archives).
+const FILE_PLACES: &[(&str, bool)] = &[("Downloads", true), ("Desktop", false), ("Documents", false)];
+
+/// Bundles and libraries that are one thing to the person; never looked into.
+const PACKAGE_EXTS: &[&str] = &[
+    "app", "photoslibrary", "fcpbundle", "logicx", "band", "xcarchive", "bundle", "framework", "imovielibrary",
+    "musiclibrary", "tvlibrary", "lrlibrary", "lrdata", "aplibrary", "playgroundbook", "sparsebundle", "pages", "key", "numbers",
+];
+
+/// Folders inside projects that other rules already handle.
+const SKIP_DIRS: &[&str] = &["node_modules", "target", "build", "dist", "Pods", "DerivedData", "venv", "__pycache__"];
+
+/// What a file is, by its extension: (description, throwaway kind).
+fn file_kind(ext: &str) -> (&'static str, bool) {
+    match ext {
+        "dmg" | "iso" | "img" | "cdr" | "toast" => ("a disk image", true),
+        "pkg" | "mpkg" | "xip" => ("an installer", true),
+        "ipa" | "apk" | "aab" | "xapk" => ("an app package", true),
+        "zip" | "tar" | "gz" | "tgz" | "bz2" | "xz" | "7z" | "rar" | "zst" => ("an archive", true),
+        "vmdk" | "vdi" | "qcow2" | "vhd" | "vhdx" | "ova" | "ovf" => ("a virtual machine disk", true),
+        "mp4" | "mov" | "mkv" | "avi" | "webm" | "m4v" => ("a video", false),
+        "mp3" | "wav" | "flac" | "m4a" | "aiff" => ("an audio file", false),
+        "pdf" | "epub" => ("a document", false),
+        _ => ("a file", false),
+    }
+}
+
+/// Big files nobody opened for `idle_days`: anything in Downloads, and disk
+/// images, installers and archives in Desktop and Documents. Your own
+/// documents, photos and videos elsewhere are never listed. Spotlight's
+/// last-opened date counts when it has one, then the file's own dates.
+pub fn large_files(home: &Path, usage: &dyn Fn(&[PathBuf]) -> Vec<AppUsage>, now: SystemTime, idle_days: u64, min_bytes: u64) -> Vec<Found> {
+    use std::os::unix::fs::MetadataExt;
+    let mut hits: Vec<(PathBuf, u64, &'static str, SystemTime)> = Vec::new();
+    for (place, any) in FILE_PLACES {
+        let mut stack = vec![(home.join(place), 0usize)];
+        while let Some((dir, depth)) = stack.pop() {
+            let Ok(rd) = fs::read_dir(&dir) else { continue };
+            for e in rd.flatten() {
+                let name = e.file_name().to_string_lossy().into_owned();
+                if name.starts_with('.') {
+                    continue;
+                }
+                let Ok(m) = e.metadata() else { continue };
+                let path = e.path();
+                let ext = path.extension().map(|x| x.to_string_lossy().to_lowercase()).unwrap_or_default();
+                if m.is_dir() {
+                    if depth < 8 && !PACKAGE_EXTS.contains(&ext.as_str()) && !SKIP_DIRS.contains(&name.as_str()) && !e.file_type().is_ok_and(|t| t.is_symlink()) {
+                        stack.push((path, depth + 1));
+                    }
+                    continue;
+                }
+                let bytes = m.blocks() * 512;
+                let (what, throwaway) = file_kind(&ext);
+                if !m.is_file() || bytes < min_bytes || !(*any || throwaway) {
+                    continue;
+                }
+                // The latest sign of use the file itself carries.
+                let touched = [m.modified().ok(), m.accessed().ok()].into_iter().flatten().max().unwrap_or(now);
+                hits.push((path, bytes, what, touched));
+            }
+        }
+    }
+    hits.retain(|h| days_since(h.3, now) >= idle_days);
+    let paths: Vec<PathBuf> = hits.iter().map(|h| h.0.clone()).collect();
+    let spotlight = usage(&paths);
+    let mut out: Vec<Found> = hits
+        .into_iter()
+        .zip(spotlight.into_iter().chain(std::iter::repeat(AppUsage::default())))
+        .filter_map(|((path, bytes, what, touched), u)| {
+            let last = [Some(touched), u.last_used].into_iter().flatten().max()?;
+            let days = days_since(last, now);
+            if days < idle_days {
+                return None;
+            }
+            let folder = path.parent()?.strip_prefix(home).ok()?.display().to_string();
+            let what = what.strip_prefix("a ").or_else(|| what.strip_prefix("an ")).map(|w| {
+                let article = if w.starts_with(['a', 'e', 'i', 'o', 'u']) { "An" } else { "A" };
+                format!("{article} {w}")
+            })?;
+            Some(Found {
+                label: Some(path.file_name()?.to_string_lossy().into_owned()),
+                bytes: Some(bytes),
+                detail: Some(format!("{what} in {folder}, not opened in {}.", span(days))),
+                path,
+                ..Found::default()
+            })
+        })
+        .collect();
+    out.sort_by(|a, b| a.path.cmp(&b.path));
+    out
+}
+
+// ---------------------------------------------------------------- unused tools
+
+/// A command-line tool a package manager installed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ToolInstall {
+    /// The name its manager knows it by (what `uninstall` takes).
+    pub name: String,
+    pub dir: PathBuf,
+    /// The files its commands run; each run updates their last-access time.
+    pub commands: Vec<PathBuf>,
+    /// The commands' names, as you type them.
+    pub names: Vec<String>,
+}
+
+/// Global npm packages (`npm root -g`) that have commands. npm and corepack
+/// themselves are left out.
+pub fn npm_tools(root: &Path) -> Vec<ToolInstall> {
+    let mut dirs = Vec::new();
+    for e in fs::read_dir(root).into_iter().flatten().flatten() {
+        let name = e.file_name().to_string_lossy().into_owned();
+        if name.starts_with('@') {
+            dirs.extend(fs::read_dir(e.path()).into_iter().flatten().flatten().map(|s| s.path()));
+        } else if !name.starts_with('.') {
+            dirs.push(e.path());
+        }
+    }
+    let mut out: Vec<ToolInstall> = dirs
+        .into_iter()
+        .filter_map(|dir| {
+            let pkg: serde_json::Value = serde_json::from_str(&fs::read_to_string(dir.join("package.json")).ok()?).ok()?;
+            let name = pkg["name"].as_str()?.to_string();
+            if matches!(name.as_str(), "npm" | "corepack") {
+                return None;
+            }
+            // "bin": "cli.js" is named after the package (without its @scope/).
+            let bins: Vec<(String, &str)> = match &pkg["bin"] {
+                serde_json::Value::String(s) => vec![(name.rsplit('/').next().unwrap_or(&name).to_string(), s.as_str())],
+                serde_json::Value::Object(m) => m.iter().filter_map(|(k, v)| Some((k.clone(), v.as_str()?))).collect(),
+                _ => vec![],
+            };
+            let (names, commands): (Vec<String>, Vec<PathBuf>) =
+                bins.into_iter().map(|(n, b)| (n, dir.join(b))).filter(|(_, p)| p.is_file()).unzip();
+            (!commands.is_empty()).then_some(ToolInstall { name, dir, commands, names })
+        })
+        .collect();
+    out.sort_by(|a, b| a.name.cmp(&b.name));
+    out
+}
+
+/// Tools installed with `uv tool install` (their `uv-receipt.toml` lists the commands).
+pub fn uv_tools(tools_dir: &Path) -> Vec<ToolInstall> {
+    let mut out: Vec<ToolInstall> = fs::read_dir(tools_dir)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter_map(|e| {
+            let dir = e.path();
+            let receipt: toml::Value = toml::from_str(&fs::read_to_string(dir.join("uv-receipt.toml")).ok()?).ok()?;
+            let commands: Vec<PathBuf> = receipt["tool"]["entrypoints"]
+                .as_array()?
+                .iter()
+                .filter_map(|ep| ep.get("name")?.as_str().map(|n| dir.join("bin").join(n)))
+                .filter(|p| p.is_file())
+                .collect();
+            let name = e.file_name().to_string_lossy().into_owned();
+            let names = commands.iter().filter_map(|c| Some(c.file_name()?.to_string_lossy().into_owned())).collect();
+            (!commands.is_empty()).then_some(ToolInstall { name, dir, commands, names })
+        })
+        .collect();
+    out.sort_by(|a, b| a.name.cmp(&b.name));
+    out
+}
+
+/// Tools installed with pipx (`pipx_metadata.json` lists the commands).
+pub fn pipx_tools(venvs: &Path) -> Vec<ToolInstall> {
+    let mut out: Vec<ToolInstall> = fs::read_dir(venvs)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter_map(|e| {
+            let dir = e.path();
+            let meta: serde_json::Value = serde_json::from_str(&fs::read_to_string(dir.join("pipx_metadata.json")).ok()?).ok()?;
+            let main = &meta["main_package"];
+            let commands: Vec<PathBuf> = main["apps"]
+                .as_array()?
+                .iter()
+                .filter_map(|a| a.as_str().map(|n| dir.join("bin").join(n)))
+                .filter(|p| p.is_file())
+                .collect();
+            let name = main["package"].as_str().map(String::from).unwrap_or_else(|| e.file_name().to_string_lossy().into_owned());
+            let names = commands.iter().filter_map(|c| Some(c.file_name()?.to_string_lossy().into_owned())).collect();
+            (!commands.is_empty()).then_some(ToolInstall { name, dir, commands, names })
+        })
+        .collect();
+    out.sort_by(|a, b| a.name.cmp(&b.name));
+    out
+}
+
+/// When a folder was made (its birth time), for "installed N days ago".
+pub fn created(path: &Path) -> Option<SystemTime> {
+    fs::metadata(path).ok()?.created().ok()
+}
+
+/// Tools none of whose commands ran for `idle_days`, going by when their
+/// files were last read (running a command reads it). A tool installed
+/// within `idle_days`, or with a command running now, is left out.
+pub fn unused_tools(tools: &[ToolInstall], env: &Env, now: SystemTime, idle_days: u64, installed: impl Fn(&Path) -> Option<SystemTime>) -> Vec<Found> {
+    let mut out: Vec<Found> = tools
+        .iter()
+        .filter_map(|t| {
+            if installed(&t.dir).is_none_or(|i| days_since(i, now) < idle_days) {
+                return None;
+            }
+            let names = &t.names;
+            if names.iter().any(|n| env.is_running(n)) {
+                return None;
+            }
+            let last = t.commands.iter().filter_map(|c| fs::metadata(c).ok()?.accessed().ok()).max()?;
+            let days = days_since(last, now);
+            if days < idle_days {
+                return None;
+            }
+            let list = match names.as_slice() {
+                [one] => format!("Its command {one}"),
+                [first @ .., last] => format!("Its commands {} and {last}", first.join(", ")),
+                [] => return None,
+            };
+            Some(Found {
+                path: t.dir.clone(),
+                label: Some(t.name.clone()),
+                detail: Some(format!("{list} last ran {} ago.", span(days))),
+                id: Some(t.name.clone()),
+                ..Found::default()
+            })
+        })
+        .collect();
+    out.sort_by(|a, b| a.id.cmp(&b.id));
     out
 }
 
@@ -565,5 +810,109 @@ mod tests {
         assert_eq!(found[0].path, PathBuf::from("/H/Devices/U2"));
         assert_eq!(found[0].id.as_deref(), Some("U2"));
         assert_eq!(found[0].label.as_deref(), Some("Old iPhone simulator (broken)"));
+    }
+
+    #[test]
+    fn beta_runtime_next_to_the_final_one() {
+        let now = parse_iso("2026-11-22T00:00:00Z").unwrap();
+        let json = r#"{
+          "F": {"identifier": "F", "deletable": true, "path": "/Sys/f", "platformIdentifier": "com.apple.platform.iphonesimulator",
+                "runtimeIdentifier": "rt.iOS-27-2", "sizeBytes": 8000, "version": "27.2", "build": "24B8117"},
+          "BETA": {"identifier": "BETA", "deletable": true, "path": "/Sys/beta", "platformIdentifier": "com.apple.platform.iphonesimulator",
+                "runtimeIdentifier": "rt.iOS-27-2", "sizeBytes": 7700, "version": "27.2", "build": "24B91016s"},
+          "NEXT": {"identifier": "NEXT", "deletable": true, "path": "/Sys/next", "platformIdentifier": "com.apple.platform.iphonesimulator",
+                "runtimeIdentifier": "rt.iOS-28-0", "sizeBytes": 7000, "version": "28.0", "build": "25A5279m"}
+        }"#;
+        let dev = r#"{"devices": {"rt.iOS-27-2": [{"name": "i", "udid": "U", "isAvailable": true, "lastBootedAt": "2026-11-21T10:00:00Z", "dataPath": "/d/U/data"}],
+                                  "rt.iOS-28-0": [{"name": "j", "udid": "V", "isAvailable": true, "lastBootedAt": "2026-11-21T10:00:00Z", "dataPath": "/d/V/data"}]}}"#;
+        let found = simulator_runtimes(json, dev, now, 90);
+        let ids: Vec<_> = found.iter().map(|f| f.id.clone().unwrap()).collect();
+        assert_eq!(ids, ["BETA"], "the final 27.2 and the newer 28.0 beta stay");
+        assert_eq!(found[0].label.as_deref(), Some("iOS 27.2 beta Simulator runtime"));
+        assert_eq!(found[0].detail.as_deref(), Some("iOS 27.2 beta (24B91016s): the final iOS 27.2 is installed too, so the beta isn't needed."));
+    }
+
+    fn touch(p: &Path, bytes: usize, days_old: u64, now: SystemTime) {
+        fs::create_dir_all(p.parent().unwrap()).unwrap();
+        fs::write(p, vec![7u8; bytes]).unwrap();
+        let t = days_ago(now, days_old);
+        let f = fs::File::options().write(true).open(p).unwrap();
+        f.set_times(fs::FileTimes::new().set_accessed(t).set_modified(t)).unwrap();
+    }
+
+    #[test]
+    fn big_old_files_in_your_folders() {
+        let home = tempfile::tempdir().unwrap();
+        let h = home.path();
+        let now = SystemTime::now();
+        touch(&h.join("Downloads/movie.mp4"), 300_000, 400, now);
+        touch(&h.join("Downloads/new.mp4"), 300_000, 10, now);
+        touch(&h.join("Downloads/small.zip"), 1_000, 400, now);
+        touch(&h.join("Documents/T5/lineage-2021.img"), 300_000, 700, now);
+        touch(&h.join("Documents/thesis.pdf"), 300_000, 700, now);
+        touch(&h.join("Desktop/old.dmg"), 300_000, 300, now);
+        touch(&h.join("Documents/.hidden/x.zip"), 300_000, 700, now);
+        touch(&h.join("Documents/app/node_modules/big.tgz"), 300_000, 700, now);
+        touch(&h.join("Documents/Photos.photoslibrary/x.zip"), 300_000, 700, now);
+        touch(&h.join("Movies/holiday.mov"), 300_000, 700, now);
+        // Spotlight says the Desktop image was opened last week.
+        let usage = |paths: &[PathBuf]| -> Vec<AppUsage> {
+            paths.iter().map(|p| AppUsage {
+                last_used: p.ends_with("Desktop/old.dmg").then(|| days_ago(now, 7)),
+                added: None,
+            }).collect()
+        };
+        let found = large_files(h, &usage, now, 180, 100_000);
+        let names: Vec<_> = found.iter().map(|f| f.path.strip_prefix(h).unwrap().to_str().unwrap().to_string()).collect();
+        assert_eq!(names, ["Documents/T5/lineage-2021.img", "Downloads/movie.mp4"],
+                   "not new, small, recently opened, hidden, inside projects or libraries, your documents or Movies");
+        assert_eq!(found[0].label.as_deref(), Some("lineage-2021.img"));
+        assert_eq!(found[0].detail.as_deref(), Some("A disk image in Documents/T5, not opened in 23 months."));
+        assert_eq!(found[1].detail.as_deref(), Some("A video in Downloads, not opened in 13 months."));
+    }
+
+    #[test]
+    fn tools_whose_commands_never_run() {
+        let d = tempfile::tempdir().unwrap();
+        let now = SystemTime::now();
+        let npm = d.path().join("lib/node_modules");
+        touch(&npm.join("old-tool/cli.js"), 10, 200, now);
+        fs::write(npm.join("old-tool/package.json"), r#"{"name":"old-tool","bin":{"old":"cli.js"}}"#).unwrap();
+        touch(&npm.join("@scope/used/bin/run.js"), 10, 3, now);
+        fs::write(npm.join("@scope/used/package.json"), r#"{"name":"@scope/used","bin":"bin/run.js"}"#).unwrap();
+        touch(&npm.join("lib-only/index.js"), 10, 200, now);
+        fs::write(npm.join("lib-only/package.json"), r#"{"name":"lib-only"}"#).unwrap();
+        touch(&npm.join("npm/bin/npm-cli.js"), 10, 200, now);
+        fs::write(npm.join("npm/package.json"), r#"{"name":"npm","bin":{"npm":"bin/npm-cli.js"}}"#).unwrap();
+        let tools = npm_tools(&npm);
+        let mut names: Vec<_> = tools.iter().map(|t| t.name.as_str()).collect();
+        names.sort();
+        assert_eq!(names, ["@scope/used", "old-tool"], "libraries without commands and npm itself are left out");
+
+        let uv = d.path().join("uv/tools");
+        touch(&uv.join("docling/bin/docling"), 10, 100, now);
+        fs::write(uv.join("docling/uv-receipt.toml"), "[tool]\nrequirements = [{ name = \"docling\" }]\nentrypoints = [\n  { name = \"docling\", install-path = \"/x/docling\", from = \"docling\" },\n]\n").unwrap();
+        let uv_tools = uv_tools(&uv);
+        assert_eq!(uv_tools.len(), 1);
+        assert_eq!(uv_tools[0].commands, [uv.join("docling/bin/docling")]);
+
+        let pipx = d.path().join("pipx/venvs");
+        touch(&pipx.join("black/bin/black"), 10, 100, now);
+        fs::write(pipx.join("black/pipx_metadata.json"), r#"{"main_package":{"package":"black","apps":["black","blackd"]}}"#).unwrap();
+        let pipx_tools = pipx_tools(&pipx);
+        assert_eq!(pipx_tools[0].name, "black");
+
+        let env = Env::from_parts(&[], &[]);
+        // Installed long ago: set the folders' own times back too.
+        let all: Vec<ToolInstall> = tools.into_iter().chain(uv_tools).chain(pipx_tools).collect();
+        let found = unused_tools(&all, &env, now, 60, |_| Some(days_ago(now, 300)));
+        let ids: Vec<_> = found.iter().map(|f| f.id.clone().unwrap()).collect();
+        assert_eq!(ids, ["black", "docling", "old-tool"]);
+        let old = found.iter().find(|f| f.id.as_deref() == Some("old-tool")).unwrap();
+        assert_eq!(old.label.as_deref(), Some("old-tool"));
+        assert_eq!(old.detail.as_deref(), Some("Its command old last ran 6 months ago."));
+        assert!(unused_tools(&all, &env, now, 60, |_| Some(days_ago(now, 20))).is_empty(), "installed recently");
+        let running = Env::from_parts(&["old"], &[]);
+        assert!(unused_tools(&all, &running, now, 60, |_| Some(days_ago(now, 300))).iter().all(|f| f.id.as_deref() != Some("old-tool")));
     }
 }

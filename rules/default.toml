@@ -595,9 +595,47 @@ verify = ["not-running:Simulator"]
 clean = "xcrun simctl delete {id}"
 command_only = true
 
+[[rule]]
+id = "unused-npm-tool"
+name = "Unused npm tool"
+category = "tool"
+risk = "review"
+explain = "A command-line tool you installed with npm install -g whose commands haven't run in two months. npm uninstall removes it; npm install -g brings it back."
+match = { finder = "unused-npm-tools", idle_days = 60 }
+clean = "npm uninstall -g {id}"
+command_only = true
+
+[[rule]]
+id = "unused-uv-tool"
+name = "Unused uv tool"
+category = "tool"
+risk = "review"
+explain = "A command-line tool you installed with uv tool install whose commands haven't run in two months. uv tool uninstall removes it; uv tool install brings it back."
+match = { finder = "unused-uv-tools", idle_days = 60 }
+clean = "uv tool uninstall {id}"
+command_only = true
+
+[[rule]]
+id = "unused-pipx-tool"
+name = "Unused pipx tool"
+category = "tool"
+risk = "review"
+explain = "A command-line tool you installed with pipx whose commands haven't run in two months. pipx uninstall removes it; pipx install brings it back."
+match = { finder = "unused-pipx-tools", idle_days = 60 }
+clean = "pipx uninstall {id}"
+command_only = true
+
 # ---------------------------------------------------------------------------
 # I. Downloads and browsers
 # ---------------------------------------------------------------------------
+
+[[rule]]
+id = "big-old-file"
+name = "Big file you haven't opened"
+category = "files"
+risk = "review"
+explain = "A big file in Downloads, or a disk image, installer or archive in Desktop or Documents, that you haven't opened in six months. Only you know if you still need it, so it's never ticked for you. It goes to the Trash."
+match = { finder = "large-files", idle_days = 180, min_mb = 500 }
 
 [[rule]]
 id = "old-installer"

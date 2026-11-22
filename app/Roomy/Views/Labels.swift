@@ -55,6 +55,8 @@ struct CategoryStyle {
         case "download": (symbol, tint) = ("arrow.down.circle.fill", .cyan)
         case "browser": (symbol, tint) = ("globe", .blue)
         case "ai": (symbol, tint) = ("sparkles", .purple)
+        case "tool": (symbol, tint) = ("terminal.fill", .indigo)
+        case "files": (symbol, tint) = ("doc.fill", .orange)
         default: (symbol, tint) = ("folder.fill", .gray)
         }
     }
