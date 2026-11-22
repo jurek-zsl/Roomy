@@ -4,6 +4,7 @@ import UserNotifications
 @main
 struct RoomyApp: App {
     @State private var store: CleanerStore
+    private let updater = Updater()
 
     init() {
         let store = CleanerStore(engine: Engine.bundled(), notify: { text in
@@ -21,13 +22,18 @@ struct RoomyApp: App {
         Window("Roomy", id: "main") {
             ContentView()
                 .environment(store)
+                .environment(updater.updates)
                 .frame(minWidth: 680, minHeight: 500)
         }
         .defaultSize(width: 860, height: 700)
+        .commands {
+            CommandGroup(after: .appInfo) { CheckForUpdatesCommand(updates: updater.updates) }
+        }
 
         Settings {
             SettingsView()
                 .environment(store)
+                .environment(updater.updates)
         }
 
         MenuBarExtra {

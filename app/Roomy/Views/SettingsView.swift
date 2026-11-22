@@ -4,6 +4,7 @@ import UserNotifications
 
 struct SettingsView: View {
     @Environment(CleanerStore.self) private var store
+    @Environment(Updates.self) private var updates: Updates?
     @State private var openAtLogin = SMAppService.mainApp.status == .enabled
     @State private var loginError: String?
 
@@ -25,6 +26,18 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+            }
+            if let updates {
+                @Bindable var updates = updates
+                SwiftUI.Section("Updates") {
+                    Toggle("Check for updates automatically", isOn: $updates.automaticallyChecks)
+                    HStack {
+                        Text("Roomy \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button("Check Now") { updates.check() }
+                    }
+                }
             }
             SwiftUI.Section("Menu bar") {
                 Toggle("Open Roomy at login", isOn: $openAtLogin)

@@ -216,7 +216,9 @@ open build/Build/Products/Release/Roomy.app
 
 The Xcode build also compiles the Rust engine and bundles it into the app. On the first scan, macOS asks for access to Documents, Desktop and Downloads; Roomy needs it to find build folders in your projects.
 
-To make a signed, notarized DMG yourself: `ROOMY_SIGNING_IDENTITY="Developer ID Application: …" ROOMY_NOTARY_PROFILE=<notarytool profile> scripts/release.sh`. Release builds are universal (Apple silicon and Intel).
+**Updates:** from 0.7.0 on, Roomy checks for new versions about once a day with [Sparkle](https://sparkle-project.org) and asks before installing one. Turn it off or check now in Settings, or use Roomy > Check for Updates. Each update is verified against Roomy's public key, so only updates signed by the developer install.
+
+To make a signed, notarized DMG yourself: `ROOMY_SIGNING_IDENTITY="Developer ID Application: …" ROOMY_NOTARY_PROFILE=<notarytool profile> scripts/release.sh`. Release builds are universal (Apple silicon and Intel). The script also writes `dist/appcast.xml`, signed with the Sparkle key in your keychain; upload it to the GitHub release next to the DMG, since the app reads it from the latest release.
 
 > Roomy is not sandboxed: the sandbox would hide the very caches it cleans. That also means it can't ship on the Mac App Store.
 
@@ -350,3 +352,7 @@ Your pull request helps every Mac that has the same apps.
 - **Shared knowledge:** turn folders an AI explained into entries of the known-folders list, so every Mac gets the answer without AI.
 - Rules for more apps and tools. Contributions welcome!
 - Duplicate files and similar photos.
+
+## License
+
+Roomy is released under the [MIT License](LICENSE). You can use, change and share it, including in your own projects.

@@ -16,6 +16,10 @@ settings:
     ENABLE_HARDENED_RUNTIME: NO
     ENABLE_USER_SCRIPT_SANDBOXING: NO
     SWIFT_TREAT_WARNINGS_AS_ERRORS: NO
+packages:
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: "2.6.0"
 targets:
   Roomy:
     type: application
@@ -32,7 +36,13 @@ targets:
       path: Roomy/Info.plist
       properties:
         CFBundleDisplayName: Roomy
-        CFBundleShortVersionString: "0.6.0"
+        CFBundleShortVersionString: "0.7.0"
+        # Sparkle compares this one: raise it with every release.
+        CFBundleVersion: "0.7.0"
+        # Updates: Sparkle reads the feed from the latest GitHub release.
+        SUFeedURL: https://github.com/jurek-zsl/Roomy/releases/latest/download/appcast.xml
+        SUPublicEDKey: A+2WzvBhudggwV0Ijgr6SeevxTMSsWwWbuidS6yWwbw=
+        SUEnableAutomaticChecks: true
         LSApplicationCategoryType: public.app-category.utilities
         LSMinimumSystemVersion: "14.0"
         NSDocumentsFolderUsageDescription: Roomy looks in your Documents folder for build folders (like node_modules) that can be made again. Nothing is deleted unless you click Clean.
@@ -50,6 +60,8 @@ targets:
         Release:
           ARCHS: "arm64 x86_64"
           ONLY_ACTIVE_ARCH: NO
+    dependencies:
+      - package: Sparkle
     postCompileScripts:
       - name: Build and bundle the Rust engine
         basedOnDependencyAnalysis: false

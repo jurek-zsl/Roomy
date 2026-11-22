@@ -22,8 +22,15 @@ notarize() { # path
   xcrun notarytool submit "$1" --keychain-profile "$PROFILE" --wait
   xcrun stapler staple "$2"
 }
-# Inside out: the engine, then the app, with the hardened runtime.
-codesign --force --options runtime --timestamp --sign "$ROOMY_SIGNING_IDENTITY" "$dist/Roomy.app/Contents/MacOS/roomy-engine"
+sign() { codesign --force --options runtime --timestamp --sign "$ROOMY_SIGNING_IDENTITY" "$@"; }
+# Inside out: Sparkle's helpers, the engine, then the app, with the hardened runtime.
+sparkle="$dist/Roomy.app/Contents/Frameworks/Sparkle.framework/Versions/B"
+sign "$sparkle/XPCServices/Installer.xpc"
+sign --preserve-metadata=entitlements "$sparkle/XPCServices/Downloader.xpc"
+sign "$sparkle/Autoupdate"
+sign "$sparkle/Updater.app"
+sign "$dist/Roomy.app/Contents/Frameworks/Sparkle.framework"
+sign "$dist/Roomy.app/Contents/MacOS/roomy-engine"
 codesign --force --options runtime --timestamp --sign "$ROOMY_SIGNING_IDENTITY" "$dist/Roomy.app"
 codesign --verify --deep --strict "$dist/Roomy.app"
 ditto -c -k --keepParent "$dist/Roomy.app" "$dist/Roomy.zip"
@@ -40,3 +47,16 @@ codesign --force --timestamp --sign "$ROOMY_SIGNING_IDENTITY" "$dmg"
 notarize "$dmg" "$dmg"
 spctl -a -t open --context context:primary-signature -v "$dmg"
 shasum -a 256 "$dmg"
+
+# The update feed: Sparkle signs the DMG with the EdDSA key in your
+# keychain (account ROOMY_SPARKLE_ACCOUNT) and writes dist/appcast.xml.
+# Upload it to the GitHub release together with the DMG.
+bin="$root/app/build/SourcePackages/artifacts/sparkle/Sparkle/bin"
+feed="$(mktemp -d)"
+cp "$dmg" "$feed/"
+"$bin/generate_appcast" --account "${ROOMY_SPARKLE_ACCOUNT:-roomy}" \
+  --download-url-prefix "https://github.com/jurek-zsl/Roomy/releases/download/v$version/" \
+  --link "https://github.com/jurek-zsl/Roomy" "$feed"
+cp "$feed/appcast.xml" "$dist/appcast.xml"
+rm -rf "$feed"
+echo "Upload: $dmg and $dist/appcast.xml"

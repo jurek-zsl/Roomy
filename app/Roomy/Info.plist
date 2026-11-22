@@ -17,9 +17,9 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.6.0</string>
+	<string>0.7.0</string>
 	<key>CFBundleVersion</key>
-	<string>1</string>
+	<string>0.7.0</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
 	<key>LSMinimumSystemVersion</key>
@@ -30,5 +30,11 @@
 	<string>Roomy looks in your Documents folder for build folders (like node_modules) that can be made again. Nothing is deleted unless you click Clean.</string>
 	<key>NSDownloadsFolderUsageDescription</key>
 	<string>Roomy looks in Downloads for unfinished downloads. Nothing is deleted unless you click Clean.</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUFeedURL</key>
+	<string>https://github.com/jurek-zsl/Roomy/releases/latest/download/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>A+2WzvBhudggwV0Ijgr6SeevxTMSsWwWbuidS6yWwbw=</string>
 </dict>
 </plist>
