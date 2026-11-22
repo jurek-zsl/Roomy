@@ -201,7 +201,9 @@ Roomy is built so that a bug in a rule can't become a deleted Documents folder.
 
 ## Install
 
-Roomy isn't notarized yet, so build it from source. You need Xcode 16+, [Rust](https://rustup.rs), and [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`).
+**Download:** get `Roomy-<version>.dmg` from [Releases](https://github.com/jurek-zsl/Roomy/releases/latest), open it and drag Roomy to Applications. It's signed with a Developer ID and notarized by Apple, so it opens without warnings. It runs on macOS 14 or later, on Apple silicon and Intel Macs.
+
+**Build from source:** you need Xcode 16+, [Rust](https://rustup.rs), and [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`).
 
 ```bash
 git clone https://github.com/jurek-zsl/Roomy.git
@@ -212,6 +214,8 @@ open build/Build/Products/Release/Roomy.app
 ```
 
 The Xcode build also compiles the Rust engine and bundles it into the app. On the first scan, macOS asks for access to Documents, Desktop and Downloads; Roomy needs it to find build folders in your projects.
+
+To make a signed, notarized DMG yourself: `ROOMY_SIGNING_IDENTITY="Developer ID Application: …" ROOMY_NOTARY_PROFILE=<notarytool profile> scripts/release.sh`. Release builds are universal (Apple silicon and Intel).
 
 > Roomy is not sandboxed: the sandbox would hide the very caches it cleans. That also means it can't ship on the Mac App Store.
 

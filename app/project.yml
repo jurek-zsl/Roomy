@@ -38,6 +38,11 @@ targets:
         PRODUCT_NAME: Roomy
         ENABLE_APP_SANDBOX: NO
         GENERATE_INFOPLIST_FILE: NO
+      configs:
+        # Release runs on Apple silicon and Intel Macs.
+        Release:
+          ARCHS: "arm64 x86_64"
+          ONLY_ACTIVE_ARCH: NO
     postCompileScripts:
       - name: Build and bundle the Rust engine
         basedOnDependencyAnalysis: false
@@ -45,11 +50,24 @@ targets:
           set -e
           # Clean environment, so cargo sees the same settings as in Terminal
           # and doesn't rebuild everything each time.
-          env -i HOME="$HOME" PATH="$HOME/.cargo/bin:/usr/bin:/bin" \
-            cargo build --release --quiet --manifest-path "$SRCROOT/../Cargo.toml"
+          cargo_build() {
+            env -i HOME="$HOME" PATH="$HOME/.cargo/bin:/usr/bin:/bin" \
+              cargo build --release --quiet --manifest-path "$SRCROOT/../Cargo.toml" "$@"
+          }
           mkdir -p "$TARGET_BUILD_DIR/$EXECUTABLE_FOLDER_PATH"
           # Named roomy-engine: "roomy" would clash with "Roomy" on a case-insensitive disk.
-          cp "$SRCROOT/../target/release/roomy" "$TARGET_BUILD_DIR/$EXECUTABLE_FOLDER_PATH/roomy-engine"
+          out="$TARGET_BUILD_DIR/$EXECUTABLE_FOLDER_PATH/roomy-engine"
+          if [ "$CONFIGURATION" = "Release" ]; then
+            # One engine for both Apple silicon and Intel.
+            cargo_build --target aarch64-apple-darwin
+            cargo_build --target x86_64-apple-darwin
+            lipo -create -output "$out" "$SRCROOT/../target/aarch64-apple-darwin/release/roomy" "$SRCROOT/../target/x86_64-apple-darwin/release/roomy"
+            # lipo drops cargo's ad-hoc signature; the app's own signing needs one.
+            codesign --force --sign - "$out"
+          else
+            cargo_build
+            cp "$SRCROOT/../target/release/roomy" "$out"
+          fi
   RoomyTests:
     type: bundle.unit-test
     platform: macOS

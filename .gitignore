@@ -2,3 +2,4 @@
 /.superpowers
 /docs/superpowers
 .DS_Store
+dist/
