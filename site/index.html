@@ -344,6 +344,7 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 10px 24px; justify-content: 
           <h3>Remove an app, and everything it left.</h3>
           <p>Dragging an app to the Trash leaves its caches, containers, settings and login items behind. Roomy finds them by the app's bundle id, shows their size, and lets you untick what to keep.</p>
           <ul>
+            <li>Homebrew formulae and apps, npm, uv and pipx tools, removed with their own manager</li>
             <li>Leftovers of apps you already deleted</li>
             <li>Open apps are quit first; Apple's apps are never offered</li>
             <li>All of it goes to the Trash</li>
@@ -410,7 +411,8 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 10px 24px; justify-content: 
 <span class="p">$</span> roomy clean --safe      <span class="c"># clean what's safe (asks first)</span>
 <span class="p">$</span> roomy known ~/.cache/uv <span class="c"># what is this folder?</span>
 <span class="p">$</span> roomy uninstall /Applications/Slack.app
-<span class="p">$</span> roomy leftovers         <span class="c"># files of apps already gone</span></pre>
+<span class="p">$</span> roomy leftovers         <span class="c"># files of apps already gone</span>
+<span class="p">$</span> roomy packages          <span class="c"># Homebrew, npm, uv and pipx</span></pre>
       </div>
     </div>
   </section>
@@ -464,9 +466,9 @@ that the list doesn't know yet, and add them. Don't delete or change anything on
   </section>
 
   <div class="closing wrap">
-    <img src="images/icon.png" alt="" width="112" height="112">
+    <picture><source media="(prefers-color-scheme: dark)" srcset="images/icon-dark.png"><img src="images/icon.png" alt="" width="112" height="112"></picture>
     <h2>Make some room.</h2>
-    <p class="lede">A 6 MB download. Scan your Mac and see what it finds.</p>
+    <p class="lede">A 7 MB download. Scan your Mac and see what it finds.</p>
     <div class="cta"><a class="btn" href="https://github.com/jurek-zsl/Roomy/releases/latest">Download Roomy</a></div>
   </div>
 </main>

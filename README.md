@@ -133,6 +133,7 @@ Dragging an app to the Trash leaves its files behind: support files, caches, san
 - Pick an app to see everything it keeps and how big it is. Untick anything you want to keep, then **Uninstall**. It all goes to the Trash.
 - An app that's open has to be quit first (Roomy can ask it to quit).
 - Files in the shared `/Library` (background services, helper tools) are listed but left for you, because removing them needs an administrator.
+- **Homebrew & command-line tools** lists Homebrew formulae and apps, and global npm, uv and pipx tools, by size. Each is removed with its own manager (`brew uninstall`, `npm uninstall -g`, `uv tool uninstall`, `pipx uninstall`), so nothing gets out of sync. Packages other packages need can't be removed, and one button runs `brew autoremove` for dependencies nothing needs anymore.
 - **Leftovers of removed apps** finds files named after apps that aren't on the Mac anymore. Apps are found through Spotlight, wherever they are. Apple's own files, building blocks other apps share, login items and anything from a company that still has an app installed are skipped.
 - Apple's apps are never offered.
 
@@ -236,6 +237,7 @@ cargo build --release
 ./target/release/roomy uninstall /Applications/Slack.app           # the app and every file it keeps
 ./target/release/roomy uninstall /Applications/Slack.app --remove  # move them to the Trash
 ./target/release/roomy leftovers                # files of apps that are already gone
+./target/release/roomy packages                 # Homebrew, npm, uv and pipx packages by size
 ./target/release/roomy rules                    # list every rule
 ```
 

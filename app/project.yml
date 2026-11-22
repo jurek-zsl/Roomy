@@ -20,12 +20,19 @@ targets:
   Roomy:
     type: application
     platform: macOS
-    sources: [Roomy]
+    sources:
+      - path: Roomy
+        excludes: ["AppIcon.icon"]
+      # Icon Composer icon: light, dark, clear (glass) and tinted, with
+      # older-macOS images made from it at build time.
+      - path: Roomy/AppIcon.icon
+        type: file
+        buildPhase: resources
     info:
       path: Roomy/Info.plist
       properties:
         CFBundleDisplayName: Roomy
-        CFBundleShortVersionString: "0.5.0"
+        CFBundleShortVersionString: "0.6.0"
         LSApplicationCategoryType: public.app-category.utilities
         LSMinimumSystemVersion: "14.0"
         NSDocumentsFolderUsageDescription: Roomy looks in your Documents folder for build folders (like node_modules) that can be made again. Nothing is deleted unless you click Clean.

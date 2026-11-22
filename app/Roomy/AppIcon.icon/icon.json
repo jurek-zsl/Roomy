@@ -1,0 +1,51 @@
+{
+  "fill" : {
+    "linear-gradient" : [
+      "srgb:0.29804,0.85098,0.68235,1.00000",
+      "srgb:0.07059,0.45882,0.85098,1.00000"
+    ],
+    "orientation" : {
+      "start" : { "x" : 0.2, "y" : 0 },
+      "stop" : { "x" : 0.8, "y" : 1 }
+    }
+  },
+  "fill-specializations" : [
+    {
+      "appearance" : "dark",
+      "value" : {
+        "linear-gradient" : [
+          "srgb:0.10196,0.23137,0.27451,1.00000",
+          "srgb:0.03922,0.07059,0.14118,1.00000"
+        ],
+        "orientation" : {
+          "start" : { "x" : 0.2, "y" : 0 },
+          "stop" : { "x" : 0.8, "y" : 1 }
+        }
+      }
+    }
+  ],
+  "groups" : [
+    {
+      "name" : "sparkle",
+      "layers" : [
+        { "image-name" : "sparkle.svg", "name" : "sparkle" }
+      ],
+      "shadow" : { "kind" : "layer-color", "opacity" : 0.5 },
+      "translucency" : { "enabled" : true, "value" : 0.2 },
+      "specular" : true
+    },
+    {
+      "name" : "room",
+      "layers" : [
+        { "image-name" : "walls.svg", "name" : "walls" },
+        { "image-name" : "floor.svg", "name" : "floor" }
+      ],
+      "shadow" : { "kind" : "neutral", "opacity" : 0.5 },
+      "translucency" : { "enabled" : true, "value" : 0.4 },
+      "specular" : true
+    }
+  ],
+  "supported-platforms" : {
+    "squares" : [ "macOS" ]
+  }
+}
