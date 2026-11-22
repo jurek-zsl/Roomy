@@ -30,7 +30,8 @@ final class FakeEngine: CleanEngine, @unchecked Sendable {
     }
 
     var clues: FolderClues = sampleClues()
-    func inspect(path: String) async throws -> FolderClues { clues }
+    var cluesByPath: [String: FolderClues] = [:]
+    func inspect(path: String) async throws -> FolderClues { cluesByPath[path] ?? clues }
 
     func map() async throws -> DiskMap {
         let r = lock.withLock { mapCount += 1; return mapResult }
@@ -63,7 +64,7 @@ func scanResult(_ f: [Finding], free: Int64 = 1_000) -> ScanResult {
     ScanResult(freeBytes: free, elapsedMs: 1, findings: f)
 }
 
-private func freshDefaults() -> UserDefaults {
+func freshDefaults() -> UserDefaults {
     let d = UserDefaults(suiteName: "tests-\(UUID().uuidString)")!
     d.set(true, forKey: "seenIntro")
     return d

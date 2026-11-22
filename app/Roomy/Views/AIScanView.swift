@@ -16,7 +16,7 @@ struct AIScanView: View {
             VStack(alignment: .leading, spacing: 18) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("AI Scan").font(.largeTitle.weight(.bold))
-                    Text("An AI reads the map of your whole disk at once and suggests what could go. Roomy checks every folder it names, and nothing is cleaned from here.")
+                    Text("Roomy checks the folders it knows in seconds, and an AI can read the map of your whole disk to find more. Roomy checks every folder either one names, and nothing is cleaned from here.")
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -48,6 +48,28 @@ struct AIScanView: View {
     @ViewBuilder private var setup: some View {
         @Bindable var store = store
         VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 12) {
+                Image(systemName: "checkmark.seal.fill")
+                    .font(.system(size: 22))
+                    .foregroundStyle(.green)
+                    .frame(width: 28)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Folders Roomy knows").fontWeight(.semibold)
+                    Text("Hundreds of well-known caches, models and leftovers, checked in seconds. Nothing leaves your Mac.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer()
+                Button {
+                    added = false
+                    Task { await store.runQuickScan() }
+                } label: {
+                    Label("Quick Scan", systemImage: "bolt.fill")
+                }
+                .disabled(isWorking)
+            }
+            Divider()
             if installed.isEmpty {
                 Label("No AI tool is set up yet. Roomy works with Claude Code, the Codex CLI and the Antigravity CLI, on your own account.",
                       systemImage: "sparkles")
@@ -131,7 +153,11 @@ struct AIScanView: View {
         let keep = scan.suggestions.filter { $0.advice.verdict == .keep }
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
-                ToolIcon(tool: CLIAdvisor.Tool.allCases.first { $0.title == scan.advisor }, size: 16)
+                if scan.advisor == "Roomy" {
+                    Image(systemName: "checkmark.seal.fill").foregroundStyle(.green)
+                } else {
+                    ToolIcon(tool: CLIAdvisor.Tool.allCases.first { $0.title == scan.advisor }, size: 16)
+                }
                 Text("\(scan.advisor)'s overview")
             }
             .font(.caption.weight(.semibold))
@@ -149,7 +175,9 @@ struct AIScanView: View {
         if !keep.isEmpty {
             section("Roomy keeps these", keep)
         }
-        Text("Suggested by \(scan.advisor) from names and sizes only. It can be wrong, so check before you agree.")
+        Text(scan.advisor == "Roomy"
+             ? "From Roomy's own list of known folders, checked on this Mac. Check before you agree."
+             : "Suggested by \(scan.advisor) from names and sizes only, together with the folders Roomy knows. It can be wrong, so check before you agree.")
             .font(.caption2)
             .foregroundStyle(.secondary)
     }
@@ -229,6 +257,9 @@ private struct SuggestionRow: View {
                         .padding(.horizontal, 7).padding(.vertical, 2)
                         .foregroundStyle(.blue)
                         .background(Color.blue.opacity(0.12), in: Capsule())
+                    if s.advice.fromRoomy {
+                        Label("Roomy knows it", systemImage: "checkmark.seal.fill").font(.caption).foregroundStyle(.secondary)
+                    }
                     if store.isAccepted(s.path) {
                         Label("In Review", systemImage: "checkmark.circle.fill").font(.caption).foregroundStyle(.green)
                     }
@@ -244,6 +275,13 @@ private struct SuggestionRow: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+                if let how = s.advice.how {
+                    Label("Best way: \(how)", systemImage: "wrench.and.screwdriver")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
         .padding(.vertical, 10)

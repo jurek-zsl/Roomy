@@ -37,15 +37,21 @@ final class FixtureEngine: CleanEngine, @unchecked Sendable {
         result = try ScanResult.decode(Data(contentsOf: url))
     }
     func scan() async throws -> ScanResult { result }
+    /// What the labelled fixture map knows about a path.
+    func known(_ path: String) -> KnownFolder? {
+        func find(_ n: MapNode) -> MapNode? { n.path == path ? n : n.children.lazy.compactMap(find).first }
+        return (try? map()).flatMap { $0.roots.lazy.compactMap(find).first }?.known
+    }
     func inspect(path: String) async throws -> FolderClues {
-        FolderClues(path: path, name: "huggingface", bytes: 4_100_000_000, files: 212, folders: 40, newestDays: 96,
+        FolderClues(path: path, name: (path as NSString).lastPathComponent, bytes: 4_100_000_000, files: 212, folders: 40, newestDays: 96,
                     types: [TypeShare(ext: "safetensors", bytes: 3_800_000_000, files: 9), TypeShare(ext: "json", bytes: 2_000_000, files: 60)],
                     biggest: [FolderItem(name: "hub", bytes: 4_000_000_000, folder: true), FolderItem(name: "xet", bytes: 90_000_000, folder: true)],
                     owner: FolderOwner(name: "huggingface", kind: "tool", installed: nil, running: false),
-                    markers: ["93% of it is AI model weight files (.safetensors, .gguf, .bin, ...); they download again when needed."])
+                    markers: ["93% of it is AI model weight files (.safetensors, .gguf, .bin, ...); they download again when needed."],
+                    known: known(path))
     }
 
-    func map() async throws -> DiskMap {
+    func map() throws -> DiskMap {
         let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appending(path: "map.json")
         return try DiskMap.decode(Data(contentsOf: url))
     }
@@ -108,7 +114,14 @@ struct SnapAdvisor: FolderAdvisor {
 }
 
 @MainActor @Test func snapshotInsight() async throws {
-    let node = MapNode(path: "/Users/you/.cache/huggingface", name: "huggingface", kind: .folder, bytes: 4_100_000_000, cleanable: 0, children: [])
+    let known = MapNode(path: "/Users/you/.cache/huggingface", name: "huggingface", kind: .folder, bytes: 4_100_000_000, cleanable: 0, children: [])
+    let store = CleanerStore(engine: try FixtureEngine(), defaults: UserDefaults(suiteName: "snap-\(UUID().uuidString)")!,
+                             advisors: [SnapAdvisor(current: .ready)],
+                             userRules: UserRules(file: FileManager.default.temporaryDirectory.appending(path: "snap-\(UUID())/r.toml"), home: "/Users/you"))
+    await store.explain(known.path)
+    try Snap.render("insight-known", FolderInsightView(node: known).environment(store), size: CGSize(width: 340, height: 720))
+    try Snap.render("insight-known", FolderInsightView(node: known).environment(store), size: CGSize(width: 340, height: 720), dark: true)
+    let node = MapNode(path: "/Users/you/Library/Application Support/Mystery/models", name: "models", kind: .folder, bytes: 4_100_000_000, cleanable: 0, children: [])
     for (status, file) in [(AdvisorStatus.ready, "insight"), (.notInstalled, "insight-no-ai")] {
         let d = UserDefaults(suiteName: "snap-\(UUID().uuidString)")!
         let store = CleanerStore(engine: try FixtureEngine(), defaults: d, advisors: [SnapAdvisor(current: status)],
@@ -119,7 +132,7 @@ struct SnapAdvisor: FolderAdvisor {
 }
 
 @MainActor @Test func snapshotAskClaude() async throws {
-    let node = MapNode(path: "/Users/you/.cache/huggingface", name: "huggingface", kind: .folder, bytes: 4_100_000_000, cleanable: 0, children: [])
+    let node = MapNode(path: "/Users/you/Library/Application Support/Mystery/models", name: "models", kind: .folder, bytes: 4_100_000_000, cleanable: 0, children: [])
     let claude = CLIAdvisor(tool: .claude, binary: "/usr/bin/true")
     let store = CleanerStore(engine: try FixtureEngine(), defaults: UserDefaults(suiteName: "snap-\(UUID().uuidString)")!,
                              advisors: [claude],
@@ -136,8 +149,11 @@ struct SnapAdvisor: FolderAdvisor {
     for step in [1, 2] {
         try Snap.render("welcome-\(step)", IntroView(step: step).environment(store), size: CGSize(width: 760, height: 640))
     }
-    try Snap.render("ai-scan-start", AIScanView().environment(store), size: CGSize(width: 900, height: 420))
+    try Snap.render("ai-scan-start", AIScanView().environment(store), size: CGSize(width: 900, height: 480))
     await store.loadMap()
+    await store.runQuickScan()
+    try Snap.render("quick-scan", AIScanView().environment(store), size: CGSize(width: 900, height: 900))
+    try Snap.render("quick-scan", AIScanView().environment(store), size: CGSize(width: 900, height: 900), dark: true)
     await store.runAIScan()
     try Snap.render("ai-scan", AIScanView().environment(store), size: CGSize(width: 900, height: 1100))
     try Snap.render("ai-scan", AIScanView().environment(store), size: CGSize(width: 900, height: 1100), dark: true)

@@ -33,7 +33,14 @@
          "kind": "folder",
          "bytes": 13100000000,
          "cleanable": 40000000,
-         "children": []
+         "children": [],
+         "known": {
+          "name": "Claude desktop app data",
+          "owner": "Claude",
+          "what": "The Claude app's data: its virtual machine, Claude Code copies, sessions and caches.",
+          "kind": "appData",
+          "regrows": "no"
+         }
         },
         {
          "path": "/Users/you/Library/Application Support/Code",
@@ -41,7 +48,14 @@
          "kind": "folder",
          "bytes": 3200000000,
          "cleanable": 0,
-         "children": []
+         "children": [],
+         "known": {
+          "name": "Editor data",
+          "owner": "VS Code",
+          "what": "Settings, caches and per-project data of VS Code or an editor built on it.",
+          "kind": "appData",
+          "regrows": "no"
+         }
         },
         {
          "path": "/Users/you/Library/Application Support/Slack",
@@ -49,7 +63,14 @@
          "kind": "folder",
          "bytes": 1900000000,
          "cleanable": 20000000,
-         "children": []
+         "children": [],
+         "known": {
+          "name": "Slack data",
+          "owner": "Slack",
+          "what": "Slack's sign-ins, settings and cached messages and files.",
+          "kind": "appData",
+          "regrows": "no"
+         }
         },
         {
          "path": "/Users/you/Library/Application Support/Steam",
@@ -57,7 +78,15 @@
          "kind": "folder",
          "bytes": 1600000000,
          "cleanable": 0,
-         "children": []
+         "children": [],
+         "known": {
+          "name": "Steam games",
+          "owner": "Steam",
+          "what": "Games installed through Steam. Uninstall games you don't play from Steam; you can download them again anytime.",
+          "kind": "appData",
+          "regrows": "no",
+          "how": "Steam > Library > right-click a game > Manage > Uninstall"
+         }
         },
         {
          "path": "/Users/you/Library/Application Support",
@@ -67,7 +96,14 @@
          "cleanable": 0,
          "children": []
         }
-       ]
+       ],
+       "known": {
+        "name": "App data",
+        "owner": "macOS",
+        "what": "Where apps keep their data: settings, history, libraries, downloads.",
+        "kind": "appData",
+        "regrows": "no"
+       }
       },
       {
        "path": "/Users/you/Library/Developer",
@@ -75,7 +111,14 @@
        "kind": "folder",
        "bytes": 3000000000,
        "cleanable": 130000000,
-       "children": []
+       "children": [],
+       "known": {
+        "name": "Developer data",
+        "owner": "Xcode",
+        "what": "Simulators, Xcode builds and other data from Apple's developer tools.",
+        "kind": "appData",
+        "regrows": "no"
+       }
       },
       {
        "path": "/Users/you/Library/Caches",
@@ -83,7 +126,14 @@
        "kind": "folder",
        "bytes": 1400000000,
        "cleanable": 0,
-       "children": []
+       "children": [],
+       "known": {
+        "name": "Your caches",
+        "owner": "macOS",
+        "what": "Caches of the apps you use. Each app makes its cache again when it needs it.",
+        "kind": "cache",
+        "regrows": "yes"
+       }
       },
       {
        "path": "/Users/you/Library/pnpm",
@@ -91,7 +141,15 @@
        "kind": "folder",
        "bytes": 960000000,
        "cleanable": 820000000,
-       "children": []
+       "children": [],
+       "known": {
+        "name": "pnpm",
+        "owner": "pnpm",
+        "what": "pnpm's package store and globally installed tools.",
+        "kind": "toolchain",
+        "regrows": "no",
+        "how": "pnpm store prune"
+       }
       },
       {
        "path": "/Users/you/Library/Mobile Documents",
@@ -99,7 +157,15 @@
        "kind": "personal",
        "bytes": 760000000,
        "cleanable": 0,
-       "children": []
+       "children": [],
+       "known": {
+        "name": "iCloud Drive",
+        "owner": "iCloud",
+        "what": "Your iCloud Drive files kept on this Mac. Turn on Optimize Mac Storage to keep only recent files here.",
+        "kind": "userFiles",
+        "regrows": "no",
+        "how": "System Settings > Apple Account > iCloud > Optimize Mac Storage"
+       }
       },
       {
        "path": "/Users/you/Library",
@@ -109,7 +175,14 @@
        "cleanable": 0,
        "children": []
       }
-     ]
+     ],
+     "known": {
+      "name": "Your library",
+      "owner": "macOS",
+      "what": "Settings, data and caches of your apps.",
+      "kind": "appData",
+      "regrows": "no"
+     }
     },
     {
      "path": "/Users/you/Documents",
@@ -159,7 +232,14 @@
        "cleanable": 0,
        "children": []
       }
-     ]
+     ],
+     "known": {
+      "name": "Your files",
+      "owner": "You",
+      "what": "One of your own folders. Roomy never suggests removing what you made.",
+      "kind": "userFiles",
+      "regrows": "no"
+     }
     },
     {
      "path": "/Users/you/.cache",
@@ -174,7 +254,15 @@
        "kind": "folder",
        "bytes": 4099999999,
        "cleanable": 0,
-       "children": []
+       "children": [],
+       "known": {
+        "name": "Hugging Face models",
+        "owner": "Hugging Face",
+        "what": "AI models and datasets Python tools downloaded from Hugging Face. They download again the next time a program needs them.",
+        "kind": "aiModels",
+        "regrows": "yes",
+        "how": "hf cache scan, then hf cache delete"
+       }
       },
       {
        "path": "/Users/you/.cache/uv",
@@ -182,9 +270,24 @@
        "kind": "folder",
        "bytes": 3100000000,
        "cleanable": 0,
-       "children": []
+       "children": [],
+       "known": {
+        "name": "uv cache",
+        "owner": "uv",
+        "what": "Python packages and wheels uv downloaded and unpacked. uv downloads them again when a project needs them.",
+        "kind": "cache",
+        "regrows": "yes",
+        "how": "uv cache clean, or uv cache prune for only unused entries"
+       }
       }
-     ]
+     ],
+     "known": {
+      "name": "Tool caches",
+      "owner": "Command-line tools",
+      "what": "The shared cache folder of command-line tools: downloads, models and build caches. Each tool makes its part again.",
+      "kind": "cache",
+      "regrows": "yes"
+     }
     },
     {
      "path": "/Users/you/.local",
@@ -192,7 +295,14 @@
      "kind": "folder",
      "bytes": 4800000000,
      "cleanable": 1000000000,
-     "children": []
+     "children": [],
+     "known": {
+      "name": "Tool data",
+      "owner": "Command-line tools",
+      "what": "Where command-line tools keep settings (.config), data (.local) and caches (.cache).",
+      "kind": "appData",
+      "regrows": "no"
+     }
     },
     {
      "path": "/Users/you/Movies",
@@ -200,7 +310,14 @@
      "kind": "personal",
      "bytes": 3900000000,
      "cleanable": 0,
-     "children": []
+     "children": [],
+     "known": {
+      "name": "Your files",
+      "owner": "You",
+      "what": "One of your own folders. Roomy never suggests removing what you made.",
+      "kind": "userFiles",
+      "regrows": "no"
+     }
     },
     {
      "path": "/Users/you/Pictures/Photos Library.photoslibrary",
@@ -208,7 +325,15 @@
      "kind": "personal",
      "bytes": 2600000000,
      "cleanable": 0,
-     "children": []
+     "children": [],
+     "known": {
+      "name": "Photos library",
+      "owner": "Photos",
+      "what": "Your Photos library. Turn on Optimize Mac Storage in Photos to keep smaller copies here.",
+      "kind": "userFiles",
+      "regrows": "no",
+      "how": "Photos > Settings > iCloud > Optimize Mac Storage"
+     }
     },
     {
      "path": "/Users/you/.rustup",
@@ -216,7 +341,14 @@
      "kind": "folder",
      "bytes": 1600000000,
      "cleanable": 0,
-     "children": []
+     "children": [],
+     "known": {
+      "name": "rustup",
+      "owner": "rustup",
+      "what": "Rust toolchains installed by rustup.",
+      "kind": "toolchain",
+      "regrows": "no"
+     }
     },
     {
      "path": "/Users/you",
@@ -226,7 +358,14 @@
      "cleanable": 0,
      "children": []
     }
-   ]
+   ],
+   "known": {
+    "name": "Your home",
+    "owner": "You",
+    "what": "Your home folder: your files, and your apps' settings and data in Library.",
+    "kind": "userFiles",
+    "regrows": "no"
+   }
   },
   {
    "path": "/Applications",
@@ -241,7 +380,14 @@
      "kind": "bundle",
      "bytes": 4000000000,
      "cleanable": 0,
-     "children": []
+     "children": [],
+     "known": {
+      "name": "Xcode",
+      "owner": "Xcode",
+      "what": "Apple's app for building apps. Remove it from Applications if you don't make apps; the Command Line Tools are separate.",
+      "kind": "toolchain",
+      "regrows": "no"
+     }
     },
     {
      "path": "/Applications/Microsoft Word.app",
@@ -249,7 +395,14 @@
      "kind": "bundle",
      "bytes": 2900000000,
      "cleanable": 0,
-     "children": []
+     "children": [],
+     "known": {
+      "name": "An app",
+      "owner": "Apps",
+      "what": "An app you installed. If you don't use it, move it to the Trash or use its uninstaller; Roomy's unused-apps check lists apps you haven't opened in a long time.",
+      "kind": "toolchain",
+      "regrows": "no"
+     }
     },
     {
      "path": "/Applications/Blender.app",
@@ -257,7 +410,14 @@
      "kind": "bundle",
      "bytes": 950000000,
      "cleanable": 0,
-     "children": []
+     "children": [],
+     "known": {
+      "name": "An app",
+      "owner": "Apps",
+      "what": "An app you installed. If you don't use it, move it to the Trash or use its uninstaller; Roomy's unused-apps check lists apps you haven't opened in a long time.",
+      "kind": "toolchain",
+      "regrows": "no"
+     }
     },
     {
      "path": "/Applications",
@@ -267,7 +427,14 @@
      "cleanable": 0,
      "children": []
     }
-   ]
+   ],
+   "known": {
+    "name": "Applications",
+    "owner": "macOS",
+    "what": "Your apps. Remove one by moving it to the Trash, or with its own uninstaller.",
+    "kind": "toolchain",
+    "regrows": "no"
+   }
   },
   {
    "path": "/opt/homebrew",
@@ -282,7 +449,15 @@
      "kind": "folder",
      "bytes": 11500000000,
      "cleanable": 0,
-     "children": []
+     "children": [],
+     "known": {
+      "name": "Homebrew packages",
+      "owner": "Homebrew",
+      "what": "Everything you installed with brew install, one folder per package. Remove packages with brew uninstall.",
+      "kind": "toolchain",
+      "regrows": "no",
+      "how": "brew autoremove, then brew uninstall what you don't use"
+     }
     },
     {
      "path": "/opt/homebrew",
@@ -292,7 +467,14 @@
      "cleanable": 0,
      "children": []
     }
-   ]
+   ],
+   "known": {
+    "name": "Homebrew",
+    "owner": "Homebrew",
+    "what": "Software you installed with Homebrew.",
+    "kind": "toolchain",
+    "regrows": "no"
+   }
   }
  ]
 }

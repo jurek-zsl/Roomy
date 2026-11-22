@@ -33,8 +33,9 @@ struct AIScanResult: Equatable, Sendable {
 enum AIScanPrompt {
     static let instructions = """
     You help someone free disk space on their Mac. You get a map of the whole disk from Roomy, a cleaning app: \
-    folders with their sizes, nested by indentation. [Roomy frees X] means Roomy's own rules already handle that much there.
-    Find the folders that are most likely safe to remove, or worth reviewing, that Roomy doesn't already handle. \
+    folders with their sizes, nested by indentation. [Roomy frees X] means Roomy's own rules already handle that much there. \
+    A name after a dash (— uv cache) is what Roomy's own list of known folders says the folder is; Roomy already reviews those itself.
+    Find the folders that are most likely safe to remove, or worth reviewing, that Roomy doesn't already handle or know. \
     Use what you know about macOS, developer tools, AI tools and common apps.
     Rules:
     - Copy each path exactly as it's written in the map. Don't invent paths or folders the map doesn't list.
@@ -78,17 +79,22 @@ enum AIScanPrompt {
             let path = tildePath(n.path, home: home)
             let size = formatBytes(n.bytes)
             let frees = n.cleanable > 0 ? " [Roomy frees \(formatBytes(n.cleanable))]" : ""
+            let known = n.known.flatMap { $0.isGeneral ? nil : " — \($0.name)" } ?? ""
             switch n.kind {
             case .other, .unreadable:
                 return
             case .files:
                 lines.append("\(pad)\(path)/ (loose files) \(size)")
             case .bundle:
-                lines.append("\(pad)\(path) \(size) (app)\(frees)")
+                lines.append("\(pad)\(path) \(size) (app)\(frees)\(known)")
             case .personal where !includePersonal:
                 lines.append("\(pad)\(path) \(size) (your files; contents not shared)")
             default:
-                lines.append("\(pad)\(path) \(size)\(frees)")
+                lines.append("\(pad)\(path) \(size)\(frees)\(known)")
+                // Inside one tool's cache, model or build folder that Roomy knows,
+                // there's nothing more to tell; a folder of many tools' caches goes on.
+                if let k = n.known, !k.isGeneral, reviewKinds.contains(k.kind),
+                   n.children.allSatisfy({ ($0.known?.owner ?? k.owner) == k.owner }) { return }
                 for c in n.children where c.bytes >= minBytes { walk(c, depth + 1) }
             }
         }
@@ -116,6 +122,34 @@ enum AIScanPrompt {
         let paths = picked.map(\.node.path)
         picked.removeAll { p in paths.contains { $0 != p.node.path && p.node.path.hasPrefix($0 + "/") } }
         return Array(picked.sorted { $0.node.bytes > $1.node.bytes }.prefix(limit))
+    }
+
+    /// Kinds Roomy reviews when they come back by itself (or always, for logs and installers).
+    static let reviewKinds: Set<FolderKind> = [.cache, .aiModels, .buildOutput, .logs, .installers]
+
+    /// Folders Roomy's own list says are worth reviewing, no AI needed: the
+    /// most specific known ones, outside your own folders and macOS, that
+    /// Roomy's rules don't already clean. Biggest first.
+    static func knownCandidates(_ map: DiskMap, home: String, min: Int64 = 50_000_000, limit: Int = 30) -> [MapNode] {
+        func worth(_ n: MapNode) -> Bool {
+            guard let k = n.known, n.kind == .folder || n.kind == .bundle, reviewKinds.contains(k.kind) else { return false }
+            return AdvisorPrompt.decide(kind: k.kind, regrows: k.regrows).verdict == .review
+        }
+        func yours(_ path: String) -> Bool {
+            AdvisorPrompt.yourFolders.contains { path == home + "/" + $0 || path.hasPrefix(home + "/" + $0 + "/") }
+        }
+        func collect(_ n: MapNode) -> [MapNode] {
+            guard n.kind != .personal, n.bytes >= min, !yours(n.path) else { return [] }
+            let deeper = n.children.flatMap(collect)
+            // A folder that holds several tools' caches (~/.cache) gives way to
+            // what's inside it; one tool's own folder (uv's cache) stays whole.
+            if worth(n), let owner = n.known?.owner {
+                return deeper.allSatisfy { $0.known?.owner == owner } ? [n] : deeper
+            }
+            return deeper
+        }
+        let picked = map.roots.flatMap(collect).filter { $0.cleanable * 2 < $0.bytes }
+        return Array(picked.sorted { $0.bytes > $1.bytes }.prefix(limit))
     }
 
     /// Names of the apps in /Applications and ~/Applications.

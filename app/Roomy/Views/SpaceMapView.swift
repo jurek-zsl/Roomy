@@ -360,6 +360,9 @@ private struct MapRow: View {
             VStack(alignment: .leading, spacing: 5) {
                 HStack(spacing: 8) {
                     Text(title).fontWeight(.medium).lineLimit(1).truncationMode(.middle)
+                    if let known = node.known, !known.isGeneral, known.name != title {
+                        Text(known.name).font(.callout).foregroundStyle(.secondary).lineLimit(1).help(known.what)
+                    }
                     tag
                 }
                 SizeBar(fraction: fraction, cleanable: node.bytes > 0 ? Double(node.cleanable) / Double(node.bytes) : 0)
@@ -395,7 +398,7 @@ private struct MapRow: View {
         switch node.kind {
         case .personal: Chip(text: "Your files", color: .secondary)
         case .unreadable: Chip(text: "No access", color: .secondary)
-        case .folder where flagged: Chip(text: "Not explained", color: .orange)
+        case .folder where flagged && node.known == nil: Chip(text: "Not explained", color: .orange)
         default: EmptyView()
         }
     }

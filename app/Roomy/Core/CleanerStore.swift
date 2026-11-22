@@ -74,7 +74,8 @@ final class CleanerStore {
             defaults.set(advisorID, forKey: Keys.advisor)
             adviceError = nil
             for (path, insight) in insights {
-                if case .ready(let clues, _?) = insight { insights[path] = .ready(clues, nil) }
+                // Roomy's own answers don't depend on which AI is picked.
+                if case .ready(let clues, let a?) = insight, !a.fromRoomy { insights[path] = .ready(clues, nil) }
             }
         }
     }
@@ -287,6 +288,11 @@ final class CleanerStore {
         insights[path] = .loading
         do {
             let clues = try await engine.inspect(path: path)
+            // A folder on Roomy's list is answered at once, offline.
+            if let known = AdvisorPrompt.known(clues, home: userRules.home) {
+                insights[path] = .ready(clues, known)
+                return
+            }
             insights[path] = .ready(clues, nil)
             if autoAsk { await ask(path) }
         } catch {
@@ -329,8 +335,15 @@ final class CleanerStore {
     /// cleaned like any rule (checked, confirmed, to the Trash).
     func acceptSuggestion(_ path: String) async {
         guard case .ready(let clues, let advice?) = insights[path] else { return }
-        let name = clues.owner.map { "\($0.name) \(advice.kind.title.lowercased())" } ?? clues.name
-        let explain = "\(advice.summary) \(advice.why) (Suggested by \(advisor.name)\(advisor.sendsOffMac ? "" : " on this Mac"); you agreed to review it.)"
+        let name: String
+        if let k = clues.known, !k.isGeneral, k.inside != true {
+            name = k.name
+        } else {
+            name = clues.owner.map { "\($0.name) \(advice.kind.title.lowercased())" } ?? clues.name
+        }
+        let by = advice.fromRoomy ? "From Roomy's list of known folders"
+            : "Suggested by \(advisor.name)\(advisor.sendsOffMac ? "" : " on this Mac")"
+        let explain = "\(advice.summary) \(advice.why) (\(by); you agreed to review it.)"
         do {
             try userRules.add(path: path, name: name, explain: explain)
             accepted.insert(path)
@@ -359,6 +372,59 @@ final class CleanerStore {
 
     /// Map the disk if needed, let the AI read all of it in one request,
     /// then check each folder it names the same way as "What is this?".
+    /// Ask the AI about a folder Roomy already knows, for more detail. If
+    /// that fails, Roomy's own answer comes back.
+    func askAI(_ path: String) async {
+        guard case .ready(let clues, let known?) = insights[path], known.fromRoomy else { return }
+        insights[path] = .ready(clues, nil)
+        await ask(path)
+        if case .ready(_, nil) = insights[path], adviceError != nil { insights[path] = .ready(clues, known) }
+    }
+
+    /// Roomy's own list of known folders, checked against the map: instant,
+    /// offline, no AI needed.
+    func runQuickScan() async {
+        if case .working = aiScanState { return }
+        aiScanState = .working("Mapping the disk…")
+        if diskMap == nil { await loadMap() }
+        guard let map = diskMap else {
+            aiScanState = .failed("Roomy couldn't map the disk.")
+            return
+        }
+        aiScanState = .working("Checking the folders Roomy knows…")
+        let found = await knownSuggestions(map, besides: [])
+        let review = found.filter { $0.advice.verdict == .review }
+        let overview = review.isEmpty
+            ? "Roomy's list of known folders found nothing more worth removing beyond what Clean already finds."
+            : "Roomy recognized \(review.count) folder\(review.count == 1 ? "" : "s") worth a look, about \(formatBytes(review.reduce(0) { $0 + $1.bytes })) in all, from its own list of known folders. Nothing was sent anywhere."
+        aiScan = AIScanResult(overview: overview, suggestions: found, advisor: "Roomy", date: .now)
+        aiSelected = Set(review.filter { !isAccepted($0.path) }.map(\.path))
+        aiScanState = .ready
+    }
+
+    /// The known folders worth a look, checked one by one like an AI's
+    /// suggestions, leaving out any that overlap `besides`.
+    private func knownSuggestions(_ map: DiskMap, besides: [String]) async -> [AISuggestion] {
+        let overlaps = { (p: String) in besides.contains { $0 == p || p.hasPrefix($0 + "/") || $0.hasPrefix(p + "/") } }
+        let nodes = AIScanPrompt.knownCandidates(map, home: userRules.home).filter { !overlaps($0.path) }
+        let engine = engine
+        let clues = await withTaskGroup(of: (String, FolderClues?).self) { group in
+            for n in nodes { group.addTask { (n.path, try? await engine.inspect(path: n.path)) } }
+            var out: [String: FolderClues] = [:]
+            for await (path, c) in group { out[path] = c }
+            return out
+        }
+        return nodes.compactMap { n in
+            guard let c = clues[n.path], let advice = AdvisorPrompt.known(c, home: userRules.home) else { return nil }
+            return AISuggestion(path: n.path, name: suggestionName(n, c.known), bytes: n.bytes, advice: advice)
+        }
+    }
+
+    private func suggestionName(_ n: MapNode, _ known: KnownFolder?) -> String {
+        if let known, !known.isGeneral, known.inside != true { return known.name }
+        return n.kind == .bundle ? (n.name as NSString).deletingPathExtension : n.name
+    }
+
     func runAIScan() async {
         if case .working = aiScanState { return }
         aiScanState = .working("Mapping the disk…")
@@ -378,16 +444,22 @@ final class CleanerStore {
             var found: [AISuggestion] = []
             for (node, item) in AIScanPrompt.validate(reply, map: map, home: userRules.home) {
                 let advice: FolderAdvice
-                if let clues = try? await engine.inspect(path: node.path) {
+                let clues = try? await engine.inspect(path: node.path)
+                if let clues, let known = AdvisorPrompt.known(clues, home: userRules.home), clues.known?.isGeneral == false {
+                    // Roomy knows this folder by name: its own label wins.
+                    advice = known
+                } else if let clues {
                     advice = AdvisorPrompt.advice(summary: item.what, kind: item.kind, regrows: item.regrows,
                                                   clues: clues, home: userRules.home)
                 } else {
                     advice = FolderAdvice(summary: item.what, kind: item.kind, regrows: item.regrows, verdict: .keep,
                                           why: "Roomy couldn't look inside it, so it stays.", override: nil)
                 }
-                let name = node.kind == .bundle ? (node.name as NSString).deletingPathExtension : node.name
-                found.append(AISuggestion(path: node.path, name: name, bytes: node.bytes, advice: advice))
+                found.append(AISuggestion(path: node.path, name: suggestionName(node, clues?.known), bytes: node.bytes, advice: advice))
             }
+            aiScanState = .working("Adding the folders Roomy knows…")
+            found += await knownSuggestions(map, besides: found.map(\.path))
+            found.sort { $0.bytes > $1.bytes }
             aiScan = AIScanResult(overview: reply.overview, suggestions: found, advisor: advisor.name, date: .now)
             aiSelected = Set(found.filter { $0.advice.verdict == .review && !isAccepted($0.path) }.map(\.path))
             aiScanState = .ready
@@ -404,7 +476,8 @@ final class CleanerStore {
         guard !picked.isEmpty else { return }
         do {
             for s in picked {
-                let explain = "\(s.advice.summary) \(s.advice.why) (Suggested by \(result.advisor) in an AI scan; you agreed to review it.)"
+                let by = s.advice.fromRoomy ? "From Roomy's list of known folders" : "Suggested by \(result.advisor) in an AI scan"
+                let explain = "\(s.advice.summary) \(s.advice.why) (\(by); you agreed to review it.)"
                 try userRules.add(path: s.path, name: s.name, explain: explain)
                 accepted.insert(s.path)
             }

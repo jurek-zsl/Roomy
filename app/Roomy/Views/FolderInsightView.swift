@@ -51,12 +51,18 @@ struct FolderInsightView: View {
 
     @ViewBuilder private func aiCard(_ clues: FolderClues, _ advice: FolderAdvice?) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 6) {
-                ToolIcon(tool: (store.advisor as? CLIAdvisor)?.tool, size: 16)
-                Text(store.advisor.name)
+            if advice?.fromRoomy == true {
+                Label("Roomy knows this folder", systemImage: "checkmark.seal.fill")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            } else {
+                HStack(spacing: 6) {
+                    ToolIcon(tool: (store.advisor as? CLIAdvisor)?.tool, size: 16)
+                    Text(store.advisor.name)
+                }
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
             }
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(.secondary)
             if let advice {
                 Text(advice.summary).fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 6) {
@@ -64,12 +70,33 @@ struct FolderInsightView: View {
                     Pill(text: regrowsText(advice.regrows), color: advice.regrows == .yes ? .green : .secondary)
                 }
                 verdictLine(advice)
+                if let how = advice.how {
+                    Label {
+                        Text("Best way to free it: ").foregroundStyle(.secondary) + Text(how)
+                    } icon: {
+                        Image(systemName: "wrench.and.screwdriver").foregroundStyle(.secondary)
+                    }
+                    .font(.callout)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
                 actions(advice)
+                if advice.fromRoomy {
+                    Text("From Roomy's own list of known folders; nothing was sent anywhere.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    if store.advisorStatus == .ready {
+                        Button("Ask \(store.advisor.name) for More") { Task { await store.askAI(node.path) } }
+                            .buttonStyle(.link)
+                            .font(.caption)
+                    }
+                } else {
                 Text(store.advisor.sendsOffMac
                      ? "Written by \(store.advisor.name) from the facts below; it never saw your files. It can be wrong, so check before you agree."
                      : "Written on this Mac; nothing was sent anywhere. It can be wrong, so check before you agree.")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
+                }
             } else if store.asking.contains(node.path) {
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)

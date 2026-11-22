@@ -79,6 +79,8 @@ struct MapNode: Decodable, Sendable, Equatable, Identifiable, Hashable {
     let bytes: Int64
     let cleanable: Int64
     let children: [MapNode]
+    /// What Roomy's list of known folders says it is.
+    var known: KnownFolder? = nil
 
     var canOpen: Bool { !children.isEmpty }
 }
@@ -116,7 +118,7 @@ struct DiskMap: Decodable, Sendable, Equatable {
         func qualifies(_ n: MapNode) -> Bool {
             // Size without what macOS manages inside it.
             let own = n.bytes - n.children.reduce(0) { $0 + managedBytes($1) }
-            return n.kind == .folder && !managed(n) && own >= min && n.cleanable * 10 < own
+            return n.kind == .folder && !managed(n) && n.known?.kind != .system && own >= min && n.cleanable * 10 < own
         }
         func collect(_ n: MapNode, into out: inout [MapNode]) {
             var deeper: [MapNode] = []

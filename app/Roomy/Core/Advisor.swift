@@ -35,16 +35,35 @@ struct FolderClues: Decodable, Sendable, Equatable {
     let biggest: [FolderItem]
     let owner: FolderOwner?
     let markers: [String]
+    /// What Roomy's list of known folders says it is (or the known folder it's in).
+    var known: KnownFolder? = nil
 
     static func decode(_ data: Data) throws -> FolderClues {
         try engineDecoder().decode(FolderClues.self, from: data)
     }
 }
 
+/// An entry of Roomy's list of known folders (`rules/known.toml`).
+struct KnownFolder: Decodable, Sendable, Equatable, Hashable {
+    let name: String
+    let owner: String
+    let what: String
+    let kind: FolderKind
+    let regrows: Regrows
+    var how: String? = nil
+    /// The folder is inside the known one.
+    var inside: Bool? = nil
+    /// Its owner is running right now.
+    var running: Bool? = nil
+
+    /// A general pattern ("An app's cache"), not a folder Roomy knows by name.
+    var isGeneral: Bool { owner.hasPrefix("An app") || owner.hasPrefix("A command-line") || owner == "Apps" }
+}
+
 // MARK: - Advice
 
 enum FolderKind: String, Codable, Sendable, CaseIterable {
-    case cache, appData, userFiles, buildOutput, aiModels, toolchain, installers, logs, leftover, unknown
+    case cache, appData, userFiles, buildOutput, aiModels, toolchain, installers, logs, leftover, system, unknown
 
     var title: String {
         switch self {
@@ -57,12 +76,13 @@ enum FolderKind: String, Codable, Sendable, CaseIterable {
         case .installers: "Installers"
         case .logs: "Logs"
         case .leftover: "Leftover of a removed app"
+        case .system: "macOS"
         case .unknown: "Not sure"
         }
     }
 }
 
-enum Regrows: String, Codable, Sendable {
+enum Regrows: String, Codable, Sendable, Hashable {
     case yes, no, unsure
 }
 
@@ -81,6 +101,10 @@ struct FolderAdvice: Equatable, Sendable {
     var why: String
     /// Set when Roomy changed the model's verdict to be safe.
     var override: String?
+    /// The proper way to free it, from Roomy's list.
+    var how: String? = nil
+    /// Roomy answered from its list of known folders; no AI was asked.
+    var fromRoomy = false
 }
 
 enum AdvisorStatus: Equatable, Sendable {
@@ -148,8 +172,26 @@ enum AdvisorPrompt {
         case (.userFiles, _): (.keep, "It looks like your own files.")
         case (.appData, _): (.keep, "It looks like app data, such as history, settings or saved work.")
         case (.toolchain, _): (.keep, "These are developer tools; remove them from the tool itself if you don't use them.")
+        case (.system, _): (.keep, "macOS manages it, so leave it to macOS.")
         case (.unknown, _): (.keep, "It's not clear what this is, so it's safer to leave it.")
         }
+    }
+
+    /// Roomy's own answer from its list of known folders, with all its
+    /// limits; nil when the folder isn't on the list.
+    static func known(_ c: FolderClues, home: String = NSHomeDirectory()) -> FolderAdvice? {
+        guard let k = c.known else { return nil }
+        let summary = k.inside == true ? "It's part of \(k.name) (\(k.owner)). \(k.what)" : k.what
+        // An app's data whose app is gone is what's left of it.
+        let kind = k.isGeneral && k.kind == .appData && c.owner?.installed == false ? .leftover : k.kind
+        var a = advice(summary: summary, kind: kind, regrows: k.regrows, clues: c, home: home)
+        a.how = k.how
+        a.fromRoomy = true
+        if a.verdict == .review, k.running == true {
+            a.verdict = .keep
+            a.override = "\(k.owner) is running; quit it first."
+        }
+        return a
     }
 
     /// The model's reading, decided by Roomy and held to its limits.

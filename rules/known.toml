@@ -138,6 +138,7 @@ regrows = "unsure"
 [[folder]]
 path = "/private/var/db"
 name = "macOS databases"
+broad = true
 owner = "macOS"
 what = "Data macOS keeps for itself: logs, security settings, Spotlight, package receipts. macOS manages it."
 kind = "system"
@@ -216,7 +217,7 @@ path = "/private/var/log"
 name = "System log files"
 owner = "macOS"
 what = "Older text logs of macOS and installed services. macOS rotates and removes them itself."
-kind = "logs"
+kind = "system"
 regrows = "yes"
 
 [[folder]]
@@ -239,6 +240,7 @@ how = "bazel clean --expunge"
 [[folder]]
 path = ["/private/var", "/private"]
 name = "macOS data"
+broad = true
 owner = "macOS"
 what = "Data macOS keeps for itself: swap, logs, temporary files and databases."
 kind = "system"
@@ -255,6 +257,7 @@ regrows = "unsure"
 [[folder]]
 path = "/usr"
 name = "Unix system files"
+broad = true
 owner = "macOS"
 what = "Command-line tools and libraries. /usr/local is where some installers put their files."
 kind = "system"
@@ -365,6 +368,7 @@ how = "Xcode > Settings > Components"
 [[folder]]
 path = "/Library/Developer"
 name = "Developer tools"
+broad = true
 owner = "Xcode"
 what = "Apple's command-line tools and Simulator runtimes, shared by all users."
 kind = "toolchain"
@@ -440,6 +444,7 @@ how = "Uninstall games in the Battle.net app"
 [[folder]]
 path = "/Users/Shared"
 name = "Shared folder"
+broad = true
 owner = "macOS"
 what = "Files every user on this Mac can see. Some apps install content here."
 kind = "userFiles"
@@ -448,6 +453,7 @@ regrows = "no"
 [[folder]]
 path = "/Users"
 name = "Users"
+broad = true
 owner = "macOS"
 what = "Every user's home folder."
 kind = "userFiles"
@@ -456,6 +462,7 @@ regrows = "no"
 [[folder]]
 path = "/Applications"
 name = "Applications"
+broad = true
 owner = "macOS"
 what = "Your apps. Remove one by moving it to the Trash, or with its own uninstaller."
 kind = "toolchain"
@@ -464,6 +471,7 @@ regrows = "no"
 [[folder]]
 path = "/Library"
 name = "Shared library"
+broad = true
 owner = "macOS"
 what = "Settings, drivers, fonts and support files shared by all users and apps."
 kind = "system"
@@ -472,6 +480,7 @@ regrows = "no"
 [[folder]]
 path = "/opt"
 name = "Optional software"
+broad = true
 owner = "macOS"
 what = "Where Homebrew and some other tools install software."
 kind = "toolchain"
@@ -484,6 +493,7 @@ regrows = "no"
 [[folder]]
 path = ["~/Documents", "~/Desktop", "~/Movies", "~/Pictures", "~/Music", "~/Public"]
 name = "Your files"
+broad = true
 owner = "You"
 what = "One of your own folders. Roomy never suggests removing what you made."
 kind = "userFiles"
@@ -492,6 +502,7 @@ regrows = "no"
 [[folder]]
 path = "~/Downloads"
 name = "Downloads"
+broad = true
 owner = "You"
 what = "Files you downloaded. Old installers and archives here are often safe to remove once used."
 kind = "userFiles"
@@ -509,6 +520,7 @@ how = "Empty the Trash in Finder"
 [[folder]]
 path = ["~/Library/Mobile Documents", "~/Library/Mobile Documents/com~apple~CloudDocs"]
 name = "iCloud Drive"
+broad = true
 owner = "iCloud"
 what = "Your iCloud Drive files kept on this Mac. Turn on Optimize Mac Storage to keep only recent files here."
 kind = "userFiles"
@@ -518,6 +530,7 @@ how = "System Settings > Apple Account > iCloud > Optimize Mac Storage"
 [[folder]]
 path = "~/Library/Mobile Documents/*"
 name = "App files in iCloud"
+broad = true
 owner = "iCloud"
 what = "Documents an app keeps in iCloud Drive. They're your files, synced across your devices."
 kind = "userFiles"
@@ -526,6 +539,7 @@ regrows = "no"
 [[folder]]
 path = ["~/Library/CloudStorage", "~/Library/CloudStorage/*"]
 name = "Cloud drive files"
+broad = true
 owner = "Cloud storage"
 what = "Files from Dropbox, Google Drive, OneDrive or Box kept on this Mac. Make them online-only in that app to free space."
 kind = "userFiles"
@@ -749,6 +763,7 @@ regrows = "yes"
 [[folder]]
 path = "~/Library/Containers"
 name = "App sandboxes"
+broad = true
 owner = "macOS"
 what = "Each sandboxed app's own folder: its settings, data and caches."
 kind = "appData"
@@ -757,6 +772,7 @@ regrows = "no"
 [[folder]]
 path = "~/Library/Group Containers"
 name = "Shared app data"
+broad = true
 owner = "macOS"
 what = "Data an app shares with its helpers or with the same company's other apps."
 kind = "appData"
@@ -765,6 +781,7 @@ regrows = "no"
 [[folder]]
 path = "~/Library/Application Support"
 name = "App data"
+broad = true
 owner = "macOS"
 what = "Where apps keep their data: settings, history, libraries, downloads."
 kind = "appData"
@@ -773,6 +790,7 @@ regrows = "no"
 [[folder]]
 path = "~/Library"
 name = "Your library"
+broad = true
 owner = "macOS"
 what = "Settings, data and caches of your apps."
 kind = "appData"
@@ -781,6 +799,7 @@ regrows = "no"
 [[folder]]
 path = ["~/Library/Fonts"]
 name = "Your fonts"
+broad = true
 owner = "macOS"
 what = "Fonts you installed."
 kind = "appData"
@@ -884,6 +903,7 @@ regrows = "yes"
 [[folder]]
 path = "~/Library/Developer/Xcode"
 name = "Xcode data"
+broad = true
 owner = "Xcode"
 what = "Xcode's builds, device support files, archives and settings."
 kind = "appData"
@@ -927,6 +947,7 @@ how = "Xcode > Settings > Components"
 [[folder]]
 path = ["~/Library/Developer/CoreSimulator", "~/Library/Developer"]
 name = "Developer data"
+broad = true
 owner = "Xcode"
 what = "Simulators, Xcode builds and other data from Apple's developer tools."
 kind = "appData"
@@ -1090,6 +1111,7 @@ regrows = "no"
 [[folder]]
 path = "/usr/local"
 name = "Locally installed software"
+broad = true
 owner = "Installers"
 what = "Software installers put here, such as Homebrew on Intel Macs, .NET or other command-line tools."
 kind = "toolchain"
@@ -2572,6 +2594,7 @@ regrows = "yes"
 [[folder]]
 path = ["~/.config", "~/.local", "~/.local/share", "~/.local/state"]
 name = "Tool data"
+broad = true
 owner = "Command-line tools"
 what = "Where command-line tools keep settings (.config), data (.local) and caches (.cache)."
 kind = "appData"
@@ -2596,6 +2619,7 @@ regrows = "no"
 [[folder]]
 path = ["~/.local/state/*", "~/.local/state/*/logs"]
 name = "Tool state"
+broad = true
 owner = "Command-line tools"
 what = "State and logs a command-line tool keeps, such as history."
 kind = "appData"
@@ -2825,6 +2849,7 @@ regrows = "yes"
 [[folder]]
 path = ["~/Library/Application Support/obsidian", "~/Library/Application Support/Figma", "~/Library/Application Support/Linear", "~/Library/Application Support/Todoist", "~/Library/Application Support/Craft", "~/Library/Application Support/Bear", "~/Library/Group Containers/9K33E3U3T4.net.shinyfrog.bear", "~/Library/Application Support/Things 3", "~/Library/Application Support/1Password", "~/Library/Group Containers/2BUA8C4S2C.com.1password", "~/Library/Application Support/Bitwarden", "~/Library/Application Support/Raindrop.io", "~/Library/Application Support/Superhuman", "~/Library/Application Support/Spark", "~/Library/Application Support/Canva", "~/Library/Application Support/Miro", "~/Library/Application Support/ClickUp", "~/Library/Application Support/Trello", "~/Library/Application Support/Asana", "~/Library/Application Support/Loom", "~/Library/Application Support/Arc Search"]
 name = "App data"
+broad = true
 owner = "Productivity apps"
 what = "A productivity app's settings, sign-in and offline data."
 kind = "appData"
@@ -2883,6 +2908,7 @@ how = "Google Drive > Settings > Preferences > clear the cache, or set a smaller
 [[folder]]
 path = ["~/Dropbox", "~/Library/CloudStorage/Dropbox", "~/OneDrive", "~/Google Drive", "~/Box", "~/pCloud Drive", "~/Sync", "~/Nextcloud"]
 name = "Synced folder"
+broad = true
 owner = "Cloud storage"
 what = "Files synced with a cloud service. Make them online-only in that app to free space."
 kind = "userFiles"
@@ -3123,6 +3149,7 @@ regrows = "no"
 [[folder]]
 path = ["/Applications/*", "~/Applications"]
 name = "App folder"
+broad = true
 owner = "Apps"
 what = "A folder of apps and their helpers."
 kind = "toolchain"
@@ -3187,6 +3214,7 @@ regrows = "yes"
 [[folder]]
 path = "~/Library/Application Support/*"
 name = "An app's data"
+broad = true
 owner = "An app"
 what = "Where one app keeps its data: settings, libraries, history or downloads. If the app is gone, this is probably a leftover."
 kind = "appData"
@@ -3211,6 +3239,7 @@ regrows = "yes"
 [[folder]]
 path = ["~/Library/Containers/*", "~/Library/Containers/*/Data", "~/Library/Group Containers/*"]
 name = "An app's sandbox"
+broad = true
 owner = "An app"
 what = "A sandboxed app's own folder with its settings, data and caches. If the app is gone, this is probably a leftover."
 kind = "appData"
@@ -3251,6 +3280,7 @@ regrows = "yes"
 [[folder]]
 path = "/Library/Application Support/*"
 name = "Shared app data"
+broad = true
 owner = "An app"
 what = "Support files an app installed for all users, such as plug-ins, licenses or helpers."
 kind = "appData"
@@ -3300,6 +3330,7 @@ regrows = "no"
 [[folder]]
 path = ["/usr/local/share", "/usr/local/lib", "/usr/local/bin", "/usr/local/include", "/usr/local/opt"]
 name = "Locally installed files"
+broad = true
 owner = "Installers"
 what = "Programs, libraries and data that installers or Homebrew (on Intel Macs) put in /usr/local."
 kind = "toolchain"
@@ -3308,6 +3339,7 @@ regrows = "no"
 [[folder]]
 path = "~"
 name = "Your home"
+broad = true
 owner = "You"
 what = "Your home folder: your files, and your apps' settings and data in Library."
 kind = "userFiles"
@@ -3324,6 +3356,7 @@ regrows = "yes"
 [[folder]]
 path = ["~/.config/*", "~/.local/share/*"]
 name = "A tool's settings and data"
+broad = true
 owner = "A command-line tool"
 what = "Settings or data a command-line tool keeps."
 kind = "appData"

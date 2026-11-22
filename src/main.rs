@@ -32,6 +32,37 @@ enum Cmd {
     Map(MapArgs),
     /// Gather clues about one folder: file types, last change, biggest items, owner app.
     Inspect(InspectArgs),
+    /// Say what Roomy's list of known folders knows about folders (they don't have to exist).
+    Known(KnownArgs),
+}
+
+#[derive(Args)]
+struct KnownArgs {
+    /// The folders to look up.
+    paths: Vec<PathBuf>,
+    /// Print JSON (one entry or null per folder) instead of text.
+    #[arg(long)]
+    json: bool,
+}
+
+fn run_known(a: KnownArgs, home: &std::path::Path) -> ExitCode {
+    let catalog = roomy::known::Catalog::standard(home);
+    let expand = |p: &PathBuf| if let Ok(rest) = p.strip_prefix("~") { home.join(rest) } else { p.clone() };
+    let found: Vec<Option<roomy::known::Known>> = a.paths.iter().map(|p| catalog.lookup_within(&expand(p))).collect();
+    if a.json {
+        println!("{}", serde_json::to_string(&found).unwrap());
+        return ExitCode::SUCCESS;
+    }
+    if a.paths.is_empty() {
+        println!("Roomy knows {} kinds of folders.", catalog.len());
+    }
+    for (p, k) in a.paths.iter().zip(&found) {
+        match k {
+            Some(k) => println!("{}: {}{} ({}, {}). {}", p.display(), if k.inside { "inside " } else { "" }, k.name, k.owner, k.kind, k.what),
+            None => println!("{}: not on the list", p.display()),
+        }
+    }
+    ExitCode::SUCCESS
 }
 
 #[derive(Args)]
@@ -318,6 +349,7 @@ fn main() -> ExitCode {
         Cmd::Clean(a) => run_clean(a, &home),
         Cmd::Map(a) => run_map(a, &home),
         Cmd::Inspect(a) => run_inspect(a, &home),
+        Cmd::Known(a) => run_known(a, &home),
     }
 }
 

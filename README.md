@@ -65,12 +65,30 @@ Where does the disk actually go? The Space Map adds up every folder on the disk:
 - **Worth a look:** big folders that no rule explains. Roomy never touches these, but they're where the remaining space hides;
 - the part macOS manages itself (system data, snapshots, swap), so the numbers add up.
 
+### Folders Roomy knows
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/quick-scan-dark.png">
+    <img src="docs/images/quick-scan.png" width="640" alt="Quick Scan: Roomy's overview, then Hugging Face models, uv cache and Your caches marked probably not needed, each with the best way to free it">
+  </picture>
+</p>
+
+Most big folders on a Mac are well known: uv's cache, Hugging Face models, Xcode's DerivedData, simulators, Docker's disk, Chrome's built-in AI model, Claude's virtual machine. Roomy ships a list of about 390 of them ([`rules/known.toml`](rules/known.toml)). The list covers macOS and Apple's tools, Homebrew, every common language's caches, containers and VMs, AI models and AI coding tools, editors, browsers, chat and office apps, games and media apps. General patterns catch any app's caches, logs and update downloads.
+
+- **Quick Scan** in the AI Scan tab checks the whole map against the list in seconds, with no AI and nothing sent anywhere. On the Mac above it explains 97% of the folders over 100 MB.
+- **What is this?** answers a known folder at once and says the best way to free it (`uv cache clean`, `hf cache delete`, Xcode's Components settings). You can still ask an AI for more.
+- **The AI Scan** sees the names too, so it spends its time on what Roomy doesn't know, and Roomy's own label wins for folders it knows.
+- The same limits apply as for the AI: a running app's folder, your own folders, databases and git repositories are kept. Your files, app data, developer tools and what macOS manages are never suggested.
+
+Add your own in `~/Library/Application Support/Roomy/known.toml` (yours win), or send a pull request. `roomy known <folder>` shows what Roomy knows about any path.
+
 ### AI Scan: the whole Mac at once
 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/images/ai-scan-dark.png">
-    <img src="docs/images/ai-scan.png" width="640" alt="AI Scan: Claude's overview of where the space goes, three folders marked probably not needed with checkboxes, an Add 3 to Review button, and one folder Roomy keeps">
+    <img src="docs/images/ai-scan.png" width="640" alt="AI Scan: Quick Scan and Scan with Claude buttons, Claude's overview, three folders marked probably not needed, each labelled Roomy knows it, an Add 3 to Review button, and folders Roomy keeps">
   </picture>
 </p>
 
@@ -86,7 +104,7 @@ On a real Mac with 196 GB used, Gemini answered in 17 s, Claude in 36 s and Code
 
 ### What is this folder?
 
-In Space Map, every big folder Roomy can't explain has a **What is this?** button. It shows Roomy's own facts (owner, last change, file types, biggest items) and, if you ask, the AI's reading of them, with the same checks as above.
+In Space Map, every folder has a **What is this?** button. For a folder on Roomy's list, it answers at once. For any other folder, it shows Roomy's own facts (owner, last change, file types, biggest items) and, if you ask, the AI's reading of them, with the same checks as above.
 
 ### Set up in a minute
 
@@ -177,6 +195,7 @@ cargo build --release
 ./target/release/roomy clean ~/code/old-app     # the safe items in one folder
 ./target/release/roomy clean --safe --trash     # move to the Trash instead of deleting
 ./target/release/roomy inspect ~/.cache/foo     # facts about one folder: owner, types, last change
+./target/release/roomy known ~/.cache/uv        # what Roomy's list of known folders says it is
 ./target/release/roomy rules                    # list every rule
 ```
 
@@ -236,8 +255,9 @@ roomy scan --rules my-rules.toml
 | Command | Output |
 |---|---|
 | `scan --json` | `{free_bytes, elapsed_ms, findings[]}`. Each finding has `name`, `section` (`safe-now` / `review` / `blocked`), `method` and `trash_method` (`delete` / `trash` / `command`), and an optional `detail`. |
-| `inspect --json <folder>` | `{path, bytes, files, folders, newest_days, types[], biggest[], owner, markers[]}`: the facts the AI reasons over. |
-| `map --json` | `{total_bytes, used_bytes, free_bytes, mapped_bytes, cleanable_bytes, roots[]}`. Each node has `path`, `name`, `kind`, `bytes`, `cleanable` and `children`. |
+| `inspect --json <folder>` | `{path, bytes, files, folders, newest_days, types[], biggest[], owner, markers[], known}`: the facts the AI reasons over. `known` is Roomy's own entry (`name`, `owner`, `what`, `kind`, `regrows`, `how`, `inside`, `running`), or null. |
+| `known --json <folders…>` | One `known` entry (or null) per folder; the folders don't have to exist. |
+| `map --json` | `{total_bytes, used_bytes, free_bytes, mapped_bytes, cleanable_bytes, roots[]}`. Each node has `path`, `name`, `kind`, `bytes`, `cleanable`, `children` and, for folders on Roomy's list, `known`. |
 | `clean --json [--trash] -- <paths>` | One event per line: `plan`, then `item`…, then `done` (or `error`). |
 
 ## Development
@@ -253,6 +273,6 @@ The `Snapshots` scheme renders every screen, light and dark, to `app/build/snaps
 
 ## Roadmap
 
-- **Shared knowledge:** turn folders explained once into built-in rules, so every Mac gets the answer without AI.
+- **Shared knowledge:** turn folders an AI explained into entries of the known-folders list, so every Mac gets the answer without AI.
 - A signed and notarized download.
 - Rules for more apps and tools. Contributions welcome!

@@ -54,6 +54,9 @@ struct Entry {
     kind: String,
     regrows: String,
     how: Option<String>,
+    /// It says what the folder itself is, not what's inside it (your home, ~/Library).
+    #[serde(default)]
+    broad: bool,
 }
 
 #[derive(Deserialize)]
@@ -69,6 +72,8 @@ pub struct Catalog {
     /// Each pattern, its entry, and whether it's a project pattern (`/**/name`).
     patterns: Vec<(Pattern, usize, bool)>,
     entries: Vec<Known>,
+    /// Entries that don't explain the folders inside them.
+    broad: Vec<bool>,
     /// Patterns whose last part is plain text, by that text.
     by_name: HashMap<String, Vec<usize>>,
     /// Patterns whose last part has a wildcard.
@@ -85,7 +90,7 @@ impl Catalog {
     /// Load lists in order; the first one that matches a folder wins, so a
     /// person's own list goes first.
     pub fn parse(texts: &[&str], home: &Path) -> Result<Catalog, String> {
-        let mut c = Catalog { patterns: vec![], entries: vec![], by_name: HashMap::new(), wild: vec![] };
+        let mut c = Catalog { patterns: vec![], entries: vec![], broad: vec![], by_name: HashMap::new(), wild: vec![] };
         for text in texts {
             let file: File = toml::from_str(text).map_err(|e| e.to_string())?;
             for e in file.folder {
@@ -100,6 +105,7 @@ impl Catalog {
                     Paths::Many(v) => v,
                 };
                 let idx = c.entries.len();
+                c.broad.push(e.broad);
                 c.entries.push(Known { name: e.name, owner: e.owner, what: e.what, kind: e.kind, regrows: e.regrows, how: e.how, inside: false, running: false });
                 for p in paths {
                     let full = crate::rules::expand_home(&p, home).to_string_lossy().trim_end_matches('/').to_string();
@@ -168,7 +174,9 @@ impl Catalog {
         if let Some(k) = self.lookup(path) {
             return Some(k);
         }
-        path.ancestors().skip(1).find_map(|a| self.lookup(a)).map(|k| Known { inside: true, ..k })
+        // The nearest known folder above, unless it's a broad one like ~/Library.
+        let i = path.ancestors().skip(1).find_map(|a| self.find(a, true))?;
+        (!self.broad[i]).then(|| Known { inside: true, ..self.entries[i].clone() })
     }
 }
 
@@ -267,6 +275,14 @@ regrows = "no"
         assert_eq!(c.lookup(Path::new("/Users/me/code/app/node_modules")).unwrap().name, "node_modules");
         assert!(c.lookup(Path::new("/Users/me/.npm-global/lib/node_modules/x/node_modules")).is_none(), "part of an installed tool");
         assert_eq!(c.lookup(Path::new("/Users/me/.npm-global/lib/node_modules")).unwrap().name, "Global packages folder", "a specific path beats a pattern listed before it");
+    }
+
+    #[test]
+    fn broad_folders_dont_explain_whats_inside() {
+        let list = "[[folder]]\npath = \"~/Library/Application Support/*\"\nname = \"An app's data\"\nowner = \"An app\"\nwhat = \"x.\"\nkind = \"appData\"\nregrows = \"no\"\nbroad = true\n";
+        let c = Catalog::parse(&[list], Path::new("/Users/me")).unwrap();
+        assert_eq!(c.lookup(Path::new("/Users/me/Library/Application Support/Foo")).unwrap().name, "An app's data");
+        assert!(c.lookup_within(Path::new("/Users/me/Library/Application Support/Foo/models")).is_none());
     }
 
     #[test]
