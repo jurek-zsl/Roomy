@@ -85,21 +85,12 @@ struct FolderAdvice: Equatable, Sendable {
 
 enum AdvisorStatus: Equatable, Sendable {
     case ready
-    /// Apple Intelligence is off in System Settings.
-    case notEnabled
-    /// The model is still downloading or getting ready.
-    case notReady
-    /// This Mac or macOS version can't run it.
-    case notSupported
     /// The command it runs isn't on this Mac.
     case notInstalled
 
     var message: String {
         switch self {
-        case .ready: "Apple Intelligence is ready."
-        case .notEnabled: "Turn on Apple Intelligence in System Settings to get an explanation written on this Mac."
-        case .notReady: "Apple Intelligence is still getting ready (the model may be downloading). Try again in a while."
-        case .notSupported: "This Mac can't run Apple Intelligence. The facts below are still Roomy's own."
+        case .ready: "Ready."
         case .notInstalled: "It isn't installed on this Mac."
         }
     }

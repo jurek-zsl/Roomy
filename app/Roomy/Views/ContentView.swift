@@ -38,6 +38,12 @@ struct ContentView: View {
                     }
                 }
                 ToolbarItem(placement: .primaryAction) {
+                    SettingsLink {
+                        Label("Settings", systemImage: "gearshape")
+                    }
+                    .help("Settings (⌘,)")
+                }
+                ToolbarItem(placement: .primaryAction) {
                     if tab == .space && store.hasSeenIntro {
                         Button {
                             Task { await store.loadMap() }

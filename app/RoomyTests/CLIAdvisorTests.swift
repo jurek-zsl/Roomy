@@ -65,3 +65,35 @@ private func script(_ body: String, in dir: URL, name: String = "claude") -> URL
     #expect(a.status() == .notInstalled)
     #expect(a.statusMessage(.notInstalled).contains("codex"))
 }
+
+@Test func geminiRunsThroughAgySandboxed() throws {
+    let a = CLIAdvisor.arguments(.gemini, schema: "{}", prompt: "Facts here")
+    #expect(a.contains("--sandbox"))
+    #expect(a.suffix(2) == ["-p", "Facts here"], "agy takes the prompt as an argument")
+    #expect(!a.contains { $0.contains("dangerously") })
+    #expect(CLIAdvisor.Tool.gemini.command == "agy")
+    let reply = #"{"status":"SUCCESS","response":"…","structured_output":{"summary":"uv's cache.","kind":"cache","regrows":"yes"}}"#
+    #expect(try CLIAdvisor.parse(.gemini, Data(reply.utf8)).kind == .cache)
+    #expect(throws: (any Error).self) { try CLIAdvisor.parse(.gemini, Data(#"{"status":"ERROR","response":"Sign in first"}"#.utf8)) }
+}
+
+@Test func asksAnySchemaForAScan() async throws {
+    let dir = tempDir()
+    let bin = script(#"echo '{"type":"result","is_error":false,"structured_output":{"suggestions":[]}}'"#, in: dir)
+    let data = try await CLIAdvisor(tool: .claude, binary: bin.path).request(system: "s", prompt: "p", schema: "{}")
+    #expect(String(decoding: data, as: UTF8.self).contains("suggestions"))
+}
+
+@Test func picksTheLightestFlashModel() {
+    let list = "Fetching available models...\ngemini-3.8-flash-high\tGemini 3.8 Flash (High)\ngemini-3.8-flash-low\tGemini 3.8 Flash (Low)\nclaude-sonnet-4-6\tClaude"
+    #expect(CLIAdvisor.fastModel(from: list) == "gemini-3.8-flash-low")
+    #expect(CLIAdvisor.fastModel(from: "gemini-9-flash\tX\ngemini-9-pro\tY") == "gemini-9-flash")
+    #expect(CLIAdvisor.fastModel(from: "") == nil)
+    #expect(CLIAdvisor.arguments(.gemini, schema: "{}", prompt: "p", model: "m").contains("m"))
+}
+
+@Test func emptyFailuresStillSaySomething() {
+    #expect(throws: EngineError.failed("Gemini sent no answer (TIMEOUT).")) {
+        try CLIAdvisor.parse(.gemini, Data(#"{"status":"TIMEOUT","response":""}"#.utf8))
+    }
+}

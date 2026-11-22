@@ -1,8 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// What a folder is: Roomy's own facts, and Apple Intelligence's reading
-/// of them, written on this Mac.
+/// What a folder is: Roomy's own facts, and an AI's reading of them.
 struct FolderInsightView: View {
     @Environment(CleanerStore.self) private var store
     let node: MapNode
@@ -77,13 +76,7 @@ struct FolderInsightView: View {
                 askOffMac
             } else if store.advisorStatus != .ready {
                 Text(store.advisor.statusMessage(store.advisorStatus)).fixedSize(horizontal: false, vertical: true)
-                if store.advisorStatus == .notEnabled {
-                    Button("Open Apple Intelligence Settings") {
-                        if let url = URL(string: "x-apple.systempreferences:com.apple.Siri-Settings.extension") {
-                            NSWorkspace.shared.open(url)
-                        }
-                    }
-                }
+                SettingsLink { Text("Set Up AI…") }
             }
             if store.advice(for: node.path) == nil, !store.asking.contains(node.path), let error = store.adviceError {
                 Text(error).font(.caption).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true)

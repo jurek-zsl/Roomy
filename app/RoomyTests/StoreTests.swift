@@ -325,7 +325,7 @@ func tempRules() -> UserRules {
 @MainActor @Test func explainShowsCluesAndAdvice() async {
     let advisor = FakeAdvisor()
     let store = CleanerStore(engine: FakeEngine(scans: [.success(scanResult([a]))]), defaults: freshDefaults(),
-                             advisor: advisor, userRules: tempRules())
+                             advisors: [advisor], userRules: tempRules())
     let path = "/h/Library/Application Support/OldApp"
     await store.explain(path)
     guard case .ready(let clues, let advice) = store.insights[path] else { Issue.record("no insight"); return }
@@ -336,23 +336,23 @@ func tempRules() -> UserRules {
     #expect(advisor.calls == 1, "answers are kept, not asked again")
 }
 
-@MainActor @Test func explainWithoutAppleIntelligenceStillShowsClues() async {
-    let advisor = FakeAdvisor(status: .notEnabled)
+@MainActor @Test func explainWithoutAnAIStillShowsClues() async {
+    let advisor = FakeAdvisor(status: .notInstalled)
     let store = CleanerStore(engine: FakeEngine(scans: [.success(scanResult([a]))]), defaults: freshDefaults(),
-                             advisor: advisor, userRules: tempRules())
+                             advisors: [advisor], userRules: tempRules())
     await store.explain("/h/x")
     guard case .ready(let clues, let advice) = store.insights["/h/x"] else { Issue.record("no insight"); return }
     #expect(clues.name == "OldApp")
     #expect(advice == nil)
     #expect(advisor.calls == 0)
-    #expect(store.advisorStatus == .notEnabled)
+    #expect(store.advisorStatus == .notInstalled)
 }
 
 @MainActor @Test func acceptingAddsAReviewRuleAndRescans() async throws {
     let engine = FakeEngine(scans: [.success(scanResult([a]))])
     engine.mapResult = .success(diskMap())
     let rules = tempRules()
-    let store = CleanerStore(engine: engine, defaults: freshDefaults(), advisor: FakeAdvisor(), userRules: rules)
+    let store = CleanerStore(engine: engine, defaults: freshDefaults(), advisors: [FakeAdvisor()], userRules: rules)
     await store.loadMap()
     let path = "/h/Library/Application Support/OldApp"
     await store.explain(path)
@@ -374,7 +374,7 @@ func tempRules() -> UserRules {
     let advisor = FakeAdvisor()
     advisor.offMac = true
     let store = CleanerStore(engine: FakeEngine(scans: [.success(scanResult([a]))]), defaults: freshDefaults(),
-                             advisor: advisor, userRules: tempRules())
+                             advisors: [advisor], userRules: tempRules())
     let path = "/h/Library/Application Support/OldApp"
     await store.explain(path)
     guard case .ready(_, nil) = store.insights[path] else { Issue.record("should show facts only"); return }
@@ -391,10 +391,10 @@ func tempRules() -> UserRules {
     let local = FakeAdvisor()
     let cloud = FakeAdvisor()
     cloud.id = "cloud"
-    let store = CleanerStore(engine: FakeEngine(scans: []), defaults: d, advisor: local, cloudAdvisors: [cloud], userRules: tempRules())
+    let store = CleanerStore(engine: FakeEngine(scans: []), defaults: d, advisors: [local, cloud], userRules: tempRules())
     #expect(store.advisor.id == local.id)
     store.advisorID = "cloud"
     #expect(store.advisor.id == "cloud")
-    let again = CleanerStore(engine: FakeEngine(scans: []), defaults: d, advisor: local, cloudAdvisors: [cloud], userRules: tempRules())
+    let again = CleanerStore(engine: FakeEngine(scans: []), defaults: d, advisors: [local, cloud], userRules: tempRules())
     #expect(again.advisor.id == "cloud")
 }

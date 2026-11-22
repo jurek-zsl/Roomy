@@ -26,7 +26,7 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                Text("Apple Intelligence runs on this Mac. Claude and Codex are more capable, but the facts go to Anthropic or OpenAI, so Roomy shows them and asks each time. Either way, Roomy makes the call and nothing is cleaned without you.")
+                Text("The AI runs through your own command line tool and account. Roomy shows exactly what it sends and asks each time. Either way, Roomy makes the call and nothing is cleaned without you.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

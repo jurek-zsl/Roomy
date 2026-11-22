@@ -66,7 +66,7 @@ final class CleanerStore {
     private(set) var insights: [String: Insight] = [:]
     /// Folders you agreed to review (as rules), by path.
     private(set) var accepted: Set<String> = []
-    /// Apple Intelligence first, then the tools that send facts off the Mac.
+    /// The AI tools Roomy can ask (Claude, Codex, Gemini).
     @ObservationIgnored let advisors: [any FolderAdvisor]
     /// Which one explains folders; remembered.
     var advisorID: String {
@@ -122,11 +122,11 @@ final class CleanerStore {
     @ObservationIgnored private let notify: @Sendable (String) -> Void
 
     init(engine: any CleanEngine, defaults: UserDefaults = .standard, notify: @escaping @Sendable (String) -> Void = { _ in },
-         advisor: any FolderAdvisor = AppleAdvisor(), cloudAdvisors: [any FolderAdvisor] = CLIAdvisor.all,
-         userRules: UserRules = .standard) {
+         advisors: [any FolderAdvisor] = CLIAdvisor.all, userRules: UserRules = .standard) {
         self.engine = engine
-        advisors = [advisor] + cloudAdvisors
-        advisorID = defaults.string(forKey: Keys.advisor) ?? advisor.id
+        self.advisors = advisors
+        advisorID = defaults.string(forKey: Keys.advisor)
+            ?? (advisors.first { $0.status() == .ready } ?? advisors[0]).id
         self.userRules = userRules
         self.defaults = defaults
         self.notify = notify

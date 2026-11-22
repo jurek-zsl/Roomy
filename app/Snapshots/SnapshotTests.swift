@@ -87,7 +87,7 @@ func scannedStore() async throws -> CleanerStore {
 
 
 struct SnapAdvisor: FolderAdvisor {
-    let name = "Apple Intelligence"
+    let name = "Claude"
     let current: AdvisorStatus
     func status() -> AdvisorStatus { current }
     func advise(_ clues: FolderClues) async throws -> FolderAdvice {
@@ -99,9 +99,9 @@ struct SnapAdvisor: FolderAdvisor {
 
 @MainActor @Test func snapshotInsight() async throws {
     let node = MapNode(path: "/Users/you/.cache/huggingface", name: "huggingface", kind: .folder, bytes: 4_100_000_000, cleanable: 0, children: [])
-    for (status, file) in [(AdvisorStatus.ready, "insight"), (.notEnabled, "insight-no-ai")] {
+    for (status, file) in [(AdvisorStatus.ready, "insight"), (.notInstalled, "insight-no-ai")] {
         let d = UserDefaults(suiteName: "snap-\(UUID().uuidString)")!
-        let store = CleanerStore(engine: try FixtureEngine(), defaults: d, advisor: SnapAdvisor(current: status),
+        let store = CleanerStore(engine: try FixtureEngine(), defaults: d, advisors: [SnapAdvisor(current: status)],
                                  userRules: UserRules(file: FileManager.default.temporaryDirectory.appending(path: "snap-\(UUID())/r.toml"), home: "/Users/you"))
         await store.explain(node.path)
         try Snap.render(file, FolderInsightView(node: node).environment(store), size: CGSize(width: 340, height: 720))
@@ -112,7 +112,7 @@ struct SnapAdvisor: FolderAdvisor {
     let node = MapNode(path: "/Users/you/.cache/huggingface", name: "huggingface", kind: .folder, bytes: 4_100_000_000, cleanable: 0, children: [])
     let claude = CLIAdvisor(tool: .claude, binary: "/usr/bin/true")
     let store = CleanerStore(engine: try FixtureEngine(), defaults: UserDefaults(suiteName: "snap-\(UUID().uuidString)")!,
-                             advisor: claude, cloudAdvisors: [],
+                             advisors: [claude],
                              userRules: UserRules(file: FileManager.default.temporaryDirectory.appending(path: "snap-\(UUID())/r.toml"), home: "/Users/you"))
     await store.explain(node.path)
     try Snap.render("insight-ask", FolderInsightView(node: node).environment(store), size: CGSize(width: 340, height: 720))
