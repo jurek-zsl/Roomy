@@ -92,18 +92,35 @@ struct DiskMap: Decodable, Sendable, Equatable {
     let elapsedMs: Int64
     let roots: [MapNode]
 
+    /// The top folders: of the disk (`/`) when it's mapped whole, else the roots.
+    var places: [MapNode] {
+        guard roots.count == 1, roots[0].path == "/" else { return roots }
+        return roots[0].children.filter { $0.kind == .folder || $0.kind == .bundle || $0.kind == .personal }
+    }
+
+    /// macOS manages these itself (swap, system databases); never worth a look.
+    static let managedByMacOS = ["/private/var/vm", "/private/var/db"]
+
     /// Used space the map doesn't reach: macOS itself, system data, snapshots.
     var systemBytes: Int64? { usedBytes.map { max(0, $0 - mappedBytes) } }
 
     /// The most specific big folders the rules barely explain (under a tenth
     /// cleanable). Your own files are left out. Biggest first.
     func unexplained(min: Int64 = 1_000_000_000, limit: Int = 8) -> [MapNode] {
+        func managed(_ n: MapNode) -> Bool {
+            DiskMap.managedByMacOS.contains { n.path == $0 || n.path.hasPrefix($0 + "/") }
+        }
+        func managedBytes(_ n: MapNode) -> Int64 {
+            managed(n) ? n.bytes : n.children.reduce(0) { $0 + managedBytes($1) }
+        }
         func qualifies(_ n: MapNode) -> Bool {
-            n.kind == .folder && n.bytes >= min && n.cleanable * 10 < n.bytes
+            // Size without what macOS manages inside it.
+            let own = n.bytes - n.children.reduce(0) { $0 + managedBytes($1) }
+            return n.kind == .folder && !managed(n) && own >= min && n.cleanable * 10 < own
         }
         func collect(_ n: MapNode, into out: inout [MapNode]) {
             var deeper: [MapNode] = []
-            for c in n.children where c.kind == .folder { collect(c, into: &deeper) }
+            for c in n.children where c.kind == .folder && !managed(c) { collect(c, into: &deeper) }
             if deeper.isEmpty, qualifies(n) { out.append(n) } else { out += deeper }
         }
         var out: [MapNode] = []

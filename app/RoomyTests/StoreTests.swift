@@ -398,3 +398,16 @@ func tempRules() -> UserRules {
     let again = CleanerStore(engine: FakeEngine(scans: []), defaults: d, advisors: [local, cloud], userRules: tempRules())
     #expect(again.advisor.id == "cloud")
 }
+
+@Test func wholeDiskMapShowsTheTopFolders() throws {
+    func n(_ p: String, _ b: Int64, _ kids: [MapNode] = []) -> MapNode {
+        MapNode(path: p, name: (p as NSString).lastPathComponent, kind: .folder, bytes: b, cleanable: 0, children: kids)
+    }
+    let vm = n("/private/var/vm", 2_000)
+    let cache = n("/Users/me/.cache/x", 3_000)
+    let root = MapNode(path: "/", name: "/", kind: .folder, bytes: 9_000, cleanable: 0,
+                       children: [n("/Users", 5_000, [n("/Users/me", 5_000, [cache])]), n("/private", 2_000, [n("/private/var", 2_000, [vm])])])
+    let map = DiskMap(totalBytes: 10_000, usedBytes: 9_500, freeBytes: 500, mappedBytes: 9_000, cleanableBytes: 0, elapsedMs: 1, roots: [root])
+    #expect(map.places.map(\.path) == ["/Users", "/private"])
+    #expect(map.unexplained(min: 1_000).map(\.path) == ["/Users/me/.cache/x"], "macOS swap isn't worth a look")
+}

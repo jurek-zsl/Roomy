@@ -67,6 +67,11 @@ func rootTitle(_ path: String) -> String {
     case "/Applications": "Applications"
     case "/opt/homebrew", "/usr/local": "Homebrew & tools (\(path))"
     case "/Library": "Library (for all users)"
+    case "/Users": "Users"
+    case "/opt": "Homebrew & tools (/opt)"
+    case "/System": "macOS downloads (/System)"
+    case "/private": "System data (/private)"
+    case "/usr": "Command line tools (/usr)"
     default: path == "/" ? path : (path as NSString).lastPathComponent
     }
 }
@@ -127,7 +132,7 @@ private struct SpaceBar: View {
     }
 
     private var parts: [Part] {
-        var p = map.roots.enumerated().map { i, r in
+        var p = map.places.prefix(7).enumerated().map { i, r in
             Part(id: r.path, label: rootTitle(r.path), bytes: r.bytes, color: rootColors[i % rootColors.count])
         }
         if let sys = map.systemBytes, sys > 0 {
@@ -191,7 +196,7 @@ private struct MapBrowser: View {
     private var unexplained: Set<String> { Set(map.unexplained(limit: 50).map(\.id)) }
 
     var body: some View {
-        let rows = trail.last?.children ?? map.roots
+        let rows = trail.last?.children ?? map.places
         let biggest = max(rows.map(\.bytes).max() ?? 1, 1)
         let flagged = unexplained
         List {
@@ -278,7 +283,7 @@ private struct MapBrowser: View {
             }
             return nil
         }
-        guard let chain = path(in: map.roots) else { return }
+        guard let chain = path(in: map.places) else { return }
         trail = target.canOpen ? chain : Array(chain.dropLast())
     }
 }

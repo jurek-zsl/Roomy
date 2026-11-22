@@ -123,11 +123,11 @@ fn run_map(a: MapArgs, home: &std::path::Path) -> ExitCode {
     }
     let apps = apps_dir();
     let findings = run(&ScanOptions { home: home.to_path_buf(), rules, walk: walk_options(home, &[]), apps_dir: apps.clone() });
-    let mut roots = vec![home.to_path_buf(), apps];
-    for extra in ["/opt/homebrew", "/usr/local", "/Library"] {
-        if std::env::var_os("ROOMY_APPS_DIR").is_none() && std::path::Path::new(extra).is_dir() {
-            roots.push(PathBuf::from(extra));
-        }
+    // The whole disk; tests (ROOMY_APPS_DIR) map just home and their apps folder.
+    let testing = std::env::var_os("ROOMY_APPS_DIR").is_some();
+    let mut roots = map::disk_roots(!testing && std::path::Path::new(map::DATA_VOLUME).is_dir());
+    if roots.is_empty() {
+        roots = vec![home.to_path_buf(), apps];
     }
     let nodes = map::build(&roots, &findings, &map::MapOptions::new(home));
     let space = disk_space(home);

@@ -52,7 +52,7 @@ pub struct MapOptions {
 
 impl MapOptions {
     pub fn new(home: &Path) -> MapOptions {
-        MapOptions { max_depth: 6, min_bytes: 50_000_000, max_children: 30, home: home.to_path_buf() }
+        MapOptions { max_depth: 8, min_bytes: 50_000_000, max_children: 30, home: home.to_path_buf() }
     }
 }
 
@@ -71,12 +71,41 @@ pub struct MapDocument {
 const BUNDLE_SUFFIX: &[&str] =
     &[".app", ".photoslibrary", ".musiclibrary", ".tvlibrary", ".fcpbundle", ".framework", ".xcarchive", ".bundle", ".imovielibrary", ".photoslibrary"];
 
+/// Everything on the Mac that isn't the sealed, read-only system: users,
+/// apps, /Library, /private, /opt, /usr/local. macOS shows it merged into `/`.
+pub const DATA_VOLUME: &str = "/System/Volumes/Data";
+
+/// Map the Data volume when there is one: the whole disk, each byte once.
+pub fn disk_roots(has_data_volume: bool) -> Vec<PathBuf> {
+    if has_data_volume { vec![PathBuf::from(DATA_VOLUME)] } else { vec![] }
+}
+
+/// The path as you see it: `/System/Volumes/Data/Users` is `/Users`.
+fn shown(path: &Path) -> PathBuf {
+    match path.strip_prefix(DATA_VOLUME) {
+        Ok(rest) => Path::new("/").join(rest),
+        Err(_) => path.to_path_buf(),
+    }
+}
+
+/// Give the map the paths you see, so they match the scan's and open in Finder.
+pub fn rebase(node: &mut Node) {
+    if node.path == Path::new(DATA_VOLUME) && node.name == DATA_VOLUME {
+        node.name = "/".into();
+    }
+    node.path = shown(&node.path);
+    for c in &mut node.children {
+        rebase(c);
+    }
+}
+
 fn kind_of(path: &Path, name: &str, home: &Path) -> Kind {
+    let path = &shown(path);
     if BUNDLE_SUFFIX.iter().any(|s| name.ends_with(s)) {
         return if name.ends_with("library") { Kind::Personal } else { Kind::Bundle };
     }
     let personal = ["Documents", "Desktop", "Pictures", "Movies", "Music", "Library/Mobile Documents", "Library/Mail", "Library/Messages"];
-    if personal.iter().any(|p| path == home.join(p)) { Kind::Personal } else { Kind::Folder }
+    if personal.iter().any(|p| *path == home.join(p)) { Kind::Personal } else { Kind::Folder }
 }
 
 struct Walk<'a> {
@@ -208,6 +237,7 @@ pub fn build(roots: &[PathBuf], findings: &[Finding], opts: &MapOptions) -> Vec<
     let refs: Vec<&Finding> = findings.iter().filter(|f| f.section() != crate::Section::Blocked).collect();
     let mut nodes: Vec<Node> = roots.par_iter().filter_map(|r| map_root(r, opts)).collect();
     for n in &mut nodes {
+        rebase(n);
         annotate(n, &refs);
     }
     nodes
@@ -253,6 +283,28 @@ mod tests {
     use super::*;
     use crate::rules::Risk;
     use crate::verify::Status;
+
+    #[test]
+    fn data_volume_shows_as_root() {
+        let leaf = Node { path: "/System/Volumes/Data/Users/me/x".into(), name: "x".into(), kind: Kind::Folder, bytes: 1, cleanable: 0, children: vec![] };
+        let mut n = Node { path: DATA_VOLUME.into(), name: DATA_VOLUME.into(), kind: Kind::Folder, bytes: 1, cleanable: 0, children: vec![leaf] };
+        rebase(&mut n);
+        assert_eq!(n.path, PathBuf::from("/"));
+        assert_eq!(n.name, "/");
+        assert_eq!(n.children[0].path, PathBuf::from("/Users/me/x"));
+    }
+
+    #[test]
+    fn personal_folders_found_through_the_data_volume() {
+        let home = Path::new("/Users/me");
+        assert_eq!(kind_of(Path::new("/System/Volumes/Data/Users/me/Documents"), "Documents", home), Kind::Personal);
+        assert_eq!(kind_of(Path::new("/Users/me/Documents"), "Documents", home), Kind::Personal);
+    }
+
+    #[test]
+    fn whole_disk_roots() {
+        assert_eq!(disk_roots(true), vec![PathBuf::from(DATA_VOLUME)]);
+    }
 
     fn file(p: &Path, n: usize) {
         fs::create_dir_all(p.parent().unwrap()).unwrap();
