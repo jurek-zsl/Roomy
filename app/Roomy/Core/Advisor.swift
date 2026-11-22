@@ -91,6 +91,8 @@ enum AdvisorStatus: Equatable, Sendable {
     case notReady
     /// This Mac or macOS version can't run it.
     case notSupported
+    /// The command it runs isn't on this Mac.
+    case notInstalled
 
     var message: String {
         switch self {
@@ -98,15 +100,26 @@ enum AdvisorStatus: Equatable, Sendable {
         case .notEnabled: "Turn on Apple Intelligence in System Settings to get an explanation written on this Mac."
         case .notReady: "Apple Intelligence is still getting ready (the model may be downloading). Try again in a while."
         case .notSupported: "This Mac can't run Apple Intelligence. The facts below are still Roomy's own."
+        case .notInstalled: "It isn't installed on this Mac."
         }
     }
 }
 
 /// Something that can explain a folder from its clues.
 protocol FolderAdvisor: Sendable {
+    var id: String { get }
     var name: String { get }
+    /// True when the facts go to a company's servers, so Roomy asks first.
+    var sendsOffMac: Bool { get }
     func status() -> AdvisorStatus
+    func statusMessage(_ status: AdvisorStatus) -> String
     func advise(_ clues: FolderClues) async throws -> FolderAdvice
+}
+
+extension FolderAdvisor {
+    var id: String { name }
+    var sendsOffMac: Bool { false }
+    func statusMessage(_ status: AdvisorStatus) -> String { status.message }
 }
 
 enum AdvisorPrompt {
@@ -121,6 +134,7 @@ enum AdvisorPrompt {
     - Packages, runtimes, wheels or models that a tool downloaded for itself are cache or AI models, and they come back.
     - Photos, videos, audio, documents, projects and code are the user's files, including renders and exports inside a project.
     - Build output is only what a compiler or bundler makes inside a project.
+    - The summary is at most two sentences. Don't say whether to delete it; Roomy decides that.
     - It comes back ("yes") only if the app or tool downloads or rebuilds it by itself when it's missing.
     """
 

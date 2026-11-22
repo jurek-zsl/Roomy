@@ -300,6 +300,9 @@ func sampleClues(path: String = "/h/Library/Application Support/OldApp", install
 
 final class FakeAdvisor: FolderAdvisor, @unchecked Sendable {
     let name = "Fake AI"
+    var id = "fake"
+    var offMac = false
+    var sendsOffMac: Bool { offMac }
     var current: AdvisorStatus
     var advice: FolderAdvice
     private(set) var calls = 0
@@ -365,4 +368,33 @@ func tempRules() -> UserRules {
     #expect(text.contains("Fake AI"))
     await store.removeSuggestion(path)
     #expect(!rules.contains(path))
+}
+
+@MainActor @Test func offMacAdvisorWaitsUntilYouAsk() async {
+    let advisor = FakeAdvisor()
+    advisor.offMac = true
+    let store = CleanerStore(engine: FakeEngine(scans: [.success(scanResult([a]))]), defaults: freshDefaults(),
+                             advisor: advisor, userRules: tempRules())
+    let path = "/h/Library/Application Support/OldApp"
+    await store.explain(path)
+    guard case .ready(_, nil) = store.insights[path] else { Issue.record("should show facts only"); return }
+    #expect(advisor.calls == 0, "nothing leaves the Mac by itself")
+    #expect(store.outgoing(path)?.contains("Folder: ") == true, "you see what would be sent")
+    await store.ask(path)
+    #expect(advisor.calls == 1)
+    guard case .ready(_, let advice?) = store.insights[path] else { Issue.record("no advice"); return }
+    #expect(advice.verdict == .review)
+}
+
+@MainActor @Test func choosingAnotherAdvisorIsRemembered() async {
+    let d = freshDefaults()
+    let local = FakeAdvisor()
+    let cloud = FakeAdvisor()
+    cloud.id = "cloud"
+    let store = CleanerStore(engine: FakeEngine(scans: []), defaults: d, advisor: local, cloudAdvisors: [cloud], userRules: tempRules())
+    #expect(store.advisor.id == local.id)
+    store.advisorID = "cloud"
+    #expect(store.advisor.id == "cloud")
+    let again = CleanerStore(engine: FakeEngine(scans: []), defaults: d, advisor: local, cloudAdvisors: [cloud], userRules: tempRules())
+    #expect(again.advisor.id == "cloud")
 }

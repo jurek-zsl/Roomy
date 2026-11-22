@@ -81,6 +81,21 @@ Click any big folder in **Worth a look** and Roomy explains it:
 
 Without Apple Intelligence, you still get the facts, which often say enough on their own.
 
+#### Claude or Codex, with your own account
+
+<p align="center">
+  <img src="docs/images/insight-ask.png" width="320" alt="The explain panel set to Claude: an Ask Claude button, a note that only facts are sent, and a disclosure showing exactly what is sent">
+</p>
+
+Prefer a stronger model? In **Settings → Explaining folders**, pick **Claude** or **Codex**. Roomy uses the `claude` or `codex` command you already have, so it runs on your own subscription or API key. There's no Roomy account and no key to paste.
+
+- **It asks first, every time.** These facts go to Anthropic or OpenAI, so the panel shows *exactly what's sent* and waits for you to press **Ask Claude** or **Ask Codex**.
+- **Only facts, never files.** Folder and file names, sizes, dates and file types. Paths start at `~`, so your username isn't sent either.
+- **Locked down.** Claude runs with no tools, no MCP servers and no saved session; Codex runs in its read-only sandbox, without saving a session. Both run in an empty temporary folder.
+- **Same rules.** The model only labels the folder; Roomy makes the call and its limits still apply.
+
+On real folders, Claude and Codex both told a simulator's data, an app's VM image and an agent's chat history apart from caches. Apple's small model couldn't. Each answer takes about 5 to 15 seconds.
+
 ### Menu bar
 
 <p align="center">
@@ -233,7 +248,6 @@ The `Snapshots` scheme renders every screen, light and dark, to `app/build/snaps
 
 ## Roadmap
 
-- **Ask Claude Code or Codex** about hard cases, using your own subscription or API key, with a preview of exactly what's sent.
 - **Shared knowledge:** turn folders explained once into built-in rules, so every Mac gets the answer without AI.
 - A signed and notarized download.
 - Rules for more apps and tools. Contributions welcome!

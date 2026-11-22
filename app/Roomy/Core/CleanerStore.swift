@@ -66,7 +66,21 @@ final class CleanerStore {
     private(set) var insights: [String: Insight] = [:]
     /// Folders you agreed to review (as rules), by path.
     private(set) var accepted: Set<String> = []
-    @ObservationIgnored let advisor: any FolderAdvisor
+    /// Apple Intelligence first, then the tools that send facts off the Mac.
+    @ObservationIgnored let advisors: [any FolderAdvisor]
+    /// Which one explains folders; remembered.
+    var advisorID: String {
+        didSet {
+            defaults.set(advisorID, forKey: Keys.advisor)
+            adviceError = nil
+            for (path, insight) in insights {
+                if case .ready(let clues, _?) = insight { insights[path] = .ready(clues, nil) }
+            }
+        }
+    }
+    var advisor: any FolderAdvisor { advisors.first { $0.id == advisorID } ?? advisors[0] }
+    /// Folders waiting for an answer from the advisor.
+    private(set) var asking: Set<String> = []
     @ObservationIgnored let userRules: UserRules
 
     /// Notify when free space drops under `lowSpaceThreshold` (once a day at most).
@@ -95,6 +109,7 @@ final class CleanerStore {
         static let intro = "seenIntro"
         static let lowSpace = "lowSpaceAlerts"
         static let lastAlert = "lastLowSpaceAlert"
+        static let advisor = "advisor"
     }
 
     /// Ticks the user changed, by path. A choice counts only while the item
@@ -107,9 +122,11 @@ final class CleanerStore {
     @ObservationIgnored private let notify: @Sendable (String) -> Void
 
     init(engine: any CleanEngine, defaults: UserDefaults = .standard, notify: @escaping @Sendable (String) -> Void = { _ in },
-         advisor: any FolderAdvisor = AppleAdvisor(), userRules: UserRules = .standard) {
+         advisor: any FolderAdvisor = AppleAdvisor(), cloudAdvisors: [any FolderAdvisor] = CLIAdvisor.all,
+         userRules: UserRules = .standard) {
         self.engine = engine
-        self.advisor = advisor
+        advisors = [advisor] + cloudAdvisors
+        advisorID = defaults.string(forKey: Keys.advisor) ?? advisor.id
         self.userRules = userRules
         self.defaults = defaults
         self.notify = notify
@@ -239,26 +256,45 @@ final class CleanerStore {
     }
 
     /// Gather the facts about a folder, then ask the on-device AI what it is.
-    /// Without the AI, the facts alone are shown.
+    /// An advisor that sends facts off the Mac waits for `ask`.
     func explain(_ path: String) async {
-        if case .ready(_, let advice) = insights[path], advice != nil || advisor.status() != .ready { return }
+        if case .ready(_, let advice) = insights[path], advice != nil || !autoAsk { return }
         if insights[path] == .loading { return }
         insights[path] = .loading
         do {
             let clues = try await engine.inspect(path: path)
-            var advice: FolderAdvice?
-            if advisor.status() == .ready {
-                insights[path] = .ready(clues, nil)
-                advice = try await advisor.advise(clues)
-            }
-            insights[path] = .ready(clues, advice)
+            insights[path] = .ready(clues, nil)
+            if autoAsk { await ask(path) }
         } catch {
-            if case .ready(let clues, _) = insights[path] {
-                insights[path] = .ready(clues, nil)
-                self.adviceError = error.localizedDescription
-            } else {
-                insights[path] = .failed(error.localizedDescription)
-            }
+            insights[path] = .failed(error.localizedDescription)
+        }
+    }
+
+    private var autoAsk: Bool { advisor.status() == .ready && !advisor.sendsOffMac }
+
+    func advice(for path: String) -> FolderAdvice? {
+        if case .ready(_, let advice?) = insights[path] { return advice }
+        return nil
+    }
+
+    /// Exactly what the advisor gets for this folder.
+    func outgoing(_ path: String) -> String? {
+        guard case .ready(let clues, _) = insights[path] else { return nil }
+        return AdvisorPrompt.facts(clues)
+    }
+
+    /// Ask the advisor about a folder whose facts are in.
+    func ask(_ path: String) async {
+        guard case .ready(let clues, nil) = insights[path], advisor.status() == .ready, !asking.contains(path) else { return }
+        let advisor = advisor
+        asking.insert(path)
+        adviceError = nil
+        defer { asking.remove(path) }
+        do {
+            let advice = try await advisor.advise(clues)
+            if advisor.id == advisorID { insights[path] = .ready(clues, advice) }
+        } catch {
+            adviceError = error.localizedDescription
         }
     }
 
@@ -270,7 +306,7 @@ final class CleanerStore {
     func acceptSuggestion(_ path: String) async {
         guard case .ready(let clues, let advice?) = insights[path] else { return }
         let name = clues.owner.map { "\($0.name) \(advice.kind.title.lowercased())" } ?? clues.name
-        let explain = "\(advice.summary) \(advice.why) (Suggested by \(advisor.name) on this Mac; you agreed to review it.)"
+        let explain = "\(advice.summary) \(advice.why) (Suggested by \(advisor.name)\(advisor.sendsOffMac ? "" : " on this Mac"); you agreed to review it.)"
         do {
             try userRules.add(path: path, name: name, explain: explain)
             accepted.insert(path)

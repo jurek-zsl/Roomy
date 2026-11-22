@@ -107,3 +107,13 @@ struct SnapAdvisor: FolderAdvisor {
         try Snap.render(file, FolderInsightView(node: node).environment(store), size: CGSize(width: 340, height: 720))
     }
 }
+
+@MainActor @Test func snapshotAskClaude() async throws {
+    let node = MapNode(path: "/Users/you/.cache/huggingface", name: "huggingface", kind: .folder, bytes: 4_100_000_000, cleanable: 0, children: [])
+    let claude = CLIAdvisor(tool: .claude, binary: "/usr/bin/true")
+    let store = CleanerStore(engine: try FixtureEngine(), defaults: UserDefaults(suiteName: "snap-\(UUID().uuidString)")!,
+                             advisor: claude, cloudAdvisors: [],
+                             userRules: UserRules(file: FileManager.default.temporaryDirectory.appending(path: "snap-\(UUID())/r.toml"), home: "/Users/you"))
+    await store.explain(node.path)
+    try Snap.render("insight-ask", FolderInsightView(node: node).environment(store), size: CGSize(width: 340, height: 720))
+}

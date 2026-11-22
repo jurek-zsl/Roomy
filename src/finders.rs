@@ -446,7 +446,8 @@ mod tests {
         fs::write(repo.join("README"), "hi").unwrap();
         fs::write(repo.join(".gitignore"), "node_modules\n.env\n").unwrap();
         sh(&repo, &["add", "."], None);
-        let when = SystemTime::now() - Duration::from_secs(300 * DAY);
+        // A few days past 300, so the test's own `now` (taken earlier) still sees 10 months.
+        let when = SystemTime::now() - Duration::from_secs(305 * DAY);
         let stamp = format!("@{} +0000", when.duration_since(UNIX_EPOCH).unwrap().as_secs());
         sh(&repo, &["commit", "-q", "-m", "first"], Some(&stamp));
         sh(&repo, &["remote", "add", "origin", remote.to_str().unwrap()], None);

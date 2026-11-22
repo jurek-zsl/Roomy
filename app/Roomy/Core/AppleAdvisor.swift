@@ -7,6 +7,7 @@ import FoundationModels
 /// Nothing leaves the Mac, there's nothing to download or pay for, and on
 /// Macs without it Roomy still shows its own facts.
 struct AppleAdvisor: FolderAdvisor {
+    let id = "apple"
     let name = "Apple Intelligence"
 
     func status() -> AdvisorStatus {

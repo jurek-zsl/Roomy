@@ -63,19 +63,20 @@ struct FolderInsightView: View {
                 }
                 verdictLine(advice)
                 actions(advice)
-                Text("Written on this Mac; nothing was sent anywhere. It can be wrong, so check before you agree.")
+                Text(store.advisor.sendsOffMac
+                     ? "Written by \(store.advisor.name) from the facts below; it never saw your files. It can be wrong, so check before you agree."
+                     : "Written on this Mac; nothing was sent anywhere. It can be wrong, so check before you agree.")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
-            } else if store.insights[node.path] != nil, store.advisorStatus == .ready {
+            } else if store.asking.contains(node.path) {
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
-                    Text("Thinking on this Mac…").foregroundStyle(.secondary)
+                    Text(store.advisor.sendsOffMac ? "Asking \(store.advisor.name)…" : "Thinking on this Mac…").foregroundStyle(.secondary)
                 }
-                if let error = store.adviceError {
-                    Text(error).font(.caption).foregroundStyle(.red)
-                }
-            } else {
-                Text(store.advisorStatus.message).fixedSize(horizontal: false, vertical: true)
+            } else if store.advisorStatus == .ready, store.advisor.sendsOffMac {
+                askOffMac
+            } else if store.advisorStatus != .ready {
+                Text(store.advisor.statusMessage(store.advisorStatus)).fixedSize(horizontal: false, vertical: true)
                 if store.advisorStatus == .notEnabled {
                     Button("Open Apple Intelligence Settings") {
                         if let url = URL(string: "x-apple.systempreferences:com.apple.Siri-Settings.extension") {
@@ -84,10 +85,45 @@ struct FolderInsightView: View {
                     }
                 }
             }
+            if store.advice(for: node.path) == nil, !store.asking.contains(node.path), let error = store.adviceError {
+                Text(error).font(.caption).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true)
+                if !store.advisor.sendsOffMac, store.advisorStatus == .ready {
+                    Button("Try Again") { Task { await store.ask(node.path) } }
+                }
+            }
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    /// Ask first: these facts leave the Mac, so show them and wait.
+    @ViewBuilder private var askOffMac: some View {
+        let tool = (store.advisor as? CLIAdvisor)?.tool
+        VStack(alignment: .leading, spacing: 8) {
+            Button {
+                Task { await store.ask(node.path) }
+            } label: {
+                Label("Ask \(store.advisor.name)", systemImage: "paperplane.fill")
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(store.outgoing(node.path) == nil)
+            Text("Roomy sends only the facts below to \(tool?.company ?? "the company behind it") through your own \(tool?.rawValue ?? "") command: names, sizes and dates, never file contents.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            if let text = store.outgoing(node.path) {
+                DisclosureGroup("Exactly what's sent") {
+                    Text(text)
+                        .font(.caption.monospaced())
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(8)
+                        .background(.background, in: RoundedRectangle(cornerRadius: 6))
+                }
+                .font(.caption)
+            }
+        }
     }
 
     @ViewBuilder private func verdictLine(_ advice: FolderAdvice) -> some View {

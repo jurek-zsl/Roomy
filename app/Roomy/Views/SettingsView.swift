@@ -16,6 +16,21 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            SwiftUI.Section("Explaining folders") {
+                Picker("Ask", selection: $store.advisorID) {
+                    ForEach(store.advisors, id: \.id) { a in
+                        Text(a.status() == .notInstalled ? "\(a.name) (not installed)" : a.name).tag(a.id)
+                    }
+                }
+                Text(store.advisor.statusMessage(store.advisorStatus))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("Apple Intelligence runs on this Mac. Claude and Codex are more capable, but the facts go to Anthropic or OpenAI, so Roomy shows them and asks each time. Either way, Roomy makes the call and nothing is cleaned without you.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             SwiftUI.Section("Menu bar") {
                 Toggle("Open Roomy at login", isOn: $openAtLogin)
                     .onChange(of: openAtLogin) { _, on in setLogin(on) }
