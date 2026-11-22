@@ -97,46 +97,117 @@ struct CLIAdvisor: FolderAdvisor {
 
     // MARK: Models
 
-    /// Cheap and fast, unless the person picked their own default in Settings.
-    static var usesFastModels: Bool {
-        UserDefaults.standard.object(forKey: "aiFastModels") as? Bool ?? true
-    }
-
-    /// The model Roomy asks for, or nil for the person's own default.
-    static func model(for tool: Tool, binary: String) -> String? {
-        guard usesFastModels else { return nil }
+    /// Each tool's own list of models: `codex debug models`, `agy models`.
+    /// Claude Code has no list, so its aliases for the latest of each kind.
+    static func parseModels(_ tool: Tool, _ output: String) -> [AIModel] {
         switch tool {
-        case .claude: return "haiku"
-        case .codex: return codexFastModel()?.slug
-        case .gemini: return modelCache.model(for: binary)
+        case .claude:
+            return [AIModel(id: "haiku", name: "Claude Haiku", note: "Fastest and cheapest"),
+                    AIModel(id: "sonnet", name: "Claude Sonnet", note: "Balanced"),
+                    AIModel(id: "opus", name: "Claude Opus", note: "Most capable, most expensive")]
+        case .codex:
+            guard let json = try? JSONSerialization.jsonObject(with: Data(output.utf8)) as? [String: Any],
+                  let models = json["models"] as? [[String: Any]] else { return [] }
+            return models.filter { $0["visibility"] as? String == "list" }
+                .sorted { ($0["priority"] as? Int ?? .max) < ($1["priority"] as? Int ?? .max) }
+                .compactMap { m in
+                    guard let id = m["slug"] as? String else { return nil }
+                    return AIModel(id: id, name: m["display_name"] as? String ?? id, note: m["description"] as? String)
+                }
+        case .gemini:
+            return output.split(separator: "\n").compactMap { line in
+                let parts = line.split(separator: "\t", maxSplits: 1).map(String.init)
+                guard parts.count == 2, !parts[0].contains(" ") else { return nil }
+                return AIModel(id: parts[0], name: parts[1])
+            }
         }
     }
 
-    /// The model's name for people.
-    static func modelName(for tool: Tool) -> String {
-        guard usesFastModels else { return "your own default model" }
+    /// The cheap, fast model Roomy picks when you haven't chosen one.
+    static func recommended(_ tool: Tool, in list: [AIModel]) -> AIModel? {
         switch tool {
-        case .claude: return "Claude Haiku"
-        case .codex: return codexFastModel().map { "\($0.name), low reasoning" } ?? "your default model, low reasoning"
-        case .gemini: return "Gemini Flash"
+        case .claude:
+            return list.first { $0.id == "haiku" }
+        case .codex:
+            return list.first { ($0.note ?? "").localizedCaseInsensitiveContains("affordable") }
+                ?? list.first { $0.id.contains("luna") }
+        case .gemini:
+            let flash = list.filter { $0.id.contains("flash") }
+            return flash.first { $0.id.hasSuffix("-low") } ?? flash.first { !$0.id.contains("-high") } ?? flash.first
         }
     }
 
-    /// Codex's "fast and affordable" model from its own list (~/.codex/models_cache.json),
-    /// so a new version's model is picked up without a Roomy update.
-    static func codexFastModel(from data: Data? = nil) -> (slug: String, name: String)? {
-        let file = URL(fileURLWithPath: NSHomeDirectory()).appending(path: ".codex/models_cache.json")
-        guard let data = data ?? (try? Data(contentsOf: file)),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let models = json["models"] as? [[String: Any]] else { return nil }
-        let cheap = models.filter { m in
-            m["visibility"] as? String == "list"
-                && ((m["description"] as? String)?.localizedCaseInsensitiveContains("affordable") == true
-                    || (m["slug"] as? String)?.contains("luna") == true)
+    struct Resolved: Equatable {
+        /// nil: the tool's own default.
+        var id: String?
+        /// Ask for little thinking (Codex): only with Roomy's pick.
+        var lowEffort: Bool
+    }
+
+    /// Settings key for a tool's model: "" = Roomy's pick, "default" = the
+    /// tool's own default, anything else a model id.
+    static func choiceKey(_ tool: Tool) -> String { "aiModel." + tool.rawValue }
+    static func choice(_ tool: Tool) -> String { UserDefaults.standard.string(forKey: choiceKey(tool)) ?? "" }
+
+    static func resolve(_ tool: Tool, choice: String, in list: [AIModel]) -> Resolved {
+        if choice == "default" { return Resolved(id: nil, lowEffort: false) }
+        if !choice.isEmpty, list.contains(where: { $0.id == choice }) { return Resolved(id: choice, lowEffort: false) }
+        return Resolved(id: recommended(tool, in: list)?.id, lowEffort: tool == .codex)
+    }
+
+    /// The models a tool offers, asked once per run of the app.
+    static func models(_ tool: Tool, binary: String) -> [AIModel] {
+        modelLists.get(tool, binary: binary)
+    }
+
+    /// The model a request uses, in words.
+    static func modelName(for tool: Tool, binary: String? = nil) -> String {
+        guard let binary = binary ?? locate(tool.command) else { return "its default model" }
+        let list = models(tool, binary: binary)
+        let r = resolve(tool, choice: choice(tool), in: list)
+        guard let id = r.id else { return "your own default model" }
+        let name = list.first { $0.id == id }?.name ?? id
+        return r.lowEffort ? "\(name), low reasoning" : name
+    }
+
+    private static let modelLists = ModelLists()
+
+    private final class ModelLists: @unchecked Sendable {
+        private let lock = NSLock()
+        private var found: [String: [AIModel]] = [:]
+        func get(_ tool: Tool, binary: String) -> [AIModel] {
+            lock.lock(); defer { lock.unlock() }
+            if let m = found[binary] { return m }
+            let args: [String]? = switch tool {
+            case .claude: nil
+            case .codex: ["debug", "models"]
+            case .gemini: ["models"]
+            }
+            var output = ""
+            if let args {
+                let p = Process()
+                p.executableURL = URL(fileURLWithPath: binary)
+                p.arguments = args
+                p.environment = CLIAdvisor.environment(binary: binary)
+                p.standardInput = FileHandle.nullDevice
+                let out = Pipe()
+                p.standardOutput = out
+                p.standardError = FileHandle.nullDevice
+                if (try? p.run()) != nil {
+                    DispatchQueue.global().asyncAfter(deadline: .now() + 20) { if p.isRunning { p.terminate() } }
+                    output = String(decoding: out.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+                    p.waitUntilExit()
+                }
+            }
+            var list = CLIAdvisor.parseModels(tool, output)
+            // Older Codex without `debug models`: its own cached list.
+            if list.isEmpty, tool == .codex,
+               let cached = try? String(contentsOf: URL(fileURLWithPath: NSHomeDirectory()).appending(path: ".codex/models_cache.json"), encoding: .utf8) {
+                list = CLIAdvisor.parseModels(.codex, cached)
+            }
+            if !list.isEmpty { found[binary] = list }
+            return list
         }
-        let best = cheap.min { ($0["priority"] as? Int ?? .max) < ($1["priority"] as? Int ?? .max) }
-        guard let slug = best?["slug"] as? String else { return nil }
-        return (slug, best?["display_name"] as? String ?? slug)
     }
 
     // MARK: The request
@@ -151,7 +222,7 @@ struct CLIAdvisor: FolderAdvisor {
     /// No tools (Claude) or a read-only sandbox (Codex, Antigravity); no saved session where the tool allows it.
     static func arguments(_ tool: Tool, schema: String, answer: String = "answer.json", prompt: String = "",
                           system: String = AdvisorPrompt.instructions, timeout: TimeInterval = 120,
-                          model: String? = nil) -> [String] {
+                          model: String? = nil, lowEffort: Bool = false) -> [String] {
         switch tool {
         case .claude:
             ["-p", "--output-format", "json", "--json-schema", schema, "--tools", "", "--strict-mcp-config",
@@ -159,44 +230,11 @@ struct CLIAdvisor: FolderAdvisor {
                 + (model.map { ["--model", $0] } ?? [])
         case .codex:
             ["exec", "--sandbox", "read-only", "--skip-git-repo-check", "--ephemeral",
-             "-c", "model_reasoning_effort=\"low\""] + (model.map { ["-m", $0] } ?? [])
+            ] + (lowEffort ? ["-c", "model_reasoning_effort=\"low\""] : []) + (model.map { ["-m", $0] } ?? [])
                 + ["--output-schema", schema, "--output-last-message", answer, "-"]
         case .gemini:
             ["--output-format", "json", "--json-schema", schema, "--sandbox", "--disable-slash-commands",
              "--print-timeout", "\(Int(timeout))s"] + (model.map { ["--model", $0] } ?? []) + ["-p", prompt]
-        }
-    }
-
-    /// The lightest Flash model `agy models` lists; its default thinks for a long time.
-    static func fastModel(from list: String) -> String? {
-        let ids = list.split(separator: "\n").compactMap { $0.split(separator: "\t").first.map(String.init) }
-            .filter { $0.contains("flash") }
-        return ids.first { $0.hasSuffix("-low") } ?? ids.first { !$0.contains("-high") } ?? ids.first
-    }
-
-    private static let modelCache = ModelCache()
-
-    /// Asked once per run of the app.
-    private final class ModelCache: @unchecked Sendable {
-        private let lock = NSLock()
-        private var found: [String: String?] = [:]
-        func model(for binary: String) -> String? {
-            lock.lock(); defer { lock.unlock() }
-            if let m = found[binary] { return m }
-            let p = Process()
-            p.executableURL = URL(fileURLWithPath: binary)
-            p.arguments = ["models"]
-            let out = Pipe()
-            p.standardOutput = out
-            p.standardError = FileHandle.nullDevice
-            var m: String?
-            if (try? p.run()) != nil {
-                let data = out.fileHandleForReading.readDataToEndOfFile()
-                p.waitUntilExit()
-                m = CLIAdvisor.fastModel(from: String(decoding: data, as: UTF8.self))
-            }
-            found[binary] = m
-            return m
         }
     }
 
@@ -269,9 +307,10 @@ struct CLIAdvisor: FolderAdvisor {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: binary)
         let whole = combined(system: system, prompt: prompt)
+        let resolved = resolve(tool, choice: choice(tool), in: models(tool, binary: binary))
         p.arguments = arguments(tool, schema: tool == .codex ? schemaFile.path : schema, answer: answerFile.path,
                                 prompt: whole, system: system, timeout: timeout,
-                                model: model(for: tool, binary: binary))
+                                model: resolved.id, lowEffort: resolved.lowEffort)
         p.currentDirectoryURL = dir
         p.environment = environment(binary: binary)
         let stdin = Pipe(), stdout = Pipe(), stderr = Pipe()

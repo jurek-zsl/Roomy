@@ -60,6 +60,13 @@ struct KnownFolder: Decodable, Sendable, Equatable, Hashable {
     var isGeneral: Bool { owner.hasPrefix("An app") || owner.hasPrefix("A command-line") || owner == "Apps" }
 }
 
+/// A model an AI tool offers.
+struct AIModel: Identifiable, Hashable, Sendable {
+    let id: String
+    let name: String
+    var note: String? = nil
+}
+
 // MARK: - Advice
 
 enum FolderKind: String, Codable, Sendable, CaseIterable {

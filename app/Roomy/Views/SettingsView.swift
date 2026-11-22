@@ -7,7 +7,6 @@ struct SettingsView: View {
     @Environment(Updates.self) private var updates: Updates?
     @State private var openAtLogin = SMAppService.mainApp.status == .enabled
     @State private var loginError: String?
-    @AppStorage("aiFastModels") private var fastModels = true
 
     var body: some View {
         @Bindable var store = store
@@ -23,17 +22,7 @@ struct SettingsView: View {
             }
             SwiftUI.Section("AI") {
                 AISetupView()
-                    .id(fastModels)
-                Picker("Model", selection: $fastModels) {
-                    Text("Fast and cheap (recommended)").tag(true)
-                    Text("My own default").tag(false)
-                }
-                Text(fastModels
-                     ? "Explaining folders is an easy task, so Roomy asks for each AI's cheapest fast model: Claude Haiku, Codex's \(CLIAdvisor.codexFastModel()?.name ?? "fast model") with low reasoning, and Gemini Flash. It uses less of your plan and answers sooner."
-                     : "Roomy uses the model each AI is set to in its own settings, which may be its biggest and most expensive one.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                AIModelPickers()
                 Text("Roomy asks the AI in use to explain folders and to scan the whole disk. It shows exactly what it sends and asks each time. Roomy makes the call, and nothing is cleaned without you.")
                     .font(.caption)
                     .foregroundStyle(.secondary)

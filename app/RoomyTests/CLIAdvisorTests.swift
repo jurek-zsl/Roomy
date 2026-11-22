@@ -86,9 +86,10 @@ private func script(_ body: String, in dir: URL, name: String = "claude") -> URL
 
 @Test func picksTheLightestFlashModel() {
     let list = "Fetching available models...\ngemini-3.8-flash-high\tGemini 3.8 Flash (High)\ngemini-3.8-flash-low\tGemini 3.8 Flash (Low)\nclaude-sonnet-4-6\tClaude"
-    #expect(CLIAdvisor.fastModel(from: list) == "gemini-3.8-flash-low")
-    #expect(CLIAdvisor.fastModel(from: "gemini-9-flash\tX\ngemini-9-pro\tY") == "gemini-9-flash")
-    #expect(CLIAdvisor.fastModel(from: "") == nil)
+    let pick = { (s: String) in CLIAdvisor.recommended(.gemini, in: CLIAdvisor.parseModels(.gemini, s))?.id }
+    #expect(pick(list) == "gemini-3.8-flash-low")
+    #expect(pick("gemini-9-flash\tX\ngemini-9-pro\tY") == "gemini-9-flash")
+    #expect(pick("") == nil)
     #expect(CLIAdvisor.arguments(.gemini, schema: "{}", prompt: "p", model: "m").contains("m"))
 }
 
