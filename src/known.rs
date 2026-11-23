@@ -11,7 +11,17 @@ use std::path::Path;
 pub const BUILT_IN: &str = include_str!("../rules/known.toml");
 
 /// The kinds the app understands (its `FolderKind`).
-pub const KINDS: &[&str] = &["cache", "appData", "userFiles", "buildOutput", "aiModels", "toolchain", "installers", "logs", "system"];
+pub const KINDS: &[&str] = &[
+    "cache",
+    "appData",
+    "userFiles",
+    "buildOutput",
+    "aiModels",
+    "toolchain",
+    "installers",
+    "logs",
+    "system",
+];
 pub const REGROWS: &[&str] = &["yes", "no", "unsure"];
 
 /// What Roomy knows about one folder.
@@ -80,7 +90,11 @@ pub struct Catalog {
     wild: Vec<usize>,
 }
 
-const OPTS: MatchOptions = MatchOptions { case_sensitive: true, require_literal_separator: true, require_literal_leading_dot: false };
+const OPTS: MatchOptions = MatchOptions {
+    case_sensitive: true,
+    require_literal_separator: true,
+    require_literal_leading_dot: false,
+};
 
 fn has_wildcard(s: &str) -> bool {
     s.contains(['*', '?', '['])
@@ -90,7 +104,13 @@ impl Catalog {
     /// Load lists in order; the first one that matches a folder wins, so a
     /// person's own list goes first.
     pub fn parse(texts: &[&str], home: &Path) -> Result<Catalog, String> {
-        let mut c = Catalog { patterns: vec![], entries: vec![], broad: vec![], by_name: HashMap::new(), wild: vec![] };
+        let mut c = Catalog {
+            patterns: vec![],
+            entries: vec![],
+            broad: vec![],
+            by_name: HashMap::new(),
+            wild: vec![],
+        };
         for text in texts {
             let file: File = toml::from_str(text).map_err(|e| e.to_string())?;
             for e in file.folder {
@@ -106,9 +126,21 @@ impl Catalog {
                 };
                 let idx = c.entries.len();
                 c.broad.push(e.broad);
-                c.entries.push(Known { name: e.name, owner: e.owner, what: e.what, kind: e.kind, regrows: e.regrows, how: e.how, inside: false, running: false });
+                c.entries.push(Known {
+                    name: e.name,
+                    owner: e.owner,
+                    what: e.what,
+                    kind: e.kind,
+                    regrows: e.regrows,
+                    how: e.how,
+                    inside: false,
+                    running: false,
+                });
                 for p in paths {
-                    let full = crate::rules::expand_home(&p, home).to_string_lossy().trim_end_matches('/').to_string();
+                    let full = crate::rules::expand_home(&p, home)
+                        .to_string_lossy()
+                        .trim_end_matches('/')
+                        .to_string();
                     let pat = Pattern::new(&full).map_err(|err| format!("{p}: {err}"))?;
                     let last = full.rsplit('/').next().unwrap_or_default().to_string();
                     let i = c.patterns.len();
@@ -155,17 +187,32 @@ impl Catalog {
     /// own node_modules, and that's not a project's build output).
     fn find(&self, path: &Path, projects: bool) -> Option<usize> {
         let name = path.file_name()?.to_string_lossy();
-        let named = self.by_name.get(name.as_ref()).map(Vec::as_slice).unwrap_or(&[]);
-        let mut hits: Vec<usize> =
-            named.iter().chain(self.wild.iter()).copied().filter(|&i| self.patterns[i].0.matches_path_with(path, OPTS)).collect();
+        let named = self
+            .by_name
+            .get(name.as_ref())
+            .map(Vec::as_slice)
+            .unwrap_or(&[]);
+        let mut hits: Vec<usize> = named
+            .iter()
+            .chain(self.wild.iter())
+            .copied()
+            .filter(|&i| self.patterns[i].0.matches_path_with(path, OPTS))
+            .collect();
         hits.sort_unstable();
         if let Some(&i) = hits.iter().find(|&&i| !self.patterns[i].2) {
             return Some(self.patterns[i].1);
         }
         let i = *hits.first().filter(|_| projects)?;
-        let inside_tool = path.ancestors().skip(1).filter_map(|a| self.find(a, false)).any(|e| {
-            matches!(self.entries[e].kind.as_str(), "toolchain" | "appData" | "system" | "cache" | "aiModels")
-        });
+        let inside_tool = path
+            .ancestors()
+            .skip(1)
+            .filter_map(|a| self.find(a, false))
+            .any(|e| {
+                matches!(
+                    self.entries[e].kind.as_str(),
+                    "toolchain" | "appData" | "system" | "cache" | "aiModels"
+                )
+            });
         (!inside_tool).then_some(self.patterns[i].1)
     }
 
@@ -176,7 +223,10 @@ impl Catalog {
         }
         // The nearest known folder above, unless it's a broad one like ~/Library.
         let i = path.ancestors().skip(1).find_map(|a| self.find(a, true))?;
-        (!self.broad[i]).then(|| Known { inside: true, ..self.entries[i].clone() })
+        (!self.broad[i]).then(|| Known {
+            inside: true,
+            ..self.entries[i].clone()
+        })
     }
 }
 
@@ -223,22 +273,42 @@ regrows = "yes"
         assert_eq!(uv.name, "uv cache");
         assert_eq!(uv.how.as_deref(), Some("uv cache clean"));
         assert!(!uv.inside);
-        assert_eq!(c.lookup(Path::new("/Users/me/Library/Developer/Xcode/Products.noindex")).unwrap().owner, "Xcode");
-        assert_eq!(c.lookup(Path::new("/private/var/folders/77/abc_0000gn/C")).unwrap().name, "Per-user caches");
+        assert_eq!(
+            c.lookup(Path::new(
+                "/Users/me/Library/Developer/Xcode/Products.noindex"
+            ))
+            .unwrap()
+            .owner,
+            "Xcode"
+        );
+        assert_eq!(
+            c.lookup(Path::new("/private/var/folders/77/abc_0000gn/C"))
+                .unwrap()
+                .name,
+            "Per-user caches"
+        );
         assert!(c.lookup(Path::new("/Users/me/.cache")).is_none());
-        assert!(c.lookup(Path::new("/Users/other/.cache/uv")).is_none(), "~ is this home");
+        assert!(
+            c.lookup(Path::new("/Users/other/.cache/uv")).is_none(),
+            "~ is this home"
+        );
     }
 
     #[test]
     fn wildcards_stay_inside_one_folder() {
         let c = cat();
-        assert!(c.lookup(Path::new("/private/var/folders/77/a/b/C")).is_none());
+        assert!(
+            c.lookup(Path::new("/private/var/folders/77/a/b/C"))
+                .is_none()
+        );
     }
 
     #[test]
     fn folders_inside_a_known_one() {
         let c = cat();
-        let k = c.lookup_within(Path::new("/Users/me/.cache/uv/archive-v0/x")).unwrap();
+        let k = c
+            .lookup_within(Path::new("/Users/me/.cache/uv/archive-v0/x"))
+            .unwrap();
         assert_eq!(k.name, "uv cache");
         assert!(k.inside);
         assert!(c.lookup_within(Path::new("/Users/me/Documents")).is_none());
@@ -272,34 +342,71 @@ kind = "toolchain"
 regrows = "no"
 "#;
         let c = Catalog::parse(&[list], Path::new("/Users/me")).unwrap();
-        assert_eq!(c.lookup(Path::new("/Users/me/code/app/node_modules")).unwrap().name, "node_modules");
-        assert!(c.lookup(Path::new("/Users/me/.npm-global/lib/node_modules/x/node_modules")).is_none(), "part of an installed tool");
-        assert_eq!(c.lookup(Path::new("/Users/me/.npm-global/lib/node_modules")).unwrap().name, "Global packages folder", "a specific path beats a pattern listed before it");
+        assert_eq!(
+            c.lookup(Path::new("/Users/me/code/app/node_modules"))
+                .unwrap()
+                .name,
+            "node_modules"
+        );
+        assert!(
+            c.lookup(Path::new(
+                "/Users/me/.npm-global/lib/node_modules/x/node_modules"
+            ))
+            .is_none(),
+            "part of an installed tool"
+        );
+        assert_eq!(
+            c.lookup(Path::new("/Users/me/.npm-global/lib/node_modules"))
+                .unwrap()
+                .name,
+            "Global packages folder",
+            "a specific path beats a pattern listed before it"
+        );
     }
 
     #[test]
     fn broad_folders_dont_explain_whats_inside() {
         let list = "[[folder]]\npath = \"~/Library/Application Support/*\"\nname = \"An app's data\"\nowner = \"An app\"\nwhat = \"x.\"\nkind = \"appData\"\nregrows = \"no\"\nbroad = true\n";
         let c = Catalog::parse(&[list], Path::new("/Users/me")).unwrap();
-        assert_eq!(c.lookup(Path::new("/Users/me/Library/Application Support/Foo")).unwrap().name, "An app's data");
-        assert!(c.lookup_within(Path::new("/Users/me/Library/Application Support/Foo/models")).is_none());
+        assert_eq!(
+            c.lookup(Path::new("/Users/me/Library/Application Support/Foo"))
+                .unwrap()
+                .name,
+            "An app's data"
+        );
+        assert!(
+            c.lookup_within(Path::new(
+                "/Users/me/Library/Application Support/Foo/models"
+            ))
+            .is_none()
+        );
     }
 
     #[test]
     fn own_list_wins() {
         let own = "[[folder]]\npath = \"~/.cache/uv\"\nname = \"Mine\"\nowner = \"me\"\nwhat = \"x.\"\nkind = \"appData\"\nregrows = \"no\"\n";
         let c = Catalog::parse(&[own, LIST], Path::new("/Users/me")).unwrap();
-        assert_eq!(c.lookup(Path::new("/Users/me/.cache/uv")).unwrap().name, "Mine");
+        assert_eq!(
+            c.lookup(Path::new("/Users/me/.cache/uv")).unwrap().name,
+            "Mine"
+        );
     }
 
     #[test]
     fn rejects_bad_entries() {
         let bad = LIST.replacen("kind = \"cache\"", "kind = \"stuff\"", 1);
-        assert!(Catalog::parse(&[&bad], Path::new("/h")).unwrap_err().contains("unknown kind"));
+        assert!(
+            Catalog::parse(&[&bad], Path::new("/h"))
+                .unwrap_err()
+                .contains("unknown kind")
+        );
         let bad = LIST.replacen("regrows = \"yes\"", "regrows = \"maybe\"", 1);
         assert!(Catalog::parse(&[&bad], Path::new("/h")).is_err());
         let bad = LIST.replacen("owner = \"uv\"", "owner = \"uv\"\ncolour = \"red\"", 1);
-        assert!(Catalog::parse(&[&bad], Path::new("/h")).is_err(), "typos in field names are caught");
+        assert!(
+            Catalog::parse(&[&bad], Path::new("/h")).is_err(),
+            "typos in field names are caught"
+        );
     }
 
     #[test]
@@ -310,7 +417,11 @@ regrows = "no"
         let file: File = toml::from_str(BUILT_IN).unwrap();
         let mut seen = HashSet::new();
         for e in &file.folder {
-            assert!(e.what.ends_with('.'), "{}: what should be sentences", e.name);
+            assert!(
+                e.what.ends_with('.'),
+                "{}: what should be sentences",
+                e.name
+            );
             assert!(e.what.len() <= 260, "{}: what is too long", e.name);
             assert!(!e.name.is_empty() && !e.owner.is_empty(), "{}", e.name);
             if e.kind == "userFiles" {
@@ -321,7 +432,10 @@ regrows = "no"
                 Paths::Many(v) => v.clone(),
             };
             for p in paths {
-                assert!(p == "~" || p.starts_with("~/") || p.starts_with('/'), "{p}: absolute or ~/");
+                assert!(
+                    p == "~" || p.starts_with("~/") || p.starts_with('/'),
+                    "{p}: absolute or ~/"
+                );
                 assert!(!p.ends_with('/'), "{p}: no trailing slash");
                 assert!(seen.insert(p.clone()), "{p} is listed twice");
             }

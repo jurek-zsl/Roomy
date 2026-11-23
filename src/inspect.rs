@@ -60,12 +60,23 @@ pub struct Clues {
 }
 
 /// Where apps keep their data; the next path part names the app.
-const APP_AREAS: &[&str] = &["Application Support", "Caches", "Containers", "Group Containers", "Logs", "HTTPStorages", "WebKit"];
+const APP_AREAS: &[&str] = &[
+    "Application Support",
+    "Caches",
+    "Containers",
+    "Group Containers",
+    "Logs",
+    "HTTPStorages",
+    "WebKit",
+];
 
 /// Which app or tool a folder belongs to, going by where it is.
 pub fn owner_name(path: &Path, home: &Path) -> Option<(String, &'static str)> {
     let rest = path.strip_prefix(home).ok()?;
-    let parts: Vec<String> = rest.components().map(|c| c.as_os_str().to_string_lossy().into_owned()).collect();
+    let parts: Vec<String> = rest
+        .components()
+        .map(|c| c.as_os_str().to_string_lossy().into_owned())
+        .collect();
     if parts.first().map(String::as_str) == Some("Library") {
         let i = parts.iter().position(|p| APP_AREAS.contains(&p.as_str()))?;
         return parts.get(i + 1).map(|n| (n.clone(), "app"));
@@ -75,7 +86,11 @@ pub fn owner_name(path: &Path, home: &Path) -> Option<(String, &'static str)> {
         // ~/.cache/<tool>, ~/.local/share/<tool>, ~/.config/<tool>: the next part is the tool.
         let shared = matches!(tool, "cache" | "local" | "config");
         let name = if shared {
-            parts.iter().skip(1).find(|p| *p != "share" && *p != "state").cloned()?
+            parts
+                .iter()
+                .skip(1)
+                .find(|p| *p != "share" && *p != "state")
+                .cloned()?
         } else {
             tool.to_string()
         };
@@ -85,7 +100,10 @@ pub fn owner_name(path: &Path, home: &Path) -> Option<(String, &'static str)> {
 }
 
 fn squash(s: &str) -> String {
-    s.chars().filter(|c| c.is_ascii_alphanumeric()).collect::<String>().to_lowercase()
+    s.chars()
+        .filter(|c| c.is_ascii_alphanumeric())
+        .collect::<String>()
+        .to_lowercase()
 }
 
 /// Is an app with this name (or bundle id) in the apps folder?
@@ -96,12 +114,19 @@ pub fn app_installed(name: &str, apps_dir: &Path) -> bool {
         wanted.extend(name.split('.').skip(1).map(squash));
     }
     wanted.retain(|w| w.len() >= 3);
-    let Ok(rd) = fs::read_dir(apps_dir) else { return false };
+    let Ok(rd) = fs::read_dir(apps_dir) else {
+        return false;
+    };
     rd.flatten().any(|e| {
         let file = e.file_name().to_string_lossy().into_owned();
-        let Some(stem) = file.strip_suffix(".app") else { return false };
+        let Some(stem) = file.strip_suffix(".app") else {
+            return false;
+        };
         let app = squash(stem);
-        app.len() >= 3 && wanted.iter().any(|w| app == *w || w.contains(&app) || app.contains(w.as_str()))
+        app.len() >= 3
+            && wanted
+                .iter()
+                .any(|w| app == *w || w.contains(&app) || app.contains(w.as_str()))
     })
 }
 
@@ -111,7 +136,12 @@ pub fn command_installed(name: &str, path_var: &str) -> bool {
 }
 
 /// Facts that help an AI tell what a folder is.
-fn markers(root: &Path, types: &HashMap<String, (u64, u64)>, bytes: u64, names: &HashMap<String, u64>) -> Vec<String> {
+fn markers(
+    root: &Path,
+    types: &HashMap<String, (u64, u64)>,
+    bytes: u64,
+    names: &HashMap<String, u64>,
+) -> Vec<String> {
     let mut out = Vec::new();
     let share = |exts: &[&str]| -> u64 {
         let b: u64 = exts.iter().filter_map(|e| types.get(*e)).map(|t| t.0).sum();
@@ -121,18 +151,34 @@ fn markers(root: &Path, types: &HashMap<String, (u64, u64)>, bytes: u64, names: 
     if root.join(".git").is_dir() {
         out.push("It is a git repository.".into());
     }
-    for (file, what) in [("package.json", "a JavaScript project"), ("Cargo.toml", "a Rust project"), ("pyproject.toml", "a Python project"), ("Info.plist", "an app bundle part")] {
+    for (file, what) in [
+        ("package.json", "a JavaScript project"),
+        ("Cargo.toml", "a Rust project"),
+        ("pyproject.toml", "a Python project"),
+        ("Info.plist", "an app bundle part"),
+    ] {
         if root.join(file).is_file() {
             out.push(format!("It has {file}, so it is {what}."));
         }
     }
-    let models = share(&["safetensors", "gguf", "bin", "pt", "pth", "onnx", "mlmodel", "ckpt"]);
+    let models = share(&[
+        "safetensors",
+        "gguf",
+        "bin",
+        "pt",
+        "pth",
+        "onnx",
+        "mlmodel",
+        "ckpt",
+    ]);
     if models >= 30 {
         out.push(format!("{models}% of it is AI model weight files (.safetensors, .gguf, .bin, ...); they download again when needed."));
     }
     let images = share(&["dmg", "iso", "img", "pkg", "xip", "zip"]);
     if images >= 30 {
-        out.push(format!("{images}% of it is installers, disk images or archives."));
+        out.push(format!(
+            "{images}% of it is installers, disk images or archives."
+        ));
     }
     let dbs = share(&["sqlite", "db", "sqlite3", "realm", "ldb", "leveldb"]);
     if dbs >= 10 {
@@ -142,22 +188,46 @@ fn markers(root: &Path, types: &HashMap<String, (u64, u64)>, bytes: u64, names: 
     if logs >= 30 {
         out.push(format!("{logs}% of it is logs or crash reports."));
     }
-    let media = share(&["jpg", "jpeg", "png", "heic", "mov", "mp4", "mp3", "wav", "m4a", "pdf", "docx", "psd", "blend"]);
+    let media = share(&[
+        "jpg", "jpeg", "png", "heic", "mov", "mp4", "mp3", "wav", "m4a", "pdf", "docx", "psd",
+        "blend",
+    ]);
     if media >= 30 {
         out.push(format!("{media}% of it is photos, videos, audio or documents, which may be the user's own files."));
     }
-    let cachey: Vec<&str> = ["Cache", "Caches", "cache", "Code Cache", "GPUCache", "CachedData", "tmp", "temp", "Crashpad", "blob_storage"]
-        .into_iter()
-        .filter(|n| has(n))
-        .collect();
+    let cachey: Vec<&str> = [
+        "Cache",
+        "Caches",
+        "cache",
+        "Code Cache",
+        "GPUCache",
+        "CachedData",
+        "tmp",
+        "temp",
+        "Crashpad",
+        "blob_storage",
+    ]
+    .into_iter()
+    .filter(|n| has(n))
+    .collect();
     if !cachey.is_empty() {
-        out.push(format!("It has cache or temp folders inside: {}.", cachey.join(", ")));
+        out.push(format!(
+            "It has cache or temp folders inside: {}.",
+            cachey.join(", ")
+        ));
     }
     out
 }
 
 /// Gather the clues for one folder. `now` and `apps_dir`/`path_var` make it testable.
-pub fn inspect(path: &Path, home: &Path, apps_dir: &Path, path_var: &str, env: &Env, now: SystemTime) -> Option<Clues> {
+pub fn inspect(
+    path: &Path,
+    home: &Path,
+    apps_dir: &Path,
+    path_var: &str,
+    env: &Env,
+    now: SystemTime,
+) -> Option<Clues> {
     let md = fs::symlink_metadata(path).ok()?;
     if !md.is_dir() {
         return None;
@@ -189,7 +259,10 @@ pub fn inspect(path: &Path, home: &Path, apps_dir: &Path, path_var: &str, env: &
                 let b = m.blocks() * 512;
                 bytes += b;
                 files += 1;
-                let ext = Path::new(&name).extension().map(|x| x.to_string_lossy().to_lowercase()).unwrap_or_default();
+                let ext = Path::new(&name)
+                    .extension()
+                    .map(|x| x.to_string_lossy().to_lowercase())
+                    .unwrap_or_default();
                 let t = types.entry(ext).or_default();
                 t.0 += b;
                 t.1 += 1;
@@ -197,11 +270,24 @@ pub fn inspect(path: &Path, home: &Path, apps_dir: &Path, path_var: &str, env: &
             }
         }
     }
-    let mut type_list: Vec<TypeShare> =
-        types.iter().map(|(ext, (b, n))| TypeShare { ext: ext.clone(), bytes: *b, files: *n }).collect();
+    let mut type_list: Vec<TypeShare> = types
+        .iter()
+        .map(|(ext, (b, n))| TypeShare {
+            ext: ext.clone(),
+            bytes: *b,
+            files: *n,
+        })
+        .collect();
     type_list.sort_by(|a, b| b.bytes.cmp(&a.bytes).then(a.ext.cmp(&b.ext)));
     type_list.truncate(8);
-    let mut biggest: Vec<Item> = top.into_iter().map(|(name, (bytes, folder))| Item { name, bytes, folder }).collect();
+    let mut biggest: Vec<Item> = top
+        .into_iter()
+        .map(|(name, (bytes, folder))| Item {
+            name,
+            bytes,
+            folder,
+        })
+        .collect();
     biggest.sort_by(|a, b| b.bytes.cmp(&a.bytes).then(a.name.cmp(&b.name)));
     biggest.truncate(10);
     let owner = owner_name(path, home).map(|(name, kind)| {
@@ -211,10 +297,18 @@ pub fn inspect(path: &Path, home: &Path, apps_dir: &Path, path_var: &str, env: &
             (command_installed(&name, path_var) || app_installed(&name, apps_dir)).then_some(true)
         };
         let running = env.is_running(&name);
-        Owner { name, kind: kind.into(), installed, running }
+        Owner {
+            name,
+            kind: kind.into(),
+            installed,
+            running,
+        }
     });
     Some(Clues {
-        name: path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(),
+        name: path
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default(),
         path: path.to_path_buf(),
         bytes,
         files,
@@ -242,9 +336,18 @@ mod tests {
     fn owners_from_location() {
         let h = Path::new("/Users/me");
         let o = |p: &str| owner_name(&h.join(p), h);
-        assert_eq!(o("Library/Application Support/Slack/Cache"), Some(("Slack".into(), "app")));
-        assert_eq!(o("Library/Containers/com.tinyspeck.slackmacgap/Data"), Some(("com.tinyspeck.slackmacgap".into(), "app")));
-        assert_eq!(o(".cache/huggingface"), Some(("huggingface".into(), "tool")));
+        assert_eq!(
+            o("Library/Application Support/Slack/Cache"),
+            Some(("Slack".into(), "app"))
+        );
+        assert_eq!(
+            o("Library/Containers/com.tinyspeck.slackmacgap/Data"),
+            Some(("com.tinyspeck.slackmacgap".into(), "app"))
+        );
+        assert_eq!(
+            o(".cache/huggingface"),
+            Some(("huggingface".into(), "tool"))
+        );
         assert_eq!(o(".local/share/claude"), Some(("claude".into(), "tool")));
         assert_eq!(o(".rustup/toolchains"), Some(("rustup".into(), "tool")));
         assert_eq!(o("Documents/code"), None);
@@ -257,7 +360,10 @@ mod tests {
         fs::create_dir(apps.path().join("Slack.app")).unwrap();
         fs::create_dir(apps.path().join("Visual Studio Code.app")).unwrap();
         assert!(app_installed("Slack", apps.path()));
-        assert!(app_installed("com.tinyspeck.slackmacgap", apps.path()), "bundle id part contains the app name");
+        assert!(
+            app_installed("com.tinyspeck.slackmacgap", apps.path()),
+            "bundle id part contains the app name"
+        );
         assert!(!app_installed("Discord", apps.path()));
         assert!(!app_installed("x", apps.path()), "too short to match");
         let bin = tempfile::tempdir().unwrap();
@@ -287,12 +393,42 @@ mod tests {
         assert_eq!(c.newest_days, Some(3));
         assert_eq!(c.types[0].ext, "gguf");
         assert_eq!(c.types.iter().find(|t| t.ext == "txt").unwrap().files, 1);
-        assert_eq!(c.biggest[0], Item { name: "models".into(), bytes: c.types[0].bytes, folder: true });
+        assert_eq!(
+            c.biggest[0],
+            Item {
+                name: "models".into(),
+                bytes: c.types[0].bytes,
+                folder: true
+            }
+        );
         assert_eq!(c.biggest[1].name, "Cache");
-        assert_eq!(c.owner, Some(Owner { name: "Gone App".into(), kind: "app".into(), installed: Some(false), running: false }));
-        assert!(c.markers.iter().any(|m| m.contains("AI model weight files")), "{:?}", c.markers);
-        assert!(c.markers.iter().any(|m| m == "It has cache or temp folders inside: Cache."), "{:?}", c.markers);
-        assert!(inspect(&dir.join("notes.txt"), h, apps.path(), "", &env, later).is_none(), "files aren't inspected");
+        assert_eq!(
+            c.owner,
+            Some(Owner {
+                name: "Gone App".into(),
+                kind: "app".into(),
+                installed: Some(false),
+                running: false
+            })
+        );
+        assert!(
+            c.markers
+                .iter()
+                .any(|m| m.contains("AI model weight files")),
+            "{:?}",
+            c.markers
+        );
+        assert!(
+            c.markers
+                .iter()
+                .any(|m| m == "It has cache or temp folders inside: Cache."),
+            "{:?}",
+            c.markers
+        );
+        assert!(
+            inspect(&dir.join("notes.txt"), h, apps.path(), "", &env, later).is_none(),
+            "files aren't inspected"
+        );
     }
 
     #[test]

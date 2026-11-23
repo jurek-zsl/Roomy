@@ -71,8 +71,16 @@ pub fn render(findings: &[Finding], info: &ReportInfo) -> String {
                 hidden.1 += f.bytes_freed;
                 continue;
             }
-            let _ = writeln!(s, "  {:>8}  {:<24} {}", human_bytes(f.bytes_freed), f.rule, tilde(&f.path, info.home));
-            if f.bytes_on_disk > f.bytes_freed + f.bytes_freed / 10 && f.bytes_on_disk > info.min_bytes {
+            let _ = writeln!(
+                s,
+                "  {:>8}  {:<24} {}",
+                human_bytes(f.bytes_freed),
+                f.rule,
+                tilde(&f.path, info.home)
+            );
+            if f.bytes_on_disk > f.bytes_freed + f.bytes_freed / 10
+                && f.bytes_on_disk > info.min_bytes
+            {
                 let _ = writeln!(
                     s,
                     "            {} on disk, the rest is shared with copies elsewhere",
@@ -92,17 +100,40 @@ pub fn render(findings: &[Finding], info: &ReportInfo) -> String {
             }
         }
         if hidden.0 > 0 {
-            let _ = writeln!(s, "  {:>8}  + {} smaller items", human_bytes(hidden.1), hidden.0);
+            let _ = writeln!(
+                s,
+                "  {:>8}  + {} smaller items",
+                human_bytes(hidden.1),
+                hidden.0
+            );
         }
     }
 
-    let get = |sec| totals.iter().find(|(s, _)| *s == sec).map(|t| t.1).unwrap_or(0);
-    let _ = writeln!(s, "\nYou can free {} now.", human_bytes(get(Section::SafeNow)));
+    let get = |sec| {
+        totals
+            .iter()
+            .find(|(s, _)| *s == sec)
+            .map(|t| t.1)
+            .unwrap_or(0)
+    };
+    let _ = writeln!(
+        s,
+        "\nYou can free {} now.",
+        human_bytes(get(Section::SafeNow))
+    );
     if get(Section::Review) > 0 {
-        let _ = writeln!(s, "{} more if you agree to the review items.", human_bytes(get(Section::Review)));
+        let _ = writeln!(
+            s,
+            "{} more if you agree to the review items.",
+            human_bytes(get(Section::Review))
+        );
     }
     if get(Section::Blocked) > 0 {
-        let _ = writeln!(s, "{} more once the blocked items are free.", human_bytes(get(Section::Blocked)));
+        let _ = writeln!(
+            s,
+            "{} more once the blocked items are free.",
+            human_bytes(get(Section::Blocked))
+        );
     }
     s
 }

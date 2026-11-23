@@ -47,10 +47,20 @@ pub fn uninstall_command(manager: &str, name: &str) -> Option<Vec<String>> {
         _ => return None,
     };
     // A name is one word; anything else can't be a package.
-    if name.is_empty() || name.starts_with('-') || !name.chars().all(|c| c.is_ascii_alphanumeric() || "@/._+-".contains(c)) {
+    if name.is_empty()
+        || name.starts_with('-')
+        || !name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || "@/._+-".contains(c))
+    {
         return None;
     }
-    Some(args.iter().map(|s| s.to_string()).chain([name.to_string()]).collect())
+    Some(
+        args.iter()
+            .map(|s| s.to_string())
+            .chain([name.to_string()])
+            .collect(),
+    )
 }
 
 /// Homebrew's packages from `brew info --json=v2 --installed`.
@@ -63,14 +73,30 @@ pub fn brew(info_json: &str, prefix: &Path) -> Vec<Package> {
     let mut needed_by: HashMap<String, Vec<String>> = HashMap::new();
     for f in formulae {
         let me = f["name"].as_str().unwrap_or_default();
-        for d in f["dependencies"].as_array().unwrap_or(&empty).iter().filter_map(|d| d.as_str()) {
-            needed_by.entry(d.to_string()).or_default().push(me.to_string());
+        for d in f["dependencies"]
+            .as_array()
+            .unwrap_or(&empty)
+            .iter()
+            .filter_map(|d| d.as_str())
+        {
+            needed_by
+                .entry(d.to_string())
+                .or_default()
+                .push(me.to_string());
         }
     }
     for c in casks {
         let me = c["token"].as_str().unwrap_or_default();
-        for d in c["depends_on"]["formula"].as_array().unwrap_or(&empty).iter().filter_map(|d| d.as_str()) {
-            needed_by.entry(d.to_string()).or_default().push(me.to_string());
+        for d in c["depends_on"]["formula"]
+            .as_array()
+            .unwrap_or(&empty)
+            .iter()
+            .filter_map(|d| d.as_str())
+        {
+            needed_by
+                .entry(d.to_string())
+                .or_default()
+                .push(me.to_string());
         }
     }
     let mut out: Vec<Package> = formulae
@@ -99,7 +125,10 @@ pub fn brew(info_json: &str, prefix: &Path) -> Vec<Package> {
         Some(Package {
             manager: "cask".into(),
             version: c["installed"].as_str().map(String::from),
-            description: c["desc"].as_str().or_else(|| c["name"][0].as_str()).map(String::from),
+            description: c["desc"]
+                .as_str()
+                .or_else(|| c["name"][0].as_str())
+                .map(String::from),
             path: prefix.join("Caskroom").join(&name),
             bytes: 0,
             requested: true,
@@ -125,7 +154,11 @@ pub fn tools(manager: &str, found: &[ToolInstall], now: SystemTime) -> Vec<Packa
     found
         .iter()
         .map(|t| {
-            let last = t.commands.iter().filter_map(|c| std::fs::metadata(c).ok()?.accessed().ok()).max();
+            let last = t
+                .commands
+                .iter()
+                .filter_map(|c| std::fs::metadata(c).ok()?.accessed().ok())
+                .max();
             Package {
                 manager: manager.into(),
                 name: t.name.clone(),
@@ -135,7 +168,8 @@ pub fn tools(manager: &str, found: &[ToolInstall], now: SystemTime) -> Vec<Packa
                 bytes: 0,
                 requested: true,
                 needed_by: vec![],
-                last_used_days: last.map(|l| now.duration_since(l).unwrap_or_default().as_secs() / 86400),
+                last_used_days: last
+                    .map(|l| now.duration_since(l).unwrap_or_default().as_secs() / 86400),
                 apps: vec![],
             }
         })
@@ -146,7 +180,11 @@ pub fn tools(manager: &str, found: &[ToolInstall], now: SystemTime) -> Vec<Packa
 pub fn autoremove_names(dry_run: &str) -> Vec<String> {
     let mut lines = dry_run.lines().skip_while(|l| !l.starts_with("==>"));
     lines.next();
-    lines.map(str::trim).filter(|l| !l.is_empty() && !l.starts_with("==>")).map(String::from).collect()
+    lines
+        .map(str::trim)
+        .filter(|l| !l.is_empty() && !l.starts_with("==>"))
+        .map(String::from)
+        .collect()
 }
 
 /// Everything installed, measured. Runs the managers that are installed.
@@ -154,27 +192,42 @@ pub fn list() -> Packages {
     let now = SystemTime::now();
     let mut out = Packages::default();
     if let Some(prefix) = crate::tool_output("brew", &["--prefix"]) {
-        let info = std::process::Command::new("brew").args(["info", "--json=v2", "--installed"]).output();
+        let info = std::process::Command::new("brew")
+            .args(["info", "--json=v2", "--installed"])
+            .output();
         if let Ok(o) = info {
-            out.packages.extend(brew(&String::from_utf8_lossy(&o.stdout), Path::new(&prefix)));
+            out.packages.extend(brew(
+                &String::from_utf8_lossy(&o.stdout),
+                Path::new(&prefix),
+            ));
         }
-        if let Ok(o) = std::process::Command::new("brew").args(["autoremove", "--dry-run"]).output() {
+        if let Ok(o) = std::process::Command::new("brew")
+            .args(["autoremove", "--dry-run"])
+            .output()
+        {
             out.autoremove = autoremove_names(&String::from_utf8_lossy(&o.stdout));
         }
     }
     if let Some(root) = crate::tool_output("npm", &["root", "-g"]) {
-        out.packages.extend(tools("npm", &npm_tools(Path::new(&root)), now));
+        out.packages
+            .extend(tools("npm", &npm_tools(Path::new(&root)), now));
     }
     if let Some(dir) = crate::tool_output("uv", &["tool", "dir"]) {
-        out.packages.extend(tools("uv", &uv_tools(Path::new(&dir)), now));
+        out.packages
+            .extend(tools("uv", &uv_tools(Path::new(&dir)), now));
     }
     if let Some(dir) = crate::tool_output("pipx", &["environment", "--value", "PIPX_LOCAL_VENVS"]) {
-        out.packages.extend(tools("pipx", &pipx_tools(Path::new(&dir)), now));
+        out.packages
+            .extend(tools("pipx", &pipx_tools(Path::new(&dir)), now));
     }
     out.packages.par_iter_mut().for_each(|p| {
-        p.bytes = std::iter::once(&p.path).chain(&p.apps).map(|x| crate::size::measure(x).on_disk).sum();
+        p.bytes = std::iter::once(&p.path)
+            .chain(&p.apps)
+            .map(|x| crate::size::measure(x).on_disk)
+            .sum();
     });
-    out.packages.sort_by(|a, b| b.bytes.cmp(&a.bytes).then(a.name.cmp(&b.name)));
+    out.packages
+        .sort_by(|a, b| b.bytes.cmp(&a.bytes).then(a.name.cmp(&b.name)));
     out
 }
 
@@ -199,7 +252,10 @@ mod tests {
         assert!(llvm.requested && llvm.needed_by.is_empty());
         assert_eq!(llvm.path, PathBuf::from("/opt/homebrew/Cellar/llvm"));
         let cask = p.iter().find(|x| x.manager == "cask").unwrap();
-        assert_eq!((cask.name.as_str(), cask.description.as_deref()), ("iterm2", Some("iTerm2")));
+        assert_eq!(
+            (cask.name.as_str(), cask.description.as_deref()),
+            ("iterm2", Some("iTerm2"))
+        );
         assert_eq!(cask.path, PathBuf::from("/opt/homebrew/Caskroom/iterm2"));
         assert_eq!(cask.apps, [PathBuf::from("/Applications/iTerm.app")]);
         assert!(brew("not json", Path::new("/x")).is_empty());
@@ -207,9 +263,18 @@ mod tests {
 
     #[test]
     fn uninstall_commands_take_only_plain_names() {
-        assert_eq!(uninstall_command("cask", "iterm2").unwrap(), ["brew", "uninstall", "--cask", "iterm2"]);
-        assert_eq!(uninstall_command("npm", "@slidev/cli").unwrap(), ["npm", "uninstall", "-g", "@slidev/cli"]);
-        assert_eq!(uninstall_command("uv", "docling").unwrap(), ["uv", "tool", "uninstall", "docling"]);
+        assert_eq!(
+            uninstall_command("cask", "iterm2").unwrap(),
+            ["brew", "uninstall", "--cask", "iterm2"]
+        );
+        assert_eq!(
+            uninstall_command("npm", "@slidev/cli").unwrap(),
+            ["npm", "uninstall", "-g", "@slidev/cli"]
+        );
+        assert_eq!(
+            uninstall_command("uv", "docling").unwrap(),
+            ["uv", "tool", "uninstall", "docling"]
+        );
         assert!(uninstall_command("brew", "--force").is_none());
         assert!(uninstall_command("brew", "a b").is_none());
         assert!(uninstall_command("brew", "x;rm").is_none());

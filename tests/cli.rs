@@ -14,7 +14,12 @@ fn json_clean_reports_unmatched_paths_as_skipped() {
         .env("ROOMY_APPS_DIR", format!("{h}/Applications"))
         .output()
         .unwrap();
-    assert!(out.status.success(), "exit {:?}: {}", out.status, String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "exit {:?}: {}",
+        out.status,
+        String::from_utf8_lossy(&out.stderr)
+    );
     let lines: Vec<serde_json::Value> = String::from_utf8(out.stdout)
         .unwrap()
         .lines()
@@ -24,7 +29,10 @@ fn json_clean_reports_unmatched_paths_as_skipped() {
     assert_eq!(events, ["plan", "item", "done"]);
     assert_eq!(lines[1]["path"], gone.as_str());
     assert_eq!(lines[1]["outcome"]["result"], "skipped");
-    assert_eq!(lines[1]["outcome"]["reason"], "the scan doesn't find it anymore");
+    assert_eq!(
+        lines[1]["outcome"]["reason"],
+        "the scan doesn't find it anymore"
+    );
     assert_eq!(lines[2]["skipped"], 1);
     assert_eq!(lines[2]["cleaned"], 0);
 }
@@ -66,16 +74,32 @@ fn json_map_shows_folders_and_what_can_be_freed() {
         .env("ROOMY_APPS_DIR", format!("{h}/Applications"))
         .output()
         .unwrap();
-    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert!(v["used_bytes"].as_u64().unwrap() > 0);
     let home_node = &v["roots"][0];
     assert_eq!(home_node["path"], h);
-    assert!(home_node["cleanable"].as_u64().unwrap() >= 60_000_000, "{home_node}");
-    let bun = home_node["children"].as_array().unwrap().iter().find(|c| c["name"] == ".bun").expect("lists .bun");
+    assert!(
+        home_node["cleanable"].as_u64().unwrap() >= 60_000_000,
+        "{home_node}"
+    );
+    let bun = home_node["children"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["name"] == ".bun")
+        .expect("lists .bun");
     assert_eq!(bun["kind"], "folder");
     assert_eq!(bun["cleanable"], bun["children"][0]["cleanable"]);
-    assert_eq!(v["roots"].as_array().unwrap().len(), 2, "home and the apps folder only, in tests");
+    assert_eq!(
+        v["roots"].as_array().unwrap().len(),
+        2,
+        "home and the apps folder only, in tests"
+    );
 }
 
 #[test]
@@ -91,13 +115,20 @@ fn json_inspect_gives_clues() {
         .env("ROOMY_APPS_DIR", format!("{h}/Applications"))
         .output()
         .unwrap();
-    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(v["name"], "OldApp");
     assert_eq!(v["owner"]["name"], "OldApp");
     assert_eq!(v["owner"]["installed"], false, "an app that is missing");
     assert_eq!(v["biggest"][0]["name"], "Cache");
-    let bad = Command::new(env!("CARGO_BIN_EXE_roomy")).args(["inspect", "--json", "/nonexistent"]).output().unwrap();
+    let bad = Command::new(env!("CARGO_BIN_EXE_roomy"))
+        .args(["inspect", "--json", "/nonexistent"])
+        .output()
+        .unwrap();
     assert!(!bad.status.success());
 }
 
@@ -116,7 +147,15 @@ fn map_uses_extra_rules() {
         .env("ROOMY_APPS_DIR", format!("{h}/Applications"))
         .output()
         .unwrap();
-    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
-    assert!(v["cleanable_bytes"].as_u64().unwrap() >= 60_000_000, "{}", v["cleanable_bytes"]);
+    assert!(
+        v["cleanable_bytes"].as_u64().unwrap() >= 60_000_000,
+        "{}",
+        v["cleanable_bytes"]
+    );
 }

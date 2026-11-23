@@ -49,9 +49,10 @@ impl Check {
             ("app-not-running", None) => Ok(Check::AppNotRunning),
             ("not-running", Some(a)) if !a.is_empty() => Ok(Check::NotRunning(a.to_string())),
             ("lock-free", Some(a)) if !a.is_empty() => Ok(Check::LockFree(a.to_string())),
-            ("project-idle", Some(a)) => {
-                a.parse().map(Check::ProjectIdle).map_err(|_| format!("`{s}` needs a number of days"))
-            }
+            ("project-idle", Some(a)) => a
+                .parse()
+                .map(Check::ProjectIdle)
+                .map_err(|_| format!("`{s}` needs a number of days")),
             _ => Err(format!("unknown check `{s}`")),
         }
     }
@@ -61,12 +62,23 @@ impl Check {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Target {
     /// Fixed locations (glob patterns, `~` allowed).
-    Paths { patterns: Vec<String>, keep_newest: Option<usize>, older_than_days: Option<u64> },
+    Paths {
+        patterns: Vec<String>,
+        keep_newest: Option<usize>,
+        older_than_days: Option<u64>,
+    },
     /// A folder name found while walking, with a marker file next to it.
-    Project { dir_name: String, sibling: Vec<String> },
+    Project {
+        dir_name: String,
+        sibling: Vec<String>,
+    },
     /// Built-in code that finds things a glob can't: apps you don't open,
     /// projects you stopped working on, simulator runtimes.
-    Finder { kind: FinderKind, idle_days: u64, min_mb: u64 },
+    Finder {
+        kind: FinderKind,
+        idle_days: u64,
+        min_mb: u64,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -185,14 +197,26 @@ pub fn parse_rules(text: &str) -> Result<Vec<Rule>, String> {
             let finder_opts = m.idle_days.is_some() || m.min_mb.is_some();
             let target = match (m.path, m.dir_name, m.finder) {
                 (None, None, Some(f)) => {
-                    if m.keep_newest.is_some() || m.older_than_days.is_some() || !m.sibling.is_empty() {
-                        return Err(format!("rule `{id}`: a finder only takes `idle_days` and `min_mb`"));
+                    if m.keep_newest.is_some()
+                        || m.older_than_days.is_some()
+                        || !m.sibling.is_empty()
+                    {
+                        return Err(format!(
+                            "rule `{id}`: a finder only takes `idle_days` and `min_mb`"
+                        ));
                     }
-                    let kind = FinderKind::parse(&f).ok_or_else(|| format!("rule `{id}`: unknown finder `{f}`"))?;
-                    Target::Finder { kind, idle_days: m.idle_days.unwrap_or(0), min_mb: m.min_mb.unwrap_or(0) }
+                    let kind = FinderKind::parse(&f)
+                        .ok_or_else(|| format!("rule `{id}`: unknown finder `{f}`"))?;
+                    Target::Finder {
+                        kind,
+                        idle_days: m.idle_days.unwrap_or(0),
+                        min_mb: m.min_mb.unwrap_or(0),
+                    }
                 }
                 _ if finder_opts => {
-                    return Err(format!("rule `{id}`: `idle_days` and `min_mb` only work with `finder`"));
+                    return Err(format!(
+                        "rule `{id}`: `idle_days` and `min_mb` only work with `finder`"
+                    ));
                 }
                 (Some(p), None, None) => {
                     if !m.sibling.is_empty() {
@@ -205,15 +229,28 @@ pub fn parse_rules(text: &str) -> Result<Vec<Rule>, String> {
                     if patterns.is_empty() {
                         return Err(format!("rule `{id}`: `path` is empty"));
                     }
-                    Target::Paths { patterns, keep_newest: m.keep_newest, older_than_days: m.older_than_days }
+                    Target::Paths {
+                        patterns,
+                        keep_newest: m.keep_newest,
+                        older_than_days: m.older_than_days,
+                    }
                 }
                 (None, Some(dir_name), None) => {
                     if m.keep_newest.is_some() || m.older_than_days.is_some() {
-                        return Err(format!("rule `{id}`: `keep_newest` and `older_than_days` only work with `path`"));
+                        return Err(format!(
+                            "rule `{id}`: `keep_newest` and `older_than_days` only work with `path`"
+                        ));
                     }
-                    Target::Project { dir_name, sibling: m.sibling }
+                    Target::Project {
+                        dir_name,
+                        sibling: m.sibling,
+                    }
                 }
-                _ => return Err(format!("rule `{id}`: match needs exactly one of `path`, `dir_name` or `finder`")),
+                _ => {
+                    return Err(format!(
+                        "rule `{id}`: match needs exactly one of `path`, `dir_name` or `finder`"
+                    ));
+                }
             };
             let checks = r
                 .verify
@@ -221,7 +258,10 @@ pub fn parse_rules(text: &str) -> Result<Vec<Rule>, String> {
                 .map(|c| Check::parse(c).map_err(|e| format!("rule `{id}`: {e}")))
                 .collect::<Result<Vec<_>, _>>()?;
             Ok(Rule {
-                name: r.name.filter(|n| !n.trim().is_empty()).unwrap_or_else(|| id.clone()),
+                name: r
+                    .name
+                    .filter(|n| !n.trim().is_empty())
+                    .unwrap_or_else(|| id.clone()),
                 id,
                 category: r.category,
                 risk: r.risk,
@@ -241,8 +281,13 @@ pub fn parse_rules(text: &str) -> Result<Vec<Rule>, String> {
 /// macOS one, so a custom `TMPDIR=/tmp` can never make `/` a target.
 pub fn user_tmp_root() -> Option<PathBuf> {
     let t = std::env::temp_dir();
-    let ok = (t.starts_with("/var/folders") || t.starts_with("/private/var/folders")) && t.file_name()? == "T";
-    if ok { t.parent().map(Path::to_path_buf) } else { None }
+    let ok = (t.starts_with("/var/folders") || t.starts_with("/private/var/folders"))
+        && t.file_name()? == "T";
+    if ok {
+        t.parent().map(Path::to_path_buf)
+    } else {
+        None
+    }
 }
 
 pub fn expand_home(s: &str, home: &Path) -> PathBuf {
@@ -270,7 +315,14 @@ explain = "e"
 match = { finder = "unused-apps", idle_days = 120 }
 "#;
         let r = &parse_rules(t).unwrap()[0];
-        assert_eq!(r.target, Target::Finder { kind: FinderKind::UnusedApps, idle_days: 120, min_mb: 0 });
+        assert_eq!(
+            r.target,
+            Target::Finder {
+                kind: FinderKind::UnusedApps,
+                idle_days: 120,
+                min_mb: 0
+            }
+        );
         assert!(!r.command_only);
     }
 
@@ -286,7 +338,14 @@ command_only = true
 match = { finder = "git-garbage", min_mb = 50 }
 "#;
         let r = &parse_rules(ok).unwrap()[0];
-        assert_eq!(r.target, Target::Finder { kind: FinderKind::GitGarbage, idle_days: 0, min_mb: 50 });
+        assert_eq!(
+            r.target,
+            Target::Finder {
+                kind: FinderKind::GitGarbage,
+                idle_days: 0,
+                min_mb: 50
+            }
+        );
         assert!(r.command_only);
         let bad = ok.replace("git-garbage", "git-garbag");
         assert!(parse_rules(&bad).unwrap_err().contains("unknown finder"));
@@ -308,7 +367,11 @@ verify = ["project-idle:7"]
         let r = &parse_rules(t).unwrap()[0];
         assert_eq!(
             r.target,
-            Target::Paths { patterns: vec!["~/Downloads/*.dmg".into()], keep_newest: None, older_than_days: Some(14) }
+            Target::Paths {
+                patterns: vec!["~/Downloads/*.dmg".into()],
+                keep_newest: None,
+                older_than_days: Some(14)
+            }
         );
         assert_eq!(r.checks, vec![Check::ProjectIdle(7)]);
         assert!(Check::parse("project-idle:x").is_err());
@@ -359,7 +422,11 @@ risk = "safe"
 explain = "e"
 match = { path = "~/x" }
 "#;
-        assert!(parse_rules(&format!("{one}{one}")).unwrap_err().contains("duplicate"));
+        assert!(
+            parse_rules(&format!("{one}{one}"))
+                .unwrap_err()
+                .contains("duplicate")
+        );
     }
 
     #[test]
@@ -375,7 +442,11 @@ match = { path = ["~/a", "~/b"] }
         let r = &parse_rules(t).unwrap()[0];
         assert_eq!(
             r.target,
-            Target::Paths { patterns: vec!["~/a".into(), "~/b".into()], keep_newest: None, older_than_days: None }
+            Target::Paths {
+                patterns: vec!["~/a".into(), "~/b".into()],
+                keep_newest: None,
+                older_than_days: None
+            }
         );
     }
 

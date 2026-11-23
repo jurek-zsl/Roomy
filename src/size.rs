@@ -62,7 +62,11 @@ pub fn measure(path: &Path) -> Size {
             freed += bytes;
         }
     }
-    Size { on_disk: acc.on_disk.into_inner(), freed, files: acc.files.into_inner() }
+    Size {
+        on_disk: acc.on_disk.into_inner(),
+        freed,
+        files: acc.files.into_inner(),
+    }
 }
 
 fn measure_dir(dir: &Path, acc: &Acc) {
@@ -70,7 +74,9 @@ fn measure_dir(dir: &Path, acc: &Acc) {
     let entries: Vec<_> = rd.flatten().collect();
     entries.par_iter().for_each(|e| {
         let p = e.path();
-        let Ok(md) = fs::symlink_metadata(&p) else { return };
+        let Ok(md) = fs::symlink_metadata(&p) else {
+            return;
+        };
         if md.dev() != acc.dev {
             return;
         }
@@ -87,7 +93,9 @@ fn add_file(p: &Path, md: &Metadata, acc: &Acc) {
     acc.files.fetch_add(1, Ordering::Relaxed);
     if md.nlink() > 1 {
         let mut links = acc.links.lock().unwrap();
-        let e = links.entry((md.dev(), md.ino())).or_insert((0, md.nlink(), alloc));
+        let e = links
+            .entry((md.dev(), md.ino()))
+            .or_insert((0, md.nlink(), alloc));
         e.0 += 1;
         if e.0 == 1 {
             acc.on_disk.fetch_add(alloc, Ordering::Relaxed);
@@ -186,7 +194,11 @@ pub fn apfs_clone_info(path: &Path) -> Option<CloneInfo> {
     } else {
         return None;
     };
-    let refcount = if returned_fork & ATTR_CMNEXT_CLONE_REFCNT != 0 { u32_at(off) } else { 1 };
+    let refcount = if returned_fork & ATTR_CMNEXT_CLONE_REFCNT != 0 {
+        u32_at(off)
+    } else {
+        1
+    };
     Some(CloneInfo { private, refcount })
 }
 
@@ -196,13 +208,16 @@ mod tests {
     use std::io::Write;
 
     unsafe extern "C" {
-        fn clonefile(src: *const libc::c_char, dst: *const libc::c_char, flags: u32) -> libc::c_int;
+        fn clonefile(src: *const libc::c_char, dst: *const libc::c_char, flags: u32)
+        -> libc::c_int;
     }
 
     fn write_file(p: &Path, bytes: usize) {
         let mut f = fs::File::create(p).unwrap();
         // Non-zero, non-repeating-ish data so nothing gets compressed away.
-        let chunk: Vec<u8> = (0..65536u32).map(|i| (i.wrapping_mul(2654435761) >> 13) as u8).collect();
+        let chunk: Vec<u8> = (0..65536u32)
+            .map(|i| (i.wrapping_mul(2654435761) >> 13) as u8)
+            .collect();
         let mut left = bytes;
         while left > 0 {
             let n = left.min(chunk.len());
@@ -215,7 +230,11 @@ mod tests {
     fn clone(src: &Path, dst: &Path) {
         let s = CString::new(src.as_os_str().as_bytes()).unwrap();
         let d = CString::new(dst.as_os_str().as_bytes()).unwrap();
-        assert_eq!(unsafe { clonefile(s.as_ptr(), d.as_ptr(), 0) }, 0, "clonefile failed");
+        assert_eq!(
+            unsafe { clonefile(s.as_ptr(), d.as_ptr(), 0) },
+            0,
+            "clonefile failed"
+        );
     }
 
     #[test]

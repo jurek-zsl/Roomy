@@ -76,43 +76,83 @@ fn finder_candidates(opts: &ScanOptions, repos: &[PathBuf], env: &Env) -> Vec<sc
     let now = std::time::SystemTime::now();
     let xcode = has_xcode(&opts.apps_dir);
     let devices = std::sync::OnceLock::new();
-    let devices = || devices.get_or_init(|| if xcode { simctl(&["list", "devices", "-j"]).unwrap_or_default() } else { String::new() });
+    let devices = || {
+        devices.get_or_init(|| {
+            if xcode {
+                simctl(&["list", "devices", "-j"]).unwrap_or_default()
+            } else {
+                String::new()
+            }
+        })
+    };
     let mut out = Vec::new();
     for (i, r) in opts.rules.iter().enumerate() {
-        let rules::Target::Finder { kind, idle_days, min_mb } = r.target else { continue };
+        let rules::Target::Finder {
+            kind,
+            idle_days,
+            min_mb,
+        } = r.target
+        else {
+            continue;
+        };
         let found = match kind {
-            rules::FinderKind::UnusedApps => unused_apps(&opts.apps_dir, &spotlight_usage, env, now, idle_days),
+            rules::FinderKind::UnusedApps => {
+                unused_apps(&opts.apps_dir, &spotlight_usage, env, now, idle_days)
+            }
             rules::FinderKind::StaleProjects => stale_projects(repos, now, idle_days),
             rules::FinderKind::GitGarbage => git_garbage(repos, min_mb * MB),
-            rules::FinderKind::SimulatorRuntimes if xcode => {
-                simulator_runtimes(&simctl(&["runtime", "list", "-j"]).unwrap_or_default(), devices(), now, idle_days)
-            }
+            rules::FinderKind::SimulatorRuntimes if xcode => simulator_runtimes(
+                &simctl(&["runtime", "list", "-j"]).unwrap_or_default(),
+                devices(),
+                now,
+                idle_days,
+            ),
             rules::FinderKind::SimulatorDevices if xcode => unavailable_simulators(devices()),
-            rules::FinderKind::LargeFiles => large_files(&opts.home, &spotlight_usage, now, idle_days, min_mb * MB),
+            rules::FinderKind::LargeFiles => {
+                large_files(&opts.home, &spotlight_usage, now, idle_days, min_mb * MB)
+            }
             // Only where the tool's own uninstall command works: its active folder.
             rules::FinderKind::UnusedNpmTools => match tool_output("npm", &["root", "-g"]) {
-                Some(root) => unused_tools(&npm_tools(Path::new(&root)), env, now, idle_days, created),
+                Some(root) => {
+                    unused_tools(&npm_tools(Path::new(&root)), env, now, idle_days, created)
+                }
                 None => Vec::new(),
             },
             rules::FinderKind::UnusedUvTools => match tool_output("uv", &["tool", "dir"]) {
                 Some(dir) => unused_tools(&uv_tools(Path::new(&dir)), env, now, idle_days, created),
                 None => Vec::new(),
             },
-            rules::FinderKind::UnusedPipxTools => match tool_output("pipx", &["environment", "--value", "PIPX_LOCAL_VENVS"]) {
-                Some(dir) => unused_tools(&pipx_tools(Path::new(&dir)), env, now, idle_days, created),
-                None => Vec::new(),
-            },
+            rules::FinderKind::UnusedPipxTools => {
+                match tool_output("pipx", &["environment", "--value", "PIPX_LOCAL_VENVS"]) {
+                    Some(dir) => {
+                        unused_tools(&pipx_tools(Path::new(&dir)), env, now, idle_days, created)
+                    }
+                    None => Vec::new(),
+                }
+            }
             _ => Vec::new(),
         };
-        out.extend(found.into_iter().map(|f| scan::Candidate { rule: i, path: f.path.clone(), found: Some(f) }));
+        out.extend(found.into_iter().map(|f| scan::Candidate {
+            rule: i,
+            path: f.path.clone(),
+            found: Some(f),
+        }));
     }
     out
 }
 
 /// The first line a tool prints, if it's installed and succeeds.
 pub(crate) fn tool_output(program: &str, args: &[&str]) -> Option<String> {
-    let out = std::process::Command::new(program).args(args).stderr(std::process::Stdio::null()).output().ok()?;
-    let line = String::from_utf8_lossy(&out.stdout).lines().next()?.trim().to_string();
+    let out = std::process::Command::new(program)
+        .args(args)
+        .stderr(std::process::Stdio::null())
+        .output()
+        .ok()?;
+    let line = String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .next()?
+        .trim()
+        .to_string();
     (out.status.success() && !line.is_empty()).then_some(line)
 }
 
@@ -120,7 +160,13 @@ pub(crate) fn tool_output(program: &str, args: &[&str]) -> Option<String> {
 pub fn run(opts: &ScanOptions) -> Vec<Finding> {
     let env = Env::capture();
     let wants_repos = opts.rules.iter().any(|r| {
-        matches!(r.target, rules::Target::Finder { kind: rules::FinderKind::StaleProjects | rules::FinderKind::GitGarbage, .. })
+        matches!(
+            r.target,
+            rules::Target::Finder {
+                kind: rules::FinderKind::StaleProjects | rules::FinderKind::GitGarbage,
+                ..
+            }
+        )
     });
     let mut cands = scan::path_candidates(&opts.rules, &opts.home);
     let walked = scan::walk_projects(&opts.rules, &opts.walk, wants_repos);
@@ -135,12 +181,19 @@ pub fn run(opts: &ScanOptions) -> Vec<Finding> {
             let r = &opts.rules[c.rule];
             let found = c.found.as_ref();
             let size = match found.and_then(|f| f.bytes) {
-                Some(b) => size::Size { on_disk: b, freed: b, files: 0 },
+                Some(b) => size::Size {
+                    on_disk: b,
+                    freed: b,
+                    files: 0,
+                },
                 None => size::measure(&c.path),
             };
             let mut verdict = verify::verify(&r.checks, &c.path, &env, &opts.home);
             if let Some(why) = found.and_then(|f| f.blocked.clone()) {
-                verdict = verify::Verdict { status: Status::Blocked, reason: Some(why) };
+                verdict = verify::Verdict {
+                    status: Status::Blocked,
+                    reason: Some(why),
+                };
             }
             Finding {
                 rule: r.id.clone(),
@@ -152,7 +205,10 @@ pub fn run(opts: &ScanOptions) -> Vec<Finding> {
                 bytes_on_disk: size.on_disk,
                 bytes_freed: size.freed,
                 files: size.files,
-                clean: r.clean.as_deref().map(|t| fill_command_id(t, &c.path, found.and_then(|f| f.id.as_deref()))),
+                clean: r
+                    .clean
+                    .as_deref()
+                    .map(|t| fill_command_id(t, &c.path, found.and_then(|f| f.id.as_deref()))),
                 explain: r.explain.clone(),
                 detail: found.and_then(|f| f.detail.clone()),
                 label: found.and_then(|f| f.label.clone()),
@@ -170,7 +226,15 @@ pub fn run(opts: &ScanOptions) -> Vec<Finding> {
 pub fn subtract_nested(findings: &mut [Finding], rules: &[Rule]) {
     let stale: HashSet<&str> = rules
         .iter()
-        .filter(|r| matches!(r.target, rules::Target::Finder { kind: rules::FinderKind::StaleProjects, .. }))
+        .filter(|r| {
+            matches!(
+                r.target,
+                rules::Target::Finder {
+                    kind: rules::FinderKind::StaleProjects,
+                    ..
+                }
+            )
+        })
         .map(|r| r.id.as_str())
         .collect();
     for i in 0..findings.len() {
@@ -189,10 +253,17 @@ pub fn subtract_nested(findings: &mut [Finding], rules: &[Rule]) {
             let p = &mut findings[i];
             p.bytes_freed = p.bytes_freed.saturating_sub(freed);
             p.bytes_on_disk = p.bytes_on_disk.saturating_sub(disk);
-            let what = if n == 1 { "build folder (".to_string() } else { format!("{n} build folders (") };
+            let what = if n == 1 {
+                "build folder (".to_string()
+            } else {
+                format!("{n} build folders (")
+            };
             let verb = if n == 1 { "is" } else { "are" };
             let d = p.detail.get_or_insert_default();
-            d.push_str(&format!(" Its {what}{}) {verb} listed separately.", report::human_bytes(freed)));
+            d.push_str(&format!(
+                " Its {what}{}) {verb} listed separately.",
+                report::human_bytes(freed)
+            ));
         }
     }
 }
@@ -202,17 +273,29 @@ pub fn subtract_nested(findings: &mut [Finding], rules: &[Rule]) {
 pub fn full_path(current: &str, home: &Path) -> String {
     let mut dirs: Vec<PathBuf> = std::env::split_paths(current).collect();
     let extra = [
-        home.join(".local/bin"), home.join(".cargo/bin"), home.join(".bun/bin"), home.join(".volta/bin"),
-        home.join(".npm-global/bin"), home.join("go/bin"), home.join(".deno/bin"),
-        PathBuf::from("/opt/homebrew/bin"), PathBuf::from("/opt/homebrew/sbin"), PathBuf::from("/usr/local/bin"),
-        PathBuf::from("/usr/bin"), PathBuf::from("/bin"), PathBuf::from("/usr/sbin"), PathBuf::from("/sbin"),
+        home.join(".local/bin"),
+        home.join(".cargo/bin"),
+        home.join(".bun/bin"),
+        home.join(".volta/bin"),
+        home.join(".npm-global/bin"),
+        home.join("go/bin"),
+        home.join(".deno/bin"),
+        PathBuf::from("/opt/homebrew/bin"),
+        PathBuf::from("/opt/homebrew/sbin"),
+        PathBuf::from("/usr/local/bin"),
+        PathBuf::from("/usr/bin"),
+        PathBuf::from("/bin"),
+        PathBuf::from("/usr/sbin"),
+        PathBuf::from("/sbin"),
     ];
     for d in extra {
         if !dirs.contains(&d) {
             dirs.push(d);
         }
     }
-    std::env::join_paths(dirs).map(|p| p.to_string_lossy().into_owned()).unwrap_or_else(|_| current.to_string())
+    std::env::join_paths(dirs)
+        .map(|p| p.to_string_lossy().into_owned())
+        .unwrap_or_else(|_| current.to_string())
 }
 
 /// Fill `{path}` and `{parent}` in a clean command, shell-quoted.
@@ -223,7 +306,9 @@ pub fn fill_command(template: &str, path: &Path) -> String {
 /// Like `fill_command`, also filling `{id}` (a finder's id, like a simulator's UDID).
 pub fn fill_command_id(template: &str, path: &Path, id: Option<&str>) -> String {
     let parent = path.parent().unwrap_or(Path::new("/"));
-    let mut s = template.replace("{path}", &shell_quote(path)).replace("{parent}", &shell_quote(parent));
+    let mut s = template
+        .replace("{path}", &shell_quote(path))
+        .replace("{parent}", &shell_quote(parent));
     if let Some(id) = id {
         s = s.replace("{id}", &shell_quote(Path::new(id)));
     }
@@ -232,7 +317,9 @@ pub fn fill_command_id(template: &str, path: &Path, id: Option<&str>) -> String 
 
 fn shell_quote(p: &Path) -> String {
     let s = p.to_string_lossy();
-    if s.chars().all(|c| c.is_ascii_alphanumeric() || "/._-~+@".contains(c)) {
+    if s.chars()
+        .all(|c| c.is_ascii_alphanumeric() || "/._-~+@".contains(c))
+    {
         s.into_owned()
     } else {
         format!("'{}'", s.replace('\'', r"'\''"))
@@ -246,7 +333,10 @@ mod tests {
     #[test]
     fn path_gets_the_usual_tool_folders() {
         let p = full_path("/usr/bin:/bin", Path::new("/Users/me"));
-        assert!(p.starts_with("/usr/bin:/bin:"), "what was there stays first");
+        assert!(
+            p.starts_with("/usr/bin:/bin:"),
+            "what was there stays first"
+        );
         assert!(p.contains("/Users/me/.local/bin") && p.contains("/opt/homebrew/bin"));
         assert_eq!(p.matches("/usr/bin").count(), 1, "no duplicates");
     }
@@ -258,10 +348,22 @@ mod tests {
             fill_command("cargo clean --manifest-path {parent}/Cargo.toml", p),
             "cargo clean --manifest-path '/Users/me/My Code/app'/Cargo.toml"
         );
-        assert_eq!(fill_command("rm -rf {path}", Path::new("/a/b")), "rm -rf /a/b");
-        assert_eq!(fill_command("rm -rf {path}", Path::new("/it's")), r"rm -rf '/it'\''s'");
-        assert_eq!(fill_command_id("xcrun simctl delete {id}", Path::new("/x"), Some("AB-12")), "xcrun simctl delete AB-12");
-        assert_eq!(fill_command_id("x {id}", Path::new("/x"), Some("a b")), "x 'a b'");
+        assert_eq!(
+            fill_command("rm -rf {path}", Path::new("/a/b")),
+            "rm -rf /a/b"
+        );
+        assert_eq!(
+            fill_command("rm -rf {path}", Path::new("/it's")),
+            r"rm -rf '/it'\''s'"
+        );
+        assert_eq!(
+            fill_command_id("xcrun simctl delete {id}", Path::new("/x"), Some("AB-12")),
+            "xcrun simctl delete AB-12"
+        );
+        assert_eq!(
+            fill_command_id("x {id}", Path::new("/x"), Some("a b")),
+            "x 'a b'"
+        );
     }
 
     fn f(rule: &str, path: &str, bytes: u64) -> Finding {
@@ -302,7 +404,10 @@ match = { finder = "stale-projects", idle_days = 1 }
         ];
         subtract_nested(&mut v, &rules);
         assert_eq!(v[0].bytes_freed, 2_000_000_000);
-        assert_eq!(v[0].detail.as_deref(), Some("Last commit 1 year ago. Its build folder (3.0 GB) is listed separately."));
+        assert_eq!(
+            v[0].detail.as_deref(),
+            Some("Last commit 1 year ago. Its build folder (3.0 GB) is listed separately.")
+        );
         assert_eq!(v[2].bytes_freed, 1_000_000_000);
     }
 }

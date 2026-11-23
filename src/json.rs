@@ -28,7 +28,12 @@ pub struct FindingJson<'a> {
     pub trash_method: Method,
 }
 
-pub fn scan_document<'a>(findings: &'a [Finding], rules: &'a [Rule], free_bytes: Option<u64>, elapsed_ms: u64) -> ScanDocument<'a> {
+pub fn scan_document<'a>(
+    findings: &'a [Finding],
+    rules: &'a [Rule],
+    free_bytes: Option<u64>,
+    elapsed_ms: u64,
+) -> ScanDocument<'a> {
     let findings = findings
         .iter()
         .map(|f| {
@@ -42,7 +47,11 @@ pub fn scan_document<'a>(findings: &'a [Finding], rules: &'a [Rule], free_bytes:
             }
         })
         .collect();
-    ScanDocument { free_bytes, elapsed_ms, findings }
+    ScanDocument {
+        free_bytes,
+        elapsed_ms,
+        findings,
+    }
 }
 
 /// The rule's name, with the app in front for per-app rules ("Claude web cache").
@@ -50,7 +59,9 @@ pub fn display_name(rule: Option<&Rule>, f: &Finding) -> String {
     if let Some(label) = &f.label {
         return label.clone();
     }
-    let Some(rule) = rule else { return f.rule.clone() };
+    let Some(rule) = rule else {
+        return f.rule.clone();
+    };
     if rule.checks.contains(&crate::rules::Check::AppNotRunning)
         && let Some(app) = crate::verify::app_owner(&f.path)
     {
@@ -64,9 +75,19 @@ pub fn display_name(rule: Option<&Rule>, f: &Finding) -> String {
 #[serde(tag = "event", rename_all = "kebab-case")]
 pub enum CleanEvent<'a> {
     /// What's about to happen. `items` counts acted and skipped entries.
-    Plan { items: usize, bytes: u64 },
+    Plan {
+        items: usize,
+        bytes: u64,
+    },
     /// One item done (or skipped). `index` counts from 1 up to `items`.
-    Item { index: usize, path: &'a Path, rule: &'a str, name: &'a str, bytes: u64, outcome: &'a Outcome },
+    Item {
+        index: usize,
+        path: &'a Path,
+        rule: &'a str,
+        name: &'a str,
+        bytes: u64,
+        outcome: &'a Outcome,
+    },
     Done {
         cleaned: usize,
         skipped: usize,
@@ -75,7 +96,9 @@ pub enum CleanEvent<'a> {
         free_after: Option<u64>,
         trashed_bytes: u64,
     },
-    Error { message: String },
+    Error {
+        message: String,
+    },
 }
 
 #[cfg(test)]
@@ -95,7 +118,11 @@ mod tests {
             risk,
             explain: "e".into(),
             clean: Some(clean.into()),
-            target: Target::Paths { patterns: vec![], keep_newest: None, older_than_days: None },
+            target: Target::Paths {
+                patterns: vec![],
+                keep_newest: None,
+                older_than_days: None,
+            },
             checks: vec![],
             command_only: false,
         }
@@ -121,7 +148,10 @@ mod tests {
 
     #[test]
     fn scan_document_has_section_method_name() {
-        let rules = vec![rule("old", Risk::Review, "rm -rf {path}"), rule("brew", Risk::Safe, "brew cleanup")];
+        let rules = vec![
+            rule("old", Risk::Review, "rm -rf {path}"),
+            rule("brew", Risk::Safe, "brew cleanup"),
+        ];
         let found = vec![finding(&rules[0], "/h/old"), finding(&rules[1], "/h/brew")];
         let doc = scan_document(&found, &rules, Some(99), 1234);
         let v = serde_json::to_value(&doc).unwrap();
@@ -142,17 +172,36 @@ mod tests {
     fn clean_events_serialize() {
         let plan = serde_json::to_string(&CleanEvent::Plan { items: 2, bytes: 5 }).unwrap();
         assert_eq!(plan, r#"{"event":"plan","items":2,"bytes":5}"#);
-        let out = Outcome::Skipped { reason: "busy".into() };
-        let item = CleanEvent::Item { index: 1, path: Path::new("/h/x"), rule: "r", name: "R", bytes: 3, outcome: &out };
+        let out = Outcome::Skipped {
+            reason: "busy".into(),
+        };
+        let item = CleanEvent::Item {
+            index: 1,
+            path: Path::new("/h/x"),
+            rule: "r",
+            name: "R",
+            bytes: 3,
+            outcome: &out,
+        };
         let v = serde_json::to_value(&item).unwrap();
         assert_eq!(v["event"], "item");
         assert_eq!(v["outcome"]["result"], "skipped");
         assert_eq!(v["outcome"]["reason"], "busy");
-        let done = CleanEvent::Done { cleaned: 1, skipped: 2, failed: 0, free_before: Some(1), free_after: None, trashed_bytes: 4 };
+        let done = CleanEvent::Done {
+            cleaned: 1,
+            skipped: 2,
+            failed: 0,
+            free_before: Some(1),
+            free_after: None,
+            trashed_bytes: 4,
+        };
         let v = serde_json::to_value(&done).unwrap();
         assert_eq!(v["event"], "done");
         assert_eq!(v["trashed_bytes"], 4);
-        let e = serde_json::to_value(&CleanEvent::Error { message: "x".into() }).unwrap();
+        let e = serde_json::to_value(&CleanEvent::Error {
+            message: "x".into(),
+        })
+        .unwrap();
         assert_eq!(e["event"], "error");
     }
 

@@ -64,7 +64,9 @@ pub fn unused_apps(
     now: SystemTime,
     idle_days: u64,
 ) -> Vec<Found> {
-    let Ok(rd) = fs::read_dir(apps_dir) else { return Vec::new() };
+    let Ok(rd) = fs::read_dir(apps_dir) else {
+        return Vec::new();
+    };
     let mut apps: Vec<PathBuf> = rd
         .flatten()
         .filter(|e| e.file_type().map(|t| t.is_dir()).unwrap_or(false))
@@ -85,15 +87,24 @@ pub fn unused_apps(
                     format!("Last opened {} ago.", span(days_since(t, now)))
                 }
                 (None, Some(t)) if days_since(t, now) >= idle_days => {
-                    format!("Never opened since it was installed {} ago.", span(days_since(t, now)))
+                    format!(
+                        "Never opened since it was installed {} ago.",
+                        span(days_since(t, now))
+                    )
                 }
                 _ => return None,
             };
             let bundle = format!("{}/", path.to_string_lossy().to_lowercase());
-            let running = env.is_running(&name) || env.args.iter().any(|a| a.to_lowercase().starts_with(&bundle));
+            let running = env.is_running(&name)
+                || env
+                    .args
+                    .iter()
+                    .any(|a| a.to_lowercase().starts_with(&bundle));
             Some(Found {
                 label: Some(name.clone()),
-                detail: Some(format!("{detail} Its settings stay, so it works the same if you install it again.")),
+                detail: Some(format!(
+                    "{detail} Its settings stay, so it works the same if you install it again."
+                )),
                 blocked: running.then(|| format!("{name} is open")),
                 path,
                 ..Found::default()
@@ -108,15 +119,24 @@ pub fn spotlight_usage(apps: &[PathBuf]) -> Vec<AppUsage> {
         if apps.is_empty() {
             return Vec::new();
         }
-        let out = Command::new("mdls").args(["-raw", "-nullMarker", "-", "-name", attr]).args(apps).stderr(Stdio::null()).output();
-        let text = out.map(|o| String::from_utf8_lossy(&o.stdout).into_owned()).unwrap_or_default();
+        let out = Command::new("mdls")
+            .args(["-raw", "-nullMarker", "-", "-name", attr])
+            .args(apps)
+            .stderr(Stdio::null())
+            .output();
+        let text = out
+            .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
+            .unwrap_or_default();
         let mut v: Vec<Option<SystemTime>> = text.split('\0').map(parse_mdls_date).collect();
         v.resize(apps.len(), None);
         v
     };
     let used = read("kMDItemLastUsedDate");
     let added = read("kMDItemDateAdded");
-    used.into_iter().zip(added).map(|(last_used, added)| AppUsage { last_used, added }).collect()
+    used.into_iter()
+        .zip(added)
+        .map(|(last_used, added)| AppUsage { last_used, added })
+        .collect()
 }
 
 /// "2026-11-17 21:27:51 +0000" → time. Anything else → None.
@@ -138,8 +158,14 @@ fn parse_iso(s: &str) -> Option<SystemTime> {
 }
 
 fn parse_utc(date: &str, time: &str) -> Option<SystemTime> {
-    let d: Vec<i64> = date.split('-').map(|x| x.parse().ok()).collect::<Option<_>>()?;
-    let t: Vec<u64> = time.split(':').map(|x| x.parse().ok()).collect::<Option<_>>()?;
+    let d: Vec<i64> = date
+        .split('-')
+        .map(|x| x.parse().ok())
+        .collect::<Option<_>>()?;
+    let t: Vec<u64> = time
+        .split(':')
+        .map(|x| x.parse().ok())
+        .collect::<Option<_>>()?;
     if d.len() != 3 || t.len() != 3 {
         return None;
     }
@@ -157,15 +183,40 @@ fn parse_utc(date: &str, time: &str) -> Option<SystemTime> {
 // ---------------------------------------------------------------- git
 
 fn git(repo: &Path, args: &[&str]) -> Option<String> {
-    let out = Command::new("git").arg("-C").arg(repo).args(args).stderr(Stdio::null()).output().ok()?;
-    out.status.success().then(|| String::from_utf8_lossy(&out.stdout).trim().to_string())
+    let out = Command::new("git")
+        .arg("-C")
+        .arg(repo)
+        .args(args)
+        .stderr(Stdio::null())
+        .output()
+        .ok()?;
+    out.status
+        .success()
+        .then(|| String::from_utf8_lossy(&out.stdout).trim().to_string())
 }
 
 /// Ignored files that are plainly build output or junk; anything else that
 /// git ignores (like `.env`) is not on the remote and is called out.
 const REBUILDABLE: &[&str] = &[
-    "node_modules", "target", ".build", "build", "dist", ".next", ".nuxt", ".svelte-kit", ".turbo", ".venv", "venv",
-    "Pods", ".gradle", ".godot", "__pycache__", ".parcel-cache", ".DS_Store", "DerivedData", ".cache",
+    "node_modules",
+    "target",
+    ".build",
+    "build",
+    "dist",
+    ".next",
+    ".nuxt",
+    ".svelte-kit",
+    ".turbo",
+    ".venv",
+    "venv",
+    "Pods",
+    ".gradle",
+    ".godot",
+    "__pycache__",
+    ".parcel-cache",
+    ".DS_Store",
+    "DerivedData",
+    ".cache",
 ];
 
 /// `https://user:token@github.com/a/b.git` → `github.com/a/b`.
@@ -173,7 +224,15 @@ fn clean_remote(url: &str) -> String {
     let s = url.trim();
     let s = s.split_once("://").map(|(_, r)| r).unwrap_or(s);
     let s = s.rsplit_once('@').map(|(_, r)| r).unwrap_or(s);
-    let s = s.replacen(':', "/", if s.contains('/') && !s.contains(":/") && s.find(':') < s.find('/') { 1 } else { 0 });
+    let s = s.replacen(
+        ':',
+        "/",
+        if s.contains('/') && !s.contains(":/") && s.find(':') < s.find('/') {
+            1
+        } else {
+            0
+        },
+    );
     s.trim_end_matches(".git").trim_end_matches('/').to_string()
 }
 
@@ -189,28 +248,51 @@ pub fn stale_projects(repos: &[PathBuf], now: SystemTime, idle_days: u64) -> Vec
             if commit_days < idle_days {
                 return None;
             }
-            let touched = project_last_touched(&repo.join(".git")).map(|t| days_since(t, now)).unwrap_or(commit_days);
+            let touched = project_last_touched(&repo.join(".git"))
+                .map(|t| days_since(t, now))
+                .unwrap_or(commit_days);
             if touched < idle_days {
                 return None;
             }
             if !git(repo, &["status", "--porcelain"])?.is_empty() {
                 return None;
             }
-            if git(repo, &["rev-list", "--branches", "--not", "--remotes", "--count"])? != "0" {
+            if git(
+                repo,
+                &["rev-list", "--branches", "--not", "--remotes", "--count"],
+            )? != "0"
+            {
                 return None;
             }
             if !git(repo, &["stash", "list"])?.is_empty() {
                 return None;
             }
             let remote = git(repo, &["remote"])?;
-            let name = remote.lines().find(|r| *r == "origin").or_else(|| remote.lines().next())?.to_string();
-            let url = git(repo, &["remote", "get-url", &name]).map(|u| clean_remote(&u)).unwrap_or(name);
-            let ignored = git(repo, &["ls-files", "--others", "--ignored", "--exclude-standard", "--directory"])
-                .unwrap_or_default();
+            let name = remote
+                .lines()
+                .find(|r| *r == "origin")
+                .or_else(|| remote.lines().next())?
+                .to_string();
+            let url = git(repo, &["remote", "get-url", &name])
+                .map(|u| clean_remote(&u))
+                .unwrap_or(name);
+            let ignored = git(
+                repo,
+                &[
+                    "ls-files",
+                    "--others",
+                    "--ignored",
+                    "--exclude-standard",
+                    "--directory",
+                ],
+            )
+            .unwrap_or_default();
             let mut extra: Vec<String> = ignored
                 .lines()
                 .map(|l| l.trim_end_matches('/'))
-                .filter(|l| !l.split('/').any(|part| REBUILDABLE.contains(&part)) && !l.ends_with(".log"))
+                .filter(|l| {
+                    !l.split('/').any(|part| REBUILDABLE.contains(&part)) && !l.ends_with(".log")
+                })
                 .map(str::to_string)
                 .collect();
             let mut detail = format!(
@@ -221,11 +303,25 @@ pub fn stale_projects(repos: &[PathBuf], now: SystemTime, idle_days: u64) -> Vec
                 let more = extra.len().saturating_sub(3);
                 extra.truncate(3);
                 let list = extra.join(", ");
-                let tail = if more > 0 { format!(" and {more} more") } else { String::new() };
-                detail.push_str(&format!(" Not on the remote: {list}{tail} (git ignores them)."));
+                let tail = if more > 0 {
+                    format!(" and {more} more")
+                } else {
+                    String::new()
+                };
+                detail.push_str(&format!(
+                    " Not on the remote: {list}{tail} (git ignores them)."
+                ));
             }
-            let name = repo.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-            Some(Found { path: repo.clone(), label: Some(format!("{name} project")), detail: Some(detail), ..Found::default() })
+            let name = repo
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            Some(Found {
+                path: repo.clone(),
+                label: Some(format!("{name} project")),
+                detail: Some(detail),
+                ..Found::default()
+            })
         })
         .collect()
 }
@@ -247,12 +343,18 @@ pub fn git_garbage(repos: &[PathBuf], min_bytes: u64) -> Vec<Found> {
                     .unwrap_or(0)
             };
             let bytes = (kib("size") + kib("size-garbage")) * 1024;
-            let name = repo.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+            let name = repo
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_default();
             (bytes >= min_bytes.max(1)).then(|| Found {
                 label: Some(format!("{name} git objects")),
                 path: repo.join(".git"),
                 bytes: Some(bytes),
-                detail: Some(format!("{} loose objects that `git gc` packs together.", kib("count"))),
+                detail: Some(format!(
+                    "{} loose objects that `git gc` packs together.",
+                    kib("count")
+                )),
                 ..Found::default()
             })
         })
@@ -265,13 +367,25 @@ pub fn git_garbage(repos: &[PathBuf], min_bytes: u64) -> Vec<Found> {
 /// simulator finders don't run at all.
 pub fn has_xcode(apps_dir: &Path) -> bool {
     fs::read_dir(apps_dir)
-        .map(|rd| rd.flatten().any(|e| e.file_name().to_string_lossy().starts_with("Xcode") && e.path().extension().is_some_and(|x| x == "app")))
+        .map(|rd| {
+            rd.flatten().any(|e| {
+                e.file_name().to_string_lossy().starts_with("Xcode")
+                    && e.path().extension().is_some_and(|x| x == "app")
+            })
+        })
         .unwrap_or(false)
 }
 
 pub fn simctl(args: &[&str]) -> Option<String> {
-    let out = Command::new("xcrun").arg("simctl").args(args).stderr(Stdio::null()).output().ok()?;
-    out.status.success().then(|| String::from_utf8_lossy(&out.stdout).into_owned())
+    let out = Command::new("xcrun")
+        .arg("simctl")
+        .args(args)
+        .stderr(Stdio::null())
+        .output()
+        .ok()?;
+    out.status
+        .success()
+        .then(|| String::from_utf8_lossy(&out.stdout).into_owned())
 }
 
 fn version_key(v: &str) -> Vec<u64> {
@@ -291,8 +405,15 @@ fn platform_name(id: &str) -> &str {
 /// Simulator runtimes (`simctl runtime list -j`) that a newer one of the
 /// same platform replaced, or that no simulator (`simctl list devices -j`)
 /// booted in `idle_days`.
-pub fn simulator_runtimes(runtimes_json: &str, devices_json: &str, now: SystemTime, idle_days: u64) -> Vec<Found> {
-    let Ok(serde_json::Value::Object(rts)) = serde_json::from_str::<serde_json::Value>(runtimes_json) else {
+pub fn simulator_runtimes(
+    runtimes_json: &str,
+    devices_json: &str,
+    now: SystemTime,
+    idle_days: u64,
+) -> Vec<Found> {
+    let Ok(serde_json::Value::Object(rts)) =
+        serde_json::from_str::<serde_json::Value>(runtimes_json)
+    else {
         return Vec::new();
     };
     let devices: serde_json::Value = serde_json::from_str(devices_json).unwrap_or_default();
@@ -305,12 +426,15 @@ pub fn simulator_runtimes(runtimes_json: &str, devices_json: &str, now: SystemTi
     };
     let str_of = |v: &serde_json::Value, k: &str| v[k].as_str().unwrap_or("").to_string();
     // Apple's beta builds end in a letter (24B91016s); releases don't (24B8117).
-    let is_beta = |rt: &serde_json::Value| str_of(rt, "build").ends_with(|c: char| c.is_ascii_lowercase());
+    let is_beta =
+        |rt: &serde_json::Value| str_of(rt, "build").ends_with(|c: char| c.is_ascii_lowercase());
     // The newest final release of each platform.
     let mut final_release: HashMap<String, Vec<u64>> = HashMap::new();
     for rt in rts.values().filter(|rt| !is_beta(rt)) {
         let key = version_key(&str_of(rt, "version"));
-        let e = final_release.entry(str_of(rt, "platformIdentifier")).or_default();
+        let e = final_release
+            .entry(str_of(rt, "platformIdentifier"))
+            .or_default();
         if key > *e {
             *e = key;
         }
@@ -359,7 +483,9 @@ pub fn simulator_runtimes(runtimes_json: &str, devices_json: &str, now: SystemTi
 /// Simulators whose runtime is gone: they can never start again.
 pub fn unavailable_simulators(devices_json: &str) -> Vec<Found> {
     let devices: serde_json::Value = serde_json::from_str(devices_json).unwrap_or_default();
-    let Some(map) = devices["devices"].as_object() else { return Vec::new() };
+    let Some(map) = devices["devices"].as_object() else {
+        return Vec::new();
+    };
     let mut out: Vec<Found> = map
         .values()
         .filter_map(|v| v.as_array())
@@ -371,7 +497,9 @@ pub fn unavailable_simulators(devices_json: &str) -> Vec<Found> {
             Some(Found {
                 label: Some(format!("{name} simulator (broken)")),
                 path: data.parent()?.to_path_buf(),
-                detail: Some(format!("{name}: its runtime isn't installed anymore, so it can't start.")),
+                detail: Some(format!(
+                    "{name}: its runtime isn't installed anymore, so it can't start."
+                )),
                 id: Some(d["udid"].as_str()?.to_string()),
                 ..Found::default()
             })
@@ -385,16 +513,46 @@ pub fn unavailable_simulators(devices_json: &str) -> Vec<Found> {
 
 /// Where to look, relative to home, and whether any file counts or only
 /// throwaway kinds (disk images, installers, archives).
-const FILE_PLACES: &[(&str, bool)] = &[("Downloads", true), ("Desktop", false), ("Documents", false)];
+const FILE_PLACES: &[(&str, bool)] = &[
+    ("Downloads", true),
+    ("Desktop", false),
+    ("Documents", false),
+];
 
 /// Bundles and libraries that are one thing to the person; never looked into.
 const PACKAGE_EXTS: &[&str] = &[
-    "app", "photoslibrary", "fcpbundle", "logicx", "band", "xcarchive", "bundle", "framework", "imovielibrary",
-    "musiclibrary", "tvlibrary", "lrlibrary", "lrdata", "aplibrary", "playgroundbook", "sparsebundle", "pages", "key", "numbers",
+    "app",
+    "photoslibrary",
+    "fcpbundle",
+    "logicx",
+    "band",
+    "xcarchive",
+    "bundle",
+    "framework",
+    "imovielibrary",
+    "musiclibrary",
+    "tvlibrary",
+    "lrlibrary",
+    "lrdata",
+    "aplibrary",
+    "playgroundbook",
+    "sparsebundle",
+    "pages",
+    "key",
+    "numbers",
 ];
 
 /// Folders inside projects that other rules already handle.
-const SKIP_DIRS: &[&str] = &["node_modules", "target", "build", "dist", "Pods", "DerivedData", "venv", "__pycache__"];
+const SKIP_DIRS: &[&str] = &[
+    "node_modules",
+    "target",
+    "build",
+    "dist",
+    "Pods",
+    "DerivedData",
+    "venv",
+    "__pycache__",
+];
 
 /// What a file is, by its extension: (description, throwaway kind).
 fn file_kind(ext: &str) -> (&'static str, bool) {
@@ -403,7 +561,9 @@ fn file_kind(ext: &str) -> (&'static str, bool) {
         "pkg" | "mpkg" | "xip" => ("an installer", true),
         "ipa" | "apk" | "aab" | "xapk" => ("an app package", true),
         "zip" | "tar" | "gz" | "tgz" | "bz2" | "xz" | "7z" | "rar" | "zst" => ("an archive", true),
-        "vmdk" | "vdi" | "qcow2" | "vhd" | "vhdx" | "ova" | "ovf" => ("a virtual machine disk", true),
+        "vmdk" | "vdi" | "qcow2" | "vhd" | "vhdx" | "ova" | "ovf" => {
+            ("a virtual machine disk", true)
+        }
         "mp4" | "mov" | "mkv" | "avi" | "webm" | "m4v" => ("a video", false),
         "mp3" | "wav" | "flac" | "m4a" | "aiff" => ("an audio file", false),
         "pdf" | "epub" => ("a document", false),
@@ -415,7 +575,13 @@ fn file_kind(ext: &str) -> (&'static str, bool) {
 /// images, installers and archives in Desktop and Documents. Your own
 /// documents, photos and videos elsewhere are never listed. Spotlight's
 /// last-opened date counts when it has one, then the file's own dates.
-pub fn large_files(home: &Path, usage: &dyn Fn(&[PathBuf]) -> Vec<AppUsage>, now: SystemTime, idle_days: u64, min_bytes: u64) -> Vec<Found> {
+pub fn large_files(
+    home: &Path,
+    usage: &dyn Fn(&[PathBuf]) -> Vec<AppUsage>,
+    now: SystemTime,
+    idle_days: u64,
+    min_bytes: u64,
+) -> Vec<Found> {
     use std::os::unix::fs::MetadataExt;
     let mut hits: Vec<(PathBuf, u64, &'static str, SystemTime)> = Vec::new();
     for (place, any) in FILE_PLACES {
@@ -429,9 +595,16 @@ pub fn large_files(home: &Path, usage: &dyn Fn(&[PathBuf]) -> Vec<AppUsage>, now
                 }
                 let Ok(m) = e.metadata() else { continue };
                 let path = e.path();
-                let ext = path.extension().map(|x| x.to_string_lossy().to_lowercase()).unwrap_or_default();
+                let ext = path
+                    .extension()
+                    .map(|x| x.to_string_lossy().to_lowercase())
+                    .unwrap_or_default();
                 if m.is_dir() {
-                    if depth < 8 && !PACKAGE_EXTS.contains(&ext.as_str()) && !SKIP_DIRS.contains(&name.as_str()) && !e.file_type().is_ok_and(|t| t.is_symlink()) {
+                    if depth < 8
+                        && !PACKAGE_EXTS.contains(&ext.as_str())
+                        && !SKIP_DIRS.contains(&name.as_str())
+                        && !e.file_type().is_ok_and(|t| t.is_symlink())
+                    {
                         stack.push((path, depth + 1));
                     }
                     continue;
@@ -442,7 +615,11 @@ pub fn large_files(home: &Path, usage: &dyn Fn(&[PathBuf]) -> Vec<AppUsage>, now
                     continue;
                 }
                 // The latest sign of use the file itself carries.
-                let touched = [m.modified().ok(), m.accessed().ok()].into_iter().flatten().max().unwrap_or(now);
+                let touched = [m.modified().ok(), m.accessed().ok()]
+                    .into_iter()
+                    .flatten()
+                    .max()
+                    .unwrap_or(now);
                 hits.push((path, bytes, what, touched));
             }
         }
@@ -452,18 +629,34 @@ pub fn large_files(home: &Path, usage: &dyn Fn(&[PathBuf]) -> Vec<AppUsage>, now
     let spotlight = usage(&paths);
     let mut out: Vec<Found> = hits
         .into_iter()
-        .zip(spotlight.into_iter().chain(std::iter::repeat(AppUsage::default())))
+        .zip(
+            spotlight
+                .into_iter()
+                .chain(std::iter::repeat(AppUsage::default())),
+        )
         .filter_map(|((path, bytes, what, touched), u)| {
             let last = [Some(touched), u.last_used].into_iter().flatten().max()?;
             let days = days_since(last, now);
             if days < idle_days {
                 return None;
             }
-            let folder = path.parent()?.strip_prefix(home).ok()?.display().to_string();
-            let what = what.strip_prefix("a ").or_else(|| what.strip_prefix("an ")).map(|w| {
-                let article = if w.starts_with(['a', 'e', 'i', 'o', 'u']) { "An" } else { "A" };
-                format!("{article} {w}")
-            })?;
+            let folder = path
+                .parent()?
+                .strip_prefix(home)
+                .ok()?
+                .display()
+                .to_string();
+            let what = what
+                .strip_prefix("a ")
+                .or_else(|| what.strip_prefix("an "))
+                .map(|w| {
+                    let article = if w.starts_with(['a', 'e', 'i', 'o', 'u']) {
+                        "An"
+                    } else {
+                        "A"
+                    };
+                    format!("{article} {w}")
+                })?;
             Some(Found {
                 label: Some(path.file_name()?.to_string_lossy().into_owned()),
                 bytes: Some(bytes),
@@ -498,7 +691,13 @@ pub fn npm_tools(root: &Path) -> Vec<ToolInstall> {
     for e in fs::read_dir(root).into_iter().flatten().flatten() {
         let name = e.file_name().to_string_lossy().into_owned();
         if name.starts_with('@') {
-            dirs.extend(fs::read_dir(e.path()).into_iter().flatten().flatten().map(|s| s.path()));
+            dirs.extend(
+                fs::read_dir(e.path())
+                    .into_iter()
+                    .flatten()
+                    .flatten()
+                    .map(|s| s.path()),
+            );
         } else if !name.starts_with('.') {
             dirs.push(e.path());
         }
@@ -506,20 +705,35 @@ pub fn npm_tools(root: &Path) -> Vec<ToolInstall> {
     let mut out: Vec<ToolInstall> = dirs
         .into_iter()
         .filter_map(|dir| {
-            let pkg: serde_json::Value = serde_json::from_str(&fs::read_to_string(dir.join("package.json")).ok()?).ok()?;
+            let pkg: serde_json::Value =
+                serde_json::from_str(&fs::read_to_string(dir.join("package.json")).ok()?).ok()?;
             let name = pkg["name"].as_str()?.to_string();
             if matches!(name.as_str(), "npm" | "corepack") {
                 return None;
             }
             // "bin": "cli.js" is named after the package (without its @scope/).
             let bins: Vec<(String, &str)> = match &pkg["bin"] {
-                serde_json::Value::String(s) => vec![(name.rsplit('/').next().unwrap_or(&name).to_string(), s.as_str())],
-                serde_json::Value::Object(m) => m.iter().filter_map(|(k, v)| Some((k.clone(), v.as_str()?))).collect(),
+                serde_json::Value::String(s) => vec![(
+                    name.rsplit('/').next().unwrap_or(&name).to_string(),
+                    s.as_str(),
+                )],
+                serde_json::Value::Object(m) => m
+                    .iter()
+                    .filter_map(|(k, v)| Some((k.clone(), v.as_str()?)))
+                    .collect(),
                 _ => vec![],
             };
-            let (names, commands): (Vec<String>, Vec<PathBuf>) =
-                bins.into_iter().map(|(n, b)| (n, dir.join(b))).filter(|(_, p)| p.is_file()).unzip();
-            (!commands.is_empty()).then_some(ToolInstall { name, dir, commands, names })
+            let (names, commands): (Vec<String>, Vec<PathBuf>) = bins
+                .into_iter()
+                .map(|(n, b)| (n, dir.join(b)))
+                .filter(|(_, p)| p.is_file())
+                .unzip();
+            (!commands.is_empty()).then_some(ToolInstall {
+                name,
+                dir,
+                commands,
+                names,
+            })
         })
         .collect();
     out.sort_by(|a, b| a.name.cmp(&b.name));
@@ -534,7 +748,8 @@ pub fn uv_tools(tools_dir: &Path) -> Vec<ToolInstall> {
         .flatten()
         .filter_map(|e| {
             let dir = e.path();
-            let receipt: toml::Value = toml::from_str(&fs::read_to_string(dir.join("uv-receipt.toml")).ok()?).ok()?;
+            let receipt: toml::Value =
+                toml::from_str(&fs::read_to_string(dir.join("uv-receipt.toml")).ok()?).ok()?;
             let commands: Vec<PathBuf> = receipt["tool"]["entrypoints"]
                 .as_array()?
                 .iter()
@@ -542,8 +757,16 @@ pub fn uv_tools(tools_dir: &Path) -> Vec<ToolInstall> {
                 .filter(|p| p.is_file())
                 .collect();
             let name = e.file_name().to_string_lossy().into_owned();
-            let names = commands.iter().filter_map(|c| Some(c.file_name()?.to_string_lossy().into_owned())).collect();
-            (!commands.is_empty()).then_some(ToolInstall { name, dir, commands, names })
+            let names = commands
+                .iter()
+                .filter_map(|c| Some(c.file_name()?.to_string_lossy().into_owned()))
+                .collect();
+            (!commands.is_empty()).then_some(ToolInstall {
+                name,
+                dir,
+                commands,
+                names,
+            })
         })
         .collect();
     out.sort_by(|a, b| a.name.cmp(&b.name));
@@ -558,7 +781,9 @@ pub fn pipx_tools(venvs: &Path) -> Vec<ToolInstall> {
         .flatten()
         .filter_map(|e| {
             let dir = e.path();
-            let meta: serde_json::Value = serde_json::from_str(&fs::read_to_string(dir.join("pipx_metadata.json")).ok()?).ok()?;
+            let meta: serde_json::Value =
+                serde_json::from_str(&fs::read_to_string(dir.join("pipx_metadata.json")).ok()?)
+                    .ok()?;
             let main = &meta["main_package"];
             let commands: Vec<PathBuf> = main["apps"]
                 .as_array()?
@@ -566,9 +791,20 @@ pub fn pipx_tools(venvs: &Path) -> Vec<ToolInstall> {
                 .filter_map(|a| a.as_str().map(|n| dir.join("bin").join(n)))
                 .filter(|p| p.is_file())
                 .collect();
-            let name = main["package"].as_str().map(String::from).unwrap_or_else(|| e.file_name().to_string_lossy().into_owned());
-            let names = commands.iter().filter_map(|c| Some(c.file_name()?.to_string_lossy().into_owned())).collect();
-            (!commands.is_empty()).then_some(ToolInstall { name, dir, commands, names })
+            let name = main["package"]
+                .as_str()
+                .map(String::from)
+                .unwrap_or_else(|| e.file_name().to_string_lossy().into_owned());
+            let names = commands
+                .iter()
+                .filter_map(|c| Some(c.file_name()?.to_string_lossy().into_owned()))
+                .collect();
+            (!commands.is_empty()).then_some(ToolInstall {
+                name,
+                dir,
+                commands,
+                names,
+            })
         })
         .collect();
     out.sort_by(|a, b| a.name.cmp(&b.name));
@@ -583,7 +819,13 @@ pub fn created(path: &Path) -> Option<SystemTime> {
 /// Tools none of whose commands ran for `idle_days`, going by when their
 /// files were last read (running a command reads it). A tool installed
 /// within `idle_days`, or with a command running now, is left out.
-pub fn unused_tools(tools: &[ToolInstall], env: &Env, now: SystemTime, idle_days: u64, installed: impl Fn(&Path) -> Option<SystemTime>) -> Vec<Found> {
+pub fn unused_tools(
+    tools: &[ToolInstall],
+    env: &Env,
+    now: SystemTime,
+    idle_days: u64,
+    installed: impl Fn(&Path) -> Option<SystemTime>,
+) -> Vec<Found> {
     let mut out: Vec<Found> = tools
         .iter()
         .filter_map(|t| {
@@ -594,7 +836,11 @@ pub fn unused_tools(tools: &[ToolInstall], env: &Env, now: SystemTime, idle_days
             if names.iter().any(|n| env.is_running(n)) {
                 return None;
             }
-            let last = t.commands.iter().filter_map(|c| fs::metadata(c).ok()?.accessed().ok()).max()?;
+            let last = t
+                .commands
+                .iter()
+                .filter_map(|c| fs::metadata(c).ok()?.accessed().ok())
+                .max()?;
             let days = days_since(last, now);
             if days < idle_days {
                 return None;
@@ -637,7 +883,10 @@ mod tests {
     fn parses_dates() {
         let t = parse_mdls_date("2026-11-17 21:27:51 +0000").unwrap();
         assert_eq!(t, parse_iso("2026-11-17T21:27:51Z").unwrap());
-        assert_eq!(t.duration_since(UNIX_EPOCH).unwrap().as_secs(), 1_794_950_871);
+        assert_eq!(
+            t.duration_since(UNIX_EPOCH).unwrap().as_secs(),
+            1_794_950_871
+        );
         assert!(parse_mdls_date("-").is_none());
         assert!(parse_mdls_date("").is_none());
     }
@@ -645,7 +894,14 @@ mod tests {
     #[test]
     fn unused_apps_by_last_open_or_install() {
         let d = tempfile::tempdir().unwrap();
-        for a in ["Old.app", "Fresh.app", "Never.app", "Unknown.app", "Open.app", "Roomy.app"] {
+        for a in [
+            "Old.app",
+            "Fresh.app",
+            "Never.app",
+            "Unknown.app",
+            "Open.app",
+            "Roomy.app",
+        ] {
             fs::create_dir(d.path().join(a)).unwrap();
         }
         fs::write(d.path().join("notes.txt"), "x").unwrap();
@@ -653,27 +909,58 @@ mod tests {
         let usage = |apps: &[PathBuf]| -> Vec<AppUsage> {
             apps.iter()
                 .map(|p| match p.file_stem().unwrap().to_str().unwrap() {
-                    "Old" | "Open" | "Roomy" => AppUsage { last_used: Some(days_ago(now, 200)), added: None },
-                    "Fresh" => AppUsage { last_used: Some(days_ago(now, 3)), added: Some(days_ago(now, 900)) },
-                    "Never" => AppUsage { last_used: None, added: Some(days_ago(now, 400)) },
+                    "Old" | "Open" | "Roomy" => AppUsage {
+                        last_used: Some(days_ago(now, 200)),
+                        added: None,
+                    },
+                    "Fresh" => AppUsage {
+                        last_used: Some(days_ago(now, 3)),
+                        added: Some(days_ago(now, 900)),
+                    },
+                    "Never" => AppUsage {
+                        last_used: None,
+                        added: Some(days_ago(now, 400)),
+                    },
                     _ => AppUsage::default(),
                 })
                 .collect()
         };
         let env = Env::from_parts(&["open"], &[]);
         let found = unused_apps(d.path(), &usage, &env, now, 90);
-        let names: Vec<_> = found.iter().map(|f| f.path.file_name().unwrap().to_str().unwrap()).collect();
+        let names: Vec<_> = found
+            .iter()
+            .map(|f| f.path.file_name().unwrap().to_str().unwrap())
+            .collect();
         assert_eq!(names, ["Never.app", "Old.app", "Open.app"]);
-        assert!(found[0].detail.as_ref().unwrap().starts_with("Never opened since it was installed 13 months ago."));
-        assert!(found[1].detail.as_ref().unwrap().starts_with("Last opened 6 months ago."));
+        assert!(
+            found[0]
+                .detail
+                .as_ref()
+                .unwrap()
+                .starts_with("Never opened since it was installed 13 months ago.")
+        );
+        assert!(
+            found[1]
+                .detail
+                .as_ref()
+                .unwrap()
+                .starts_with("Last opened 6 months ago.")
+        );
         assert_eq!(found[1].blocked, None);
         assert_eq!(found[2].blocked.as_deref(), Some("Open is open"));
     }
 
     fn sh(dir: &Path, args: &[&str], date: Option<&str>) {
         let mut c = Command::new("git");
-        c.arg("-C").arg(dir).args(args).env("GIT_CONFIG_GLOBAL", "/dev/null").env("GIT_CONFIG_SYSTEM", "/dev/null");
-        c.env("GIT_AUTHOR_NAME", "t").env("GIT_AUTHOR_EMAIL", "t@t").env("GIT_COMMITTER_NAME", "t").env("GIT_COMMITTER_EMAIL", "t@t");
+        c.arg("-C")
+            .arg(dir)
+            .args(args)
+            .env("GIT_CONFIG_GLOBAL", "/dev/null")
+            .env("GIT_CONFIG_SYSTEM", "/dev/null");
+        c.env("GIT_AUTHOR_NAME", "t")
+            .env("GIT_AUTHOR_EMAIL", "t@t")
+            .env("GIT_COMMITTER_NAME", "t")
+            .env("GIT_COMMITTER_EMAIL", "t@t");
         if let Some(d) = date {
             c.env("GIT_AUTHOR_DATE", d).env("GIT_COMMITTER_DATE", d);
         }
@@ -686,16 +973,27 @@ mod tests {
         let remote = root.join(format!("{name}.git"));
         let repo = root.join(name);
         fs::create_dir_all(&repo).unwrap();
-        sh(root, &["init", "-q", "--bare", remote.to_str().unwrap()], None);
+        sh(
+            root,
+            &["init", "-q", "--bare", remote.to_str().unwrap()],
+            None,
+        );
         sh(&repo, &["init", "-q", "-b", "main"], None);
         fs::write(repo.join("README"), "hi").unwrap();
         fs::write(repo.join(".gitignore"), "node_modules\n.env\n").unwrap();
         sh(&repo, &["add", "."], None);
         // A few days past 300, so the test's own `now` (taken earlier) still sees 10 months.
         let when = SystemTime::now() - Duration::from_secs(305 * DAY);
-        let stamp = format!("@{} +0000", when.duration_since(UNIX_EPOCH).unwrap().as_secs());
+        let stamp = format!(
+            "@{} +0000",
+            when.duration_since(UNIX_EPOCH).unwrap().as_secs()
+        );
         sh(&repo, &["commit", "-q", "-m", "first"], Some(&stamp));
-        sh(&repo, &["remote", "add", "origin", remote.to_str().unwrap()], None);
+        sh(
+            &repo,
+            &["remote", "add", "origin", remote.to_str().unwrap()],
+            None,
+        );
         sh(&repo, &["push", "-q", "-u", "origin", "main"], None);
         age_tree(&repo, when);
         repo
@@ -707,9 +1005,15 @@ mod tests {
             if e.file_type().unwrap().is_dir() {
                 age_tree(&p, t);
             }
-            let _ = fs::File::options().read(true).open(&p).and_then(|f| f.set_modified(t));
+            let _ = fs::File::options()
+                .read(true)
+                .open(&p)
+                .and_then(|f| f.set_modified(t));
         }
-        let _ = fs::File::options().read(true).open(dir).and_then(|f| f.set_modified(t));
+        let _ = fs::File::options()
+            .read(true)
+            .open(dir)
+            .and_then(|f| f.set_modified(t));
     }
 
     #[test]
@@ -734,15 +1038,37 @@ mod tests {
         let mut paths: Vec<_> = found.iter().map(|f| f.path.clone()).collect();
         paths.sort();
         assert_eq!(paths, [clean.clone(), secret.clone()]);
-        let detail = |p: &Path| found.iter().find(|f| f.path == p).unwrap().detail.clone().unwrap();
-        assert!(detail(&clean).starts_with("Last commit 10 months ago. Everything is pushed to"), "{}", detail(&clean));
+        let detail = |p: &Path| {
+            found
+                .iter()
+                .find(|f| f.path == p)
+                .unwrap()
+                .detail
+                .clone()
+                .unwrap()
+        };
+        assert!(
+            detail(&clean).starts_with("Last commit 10 months ago. Everything is pushed to"),
+            "{}",
+            detail(&clean)
+        );
         assert!(!detail(&clean).contains("Not on the remote"));
-        assert!(detail(&secret).contains("Not on the remote: .env (git ignores them)."), "{}", detail(&secret));
+        assert!(
+            detail(&secret).contains("Not on the remote: .env (git ignores them)."),
+            "{}",
+            detail(&secret)
+        );
 
         // A commit that only exists locally keeps the project.
         fs::write(clean.join("more.txt"), "x").unwrap();
         sh(&clean, &["add", "."], None);
-        let old = format!("@{} +0000", days_ago(now, 250).duration_since(UNIX_EPOCH).unwrap().as_secs());
+        let old = format!(
+            "@{} +0000",
+            days_ago(now, 250)
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs()
+        );
         sh(&clean, &["commit", "-q", "-m", "local"], Some(&old));
         age_tree(&clean, days_ago(now, 250));
         assert!(stale_projects(&[clean], now, 180).is_empty());
@@ -750,7 +1076,10 @@ mod tests {
 
     #[test]
     fn remotes_lose_credentials() {
-        assert_eq!(clean_remote("https://user:tok@github.com/a/b.git"), "github.com/a/b");
+        assert_eq!(
+            clean_remote("https://user:tok@github.com/a/b.git"),
+            "github.com/a/b"
+        );
         assert_eq!(clean_remote("git@github.com:a/b.git"), "github.com/a/b");
         assert_eq!(clean_remote("/tmp/x/b.git"), "/tmp/x/b");
     }
@@ -793,9 +1122,22 @@ mod tests {
         let ids: Vec<_> = found.iter().map(|f| f.id.clone().unwrap()).collect();
         assert_eq!(ids, ["A", "C"], "B is newest and used; D can't be deleted");
         assert_eq!(found[0].bytes, Some(8000));
-        assert_eq!(found[0].label.as_deref(), Some("iOS 26.0 Simulator runtime"));
-        assert_eq!(found[0].detail.as_deref(), Some("iOS 26.0: a newer iOS runtime is installed, and there's no record of a simulator running on it."));
-        assert_eq!(found[1].detail.as_deref(), Some("watchOS 12.0: there's no record of a simulator running on it. Xcode downloads it again if you need it."));
+        assert_eq!(
+            found[0].label.as_deref(),
+            Some("iOS 26.0 Simulator runtime")
+        );
+        assert_eq!(
+            found[0].detail.as_deref(),
+            Some(
+                "iOS 26.0: a newer iOS runtime is installed, and there's no record of a simulator running on it."
+            )
+        );
+        assert_eq!(
+            found[1].detail.as_deref(),
+            Some(
+                "watchOS 12.0: there's no record of a simulator running on it. Xcode downloads it again if you need it."
+            )
+        );
 
         let found = simulator_runtimes(RUNTIMES, &devices("2026-01-01T10:00:00Z"), now, 90);
         assert!(found.iter().any(|f| f.id.as_deref() == Some("B")
@@ -809,7 +1151,10 @@ mod tests {
         assert_eq!(found.len(), 1);
         assert_eq!(found[0].path, PathBuf::from("/H/Devices/U2"));
         assert_eq!(found[0].id.as_deref(), Some("U2"));
-        assert_eq!(found[0].label.as_deref(), Some("Old iPhone simulator (broken)"));
+        assert_eq!(
+            found[0].label.as_deref(),
+            Some("Old iPhone simulator (broken)")
+        );
     }
 
     #[test]
@@ -828,8 +1173,16 @@ mod tests {
         let found = simulator_runtimes(json, dev, now, 90);
         let ids: Vec<_> = found.iter().map(|f| f.id.clone().unwrap()).collect();
         assert_eq!(ids, ["BETA"], "the final 27.2 and the newer 28.0 beta stay");
-        assert_eq!(found[0].label.as_deref(), Some("iOS 27.2 beta Simulator runtime"));
-        assert_eq!(found[0].detail.as_deref(), Some("iOS 27.2 beta (24B91016s): the final iOS 27.2 is installed too, so the beta isn't needed."));
+        assert_eq!(
+            found[0].label.as_deref(),
+            Some("iOS 27.2 beta Simulator runtime")
+        );
+        assert_eq!(
+            found[0].detail.as_deref(),
+            Some(
+                "iOS 27.2 beta (24B91016s): the final iOS 27.2 is installed too, so the beta isn't needed."
+            )
+        );
     }
 
     fn touch(p: &Path, bytes: usize, days_old: u64, now: SystemTime) {
@@ -837,7 +1190,8 @@ mod tests {
         fs::write(p, vec![7u8; bytes]).unwrap();
         let t = days_ago(now, days_old);
         let f = fs::File::options().write(true).open(p).unwrap();
-        f.set_times(fs::FileTimes::new().set_accessed(t).set_modified(t)).unwrap();
+        f.set_times(fs::FileTimes::new().set_accessed(t).set_modified(t))
+            .unwrap();
     }
 
     #[test]
@@ -852,23 +1206,55 @@ mod tests {
         touch(&h.join("Documents/thesis.pdf"), 300_000, 700, now);
         touch(&h.join("Desktop/old.dmg"), 300_000, 300, now);
         touch(&h.join("Documents/.hidden/x.zip"), 300_000, 700, now);
-        touch(&h.join("Documents/app/node_modules/big.tgz"), 300_000, 700, now);
-        touch(&h.join("Documents/Photos.photoslibrary/x.zip"), 300_000, 700, now);
+        touch(
+            &h.join("Documents/app/node_modules/big.tgz"),
+            300_000,
+            700,
+            now,
+        );
+        touch(
+            &h.join("Documents/Photos.photoslibrary/x.zip"),
+            300_000,
+            700,
+            now,
+        );
         touch(&h.join("Movies/holiday.mov"), 300_000, 700, now);
         // Spotlight says the Desktop image was opened last week.
         let usage = |paths: &[PathBuf]| -> Vec<AppUsage> {
-            paths.iter().map(|p| AppUsage {
-                last_used: p.ends_with("Desktop/old.dmg").then(|| days_ago(now, 7)),
-                added: None,
-            }).collect()
+            paths
+                .iter()
+                .map(|p| AppUsage {
+                    last_used: p.ends_with("Desktop/old.dmg").then(|| days_ago(now, 7)),
+                    added: None,
+                })
+                .collect()
         };
         let found = large_files(h, &usage, now, 180, 100_000);
-        let names: Vec<_> = found.iter().map(|f| f.path.strip_prefix(h).unwrap().to_str().unwrap().to_string()).collect();
-        assert_eq!(names, ["Documents/T5/lineage-2021.img", "Downloads/movie.mp4"],
-                   "not new, small, recently opened, hidden, inside projects or libraries, your documents or Movies");
+        let names: Vec<_> = found
+            .iter()
+            .map(|f| {
+                f.path
+                    .strip_prefix(h)
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                    .to_string()
+            })
+            .collect();
+        assert_eq!(
+            names,
+            ["Documents/T5/lineage-2021.img", "Downloads/movie.mp4"],
+            "not new, small, recently opened, hidden, inside projects or libraries, your documents or Movies"
+        );
         assert_eq!(found[0].label.as_deref(), Some("lineage-2021.img"));
-        assert_eq!(found[0].detail.as_deref(), Some("A disk image in Documents/T5, not opened in 23 months."));
-        assert_eq!(found[1].detail.as_deref(), Some("A video in Downloads, not opened in 13 months."));
+        assert_eq!(
+            found[0].detail.as_deref(),
+            Some("A disk image in Documents/T5, not opened in 23 months.")
+        );
+        assert_eq!(
+            found[1].detail.as_deref(),
+            Some("A video in Downloads, not opened in 13 months.")
+        );
     }
 
     #[test]
@@ -877,17 +1263,33 @@ mod tests {
         let now = SystemTime::now();
         let npm = d.path().join("lib/node_modules");
         touch(&npm.join("old-tool/cli.js"), 10, 200, now);
-        fs::write(npm.join("old-tool/package.json"), r#"{"name":"old-tool","bin":{"old":"cli.js"}}"#).unwrap();
+        fs::write(
+            npm.join("old-tool/package.json"),
+            r#"{"name":"old-tool","bin":{"old":"cli.js"}}"#,
+        )
+        .unwrap();
         touch(&npm.join("@scope/used/bin/run.js"), 10, 3, now);
-        fs::write(npm.join("@scope/used/package.json"), r#"{"name":"@scope/used","bin":"bin/run.js"}"#).unwrap();
+        fs::write(
+            npm.join("@scope/used/package.json"),
+            r#"{"name":"@scope/used","bin":"bin/run.js"}"#,
+        )
+        .unwrap();
         touch(&npm.join("lib-only/index.js"), 10, 200, now);
         fs::write(npm.join("lib-only/package.json"), r#"{"name":"lib-only"}"#).unwrap();
         touch(&npm.join("npm/bin/npm-cli.js"), 10, 200, now);
-        fs::write(npm.join("npm/package.json"), r#"{"name":"npm","bin":{"npm":"bin/npm-cli.js"}}"#).unwrap();
+        fs::write(
+            npm.join("npm/package.json"),
+            r#"{"name":"npm","bin":{"npm":"bin/npm-cli.js"}}"#,
+        )
+        .unwrap();
         let tools = npm_tools(&npm);
         let mut names: Vec<_> = tools.iter().map(|t| t.name.as_str()).collect();
         names.sort();
-        assert_eq!(names, ["@scope/used", "old-tool"], "libraries without commands and npm itself are left out");
+        assert_eq!(
+            names,
+            ["@scope/used", "old-tool"],
+            "libraries without commands and npm itself are left out"
+        );
 
         let uv = d.path().join("uv/tools");
         touch(&uv.join("docling/bin/docling"), 10, 100, now);
@@ -898,21 +1300,42 @@ mod tests {
 
         let pipx = d.path().join("pipx/venvs");
         touch(&pipx.join("black/bin/black"), 10, 100, now);
-        fs::write(pipx.join("black/pipx_metadata.json"), r#"{"main_package":{"package":"black","apps":["black","blackd"]}}"#).unwrap();
+        fs::write(
+            pipx.join("black/pipx_metadata.json"),
+            r#"{"main_package":{"package":"black","apps":["black","blackd"]}}"#,
+        )
+        .unwrap();
         let pipx_tools = pipx_tools(&pipx);
         assert_eq!(pipx_tools[0].name, "black");
 
         let env = Env::from_parts(&[], &[]);
         // Installed long ago: set the folders' own times back too.
-        let all: Vec<ToolInstall> = tools.into_iter().chain(uv_tools).chain(pipx_tools).collect();
+        let all: Vec<ToolInstall> = tools
+            .into_iter()
+            .chain(uv_tools)
+            .chain(pipx_tools)
+            .collect();
         let found = unused_tools(&all, &env, now, 60, |_| Some(days_ago(now, 300)));
         let ids: Vec<_> = found.iter().map(|f| f.id.clone().unwrap()).collect();
         assert_eq!(ids, ["black", "docling", "old-tool"]);
-        let old = found.iter().find(|f| f.id.as_deref() == Some("old-tool")).unwrap();
+        let old = found
+            .iter()
+            .find(|f| f.id.as_deref() == Some("old-tool"))
+            .unwrap();
         assert_eq!(old.label.as_deref(), Some("old-tool"));
-        assert_eq!(old.detail.as_deref(), Some("Its command old last ran 6 months ago."));
-        assert!(unused_tools(&all, &env, now, 60, |_| Some(days_ago(now, 20))).is_empty(), "installed recently");
+        assert_eq!(
+            old.detail.as_deref(),
+            Some("Its command old last ran 6 months ago.")
+        );
+        assert!(
+            unused_tools(&all, &env, now, 60, |_| Some(days_ago(now, 20))).is_empty(),
+            "installed recently"
+        );
         let running = Env::from_parts(&["old"], &[]);
-        assert!(unused_tools(&all, &running, now, 60, |_| Some(days_ago(now, 300))).iter().all(|f| f.id.as_deref() != Some("old-tool")));
+        assert!(
+            unused_tools(&all, &running, now, 60, |_| Some(days_ago(now, 300)))
+                .iter()
+                .all(|f| f.id.as_deref() != Some("old-tool"))
+        );
     }
 }

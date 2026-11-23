@@ -55,7 +55,12 @@ pub struct MapOptions {
 
 impl MapOptions {
     pub fn new(home: &Path) -> MapOptions {
-        MapOptions { max_depth: 8, min_bytes: 50_000_000, max_children: 30, home: home.to_path_buf() }
+        MapOptions {
+            max_depth: 8,
+            min_bytes: 50_000_000,
+            max_children: 30,
+            home: home.to_path_buf(),
+        }
     }
 }
 
@@ -71,8 +76,18 @@ pub struct MapDocument {
     pub roots: Vec<Node>,
 }
 
-const BUNDLE_SUFFIX: &[&str] =
-    &[".app", ".photoslibrary", ".musiclibrary", ".tvlibrary", ".fcpbundle", ".framework", ".xcarchive", ".bundle", ".imovielibrary", ".photoslibrary"];
+const BUNDLE_SUFFIX: &[&str] = &[
+    ".app",
+    ".photoslibrary",
+    ".musiclibrary",
+    ".tvlibrary",
+    ".fcpbundle",
+    ".framework",
+    ".xcarchive",
+    ".bundle",
+    ".imovielibrary",
+    ".photoslibrary",
+];
 
 /// Everything on the Mac that isn't the sealed, read-only system: users,
 /// apps, /Library, /private, /opt, /usr/local. macOS shows it merged into `/`.
@@ -80,7 +95,11 @@ pub const DATA_VOLUME: &str = "/System/Volumes/Data";
 
 /// Map the Data volume when there is one: the whole disk, each byte once.
 pub fn disk_roots(has_data_volume: bool) -> Vec<PathBuf> {
-    if has_data_volume { vec![PathBuf::from(DATA_VOLUME)] } else { vec![] }
+    if has_data_volume {
+        vec![PathBuf::from(DATA_VOLUME)]
+    } else {
+        vec![]
+    }
 }
 
 /// The path as you see it: `/System/Volumes/Data/Users` is `/Users`.
@@ -105,10 +124,27 @@ pub fn rebase(node: &mut Node) {
 fn kind_of(path: &Path, name: &str, home: &Path) -> Kind {
     let path = &shown(path);
     if BUNDLE_SUFFIX.iter().any(|s| name.ends_with(s)) {
-        return if name.ends_with("library") { Kind::Personal } else { Kind::Bundle };
+        return if name.ends_with("library") {
+            Kind::Personal
+        } else {
+            Kind::Bundle
+        };
     }
-    let personal = ["Documents", "Desktop", "Pictures", "Movies", "Music", "Library/Mobile Documents", "Library/Mail", "Library/Messages"];
-    if personal.iter().any(|p| *path == home.join(p)) { Kind::Personal } else { Kind::Folder }
+    let personal = [
+        "Documents",
+        "Desktop",
+        "Pictures",
+        "Movies",
+        "Music",
+        "Library/Mobile Documents",
+        "Library/Mail",
+        "Library/Messages",
+    ];
+    if personal.iter().any(|p| *path == home.join(p)) {
+        Kind::Personal
+    } else {
+        Kind::Folder
+    }
 }
 
 struct Walk<'a> {
@@ -124,7 +160,11 @@ pub fn map_root(root: &Path, opts: &MapOptions) -> Option<Node> {
     if !md.is_dir() {
         return None;
     }
-    let w = Walk { opts, dev: md.dev(), links: Mutex::new(HashSet::new()) };
+    let w = Walk {
+        opts,
+        dev: md.dev(),
+        links: Mutex::new(HashSet::new()),
+    };
     let name = root.to_string_lossy().into_owned();
     Some(w.node(root, name, 0))
 }
@@ -140,7 +180,15 @@ impl Walk<'_> {
     fn node(&self, path: &Path, name: String, depth: usize) -> Node {
         let kind = kind_of(path, &name, &self.opts.home);
         let Ok(rd) = fs::read_dir(path) else {
-            return Node { path: path.to_path_buf(), name, kind: Kind::Unreadable, bytes: 0, cleanable: 0, known: None, children: vec![] };
+            return Node {
+                path: path.to_path_buf(),
+                name,
+                kind: Kind::Unreadable,
+                bytes: 0,
+                cleanable: 0,
+                known: None,
+                children: vec![],
+            };
         };
         let mut files = 0u64;
         let mut dirs = Vec::new();
@@ -160,33 +208,63 @@ impl Walk<'_> {
             .par_iter()
             .map(|d| {
                 let p = path.join(d);
-                if list { self.node(&p, d.clone(), depth + 1) } else { self.total(&p, d.clone()) }
+                if list {
+                    self.node(&p, d.clone(), depth + 1)
+                } else {
+                    self.total(&p, d.clone())
+                }
             })
             .collect();
         let bytes = files + children.iter().map(|c| c.bytes).sum::<u64>();
         if !list {
             children.clear();
         } else {
-            let (locked, mut readable): (Vec<Node>, Vec<Node>) = children.into_iter().partition(|c| c.kind == Kind::Unreadable);
+            let (locked, mut readable): (Vec<Node>, Vec<Node>) = children
+                .into_iter()
+                .partition(|c| c.kind == Kind::Unreadable);
             readable.sort_by(|a, b| b.bytes.cmp(&a.bytes).then(a.name.cmp(&b.name)));
             children = readable;
-            let keep = children.iter().take_while(|c| c.bytes >= self.opts.min_bytes).count().min(self.opts.max_children);
+            let keep = children
+                .iter()
+                .take_while(|c| c.bytes >= self.opts.min_bytes)
+                .count()
+                .min(self.opts.max_children);
             let rest: u64 = children.drain(keep..).map(|c| c.bytes).sum();
             if files >= self.opts.min_bytes {
                 children.push(self.leaf(path, "Files here", Kind::Files, files));
             }
-            let small_files = if files >= self.opts.min_bytes { 0 } else { files };
+            let small_files = if files >= self.opts.min_bytes {
+                0
+            } else {
+                files
+            };
             if rest + small_files > 0 {
                 children.push(self.leaf(path, "Smaller items", Kind::Other, rest + small_files));
             }
             children.sort_by(|a, b| b.bytes.cmp(&a.bytes));
             children.extend(locked);
         }
-        Node { path: path.to_path_buf(), name, kind, bytes, cleanable: 0, known: None, children }
+        Node {
+            path: path.to_path_buf(),
+            name,
+            kind,
+            bytes,
+            cleanable: 0,
+            known: None,
+            children,
+        }
     }
 
     fn leaf(&self, parent: &Path, name: &str, kind: Kind, bytes: u64) -> Node {
-        Node { path: parent.to_path_buf(), name: name.into(), kind, bytes, cleanable: 0, known: None, children: vec![] }
+        Node {
+            path: parent.to_path_buf(),
+            name: name.into(),
+            kind,
+            bytes,
+            cleanable: 0,
+            known: None,
+            children: vec![],
+        }
     }
 
     /// Just the size of a folder, no tree.
@@ -212,24 +290,47 @@ impl Walk<'_> {
                 })
                 .collect();
             if subdirs.len() > 8 {
-                bytes += subdirs.par_iter().map(|d| self.total(d, String::new()).bytes).sum::<u64>();
+                bytes += subdirs
+                    .par_iter()
+                    .map(|d| self.total(d, String::new()).bytes)
+                    .sum::<u64>();
             } else {
                 stack.extend(subdirs);
             }
         }
-        let kind = if readable { kind_of(path, &name, &self.opts.home) } else { Kind::Unreadable };
-        Node { path: path.to_path_buf(), name, kind, bytes, cleanable: 0, known: None, children: vec![] }
+        let kind = if readable {
+            kind_of(path, &name, &self.opts.home)
+        } else {
+            Kind::Unreadable
+        };
+        Node {
+            path: path.to_path_buf(),
+            name,
+            kind,
+            bytes,
+            cleanable: 0,
+            known: None,
+            children: vec![],
+        }
     }
 }
 
 /// Add up what the scan can free in each folder of the map.
 pub fn annotate(node: &mut Node, findings: &[&Finding]) {
-    let mine: Vec<&Finding> = findings.iter().copied().filter(|f| f.path.starts_with(&node.path)).collect();
+    let mine: Vec<&Finding> = findings
+        .iter()
+        .copied()
+        .filter(|f| f.path.starts_with(&node.path))
+        .collect();
     if matches!(node.kind, Kind::Files | Kind::Other) {
         // These stand for leftovers of the parent; findings belong to named folders.
         return;
     }
-    node.cleanable = mine.iter().map(|f| f.bytes_freed).sum::<u64>().min(node.bytes.max(1));
+    node.cleanable = mine
+        .iter()
+        .map(|f| f.bytes_freed)
+        .sum::<u64>()
+        .min(node.bytes.max(1));
     for c in &mut node.children {
         annotate(c, &mine);
     }
@@ -247,7 +348,10 @@ pub fn label(node: &mut Node, catalog: &crate::known::Catalog) {
 
 /// Map all roots and mark what the findings can free.
 pub fn build(roots: &[PathBuf], findings: &[Finding], opts: &MapOptions) -> Vec<Node> {
-    let refs: Vec<&Finding> = findings.iter().filter(|f| f.section() != crate::Section::Blocked).collect();
+    let refs: Vec<&Finding> = findings
+        .iter()
+        .filter(|f| f.section() != crate::Section::Blocked)
+        .collect();
     let mut nodes: Vec<Node> = roots.par_iter().filter_map(|r| map_root(r, opts)).collect();
     for n in &mut nodes {
         rebase(n);
@@ -269,16 +373,31 @@ pub fn render(doc: &MapDocument, home: &Path, depth: usize) -> String {
             human_bytes(other)
         ));
     }
-    out.push_str(&format!("Roomy can free {} of it.\n\n", human_bytes(doc.cleanable_bytes)));
+    out.push_str(&format!(
+        "Roomy can free {} of it.\n\n",
+        human_bytes(doc.cleanable_bytes)
+    ));
     fn walk(n: &Node, level: usize, depth: usize, home: &Path, out: &mut String) {
-        let label = if level == 0 { tilde(&n.path, home) } else { n.name.clone() };
-        let free = if n.cleanable > 0 { format!("   can free {}", human_bytes(n.cleanable)) } else { String::new() };
+        let label = if level == 0 {
+            tilde(&n.path, home)
+        } else {
+            n.name.clone()
+        };
+        let free = if n.cleanable > 0 {
+            format!("   can free {}", human_bytes(n.cleanable))
+        } else {
+            String::new()
+        };
         let note = match n.kind {
             Kind::Personal => "   your files",
             Kind::Unreadable => "   no access",
             _ => "",
         };
-        out.push_str(&format!("{:>9}  {}{label}{free}{note}\n", human_bytes(n.bytes), "  ".repeat(level)));
+        out.push_str(&format!(
+            "{:>9}  {}{label}{free}{note}\n",
+            human_bytes(n.bytes),
+            "  ".repeat(level)
+        ));
         if level < depth {
             for c in n.children.iter().filter(|c| c.bytes >= 500_000_000) {
                 walk(c, level + 1, depth, home, out);
@@ -302,19 +421,62 @@ mod tests {
         let home = Path::new("/Users/me");
         let list = "[[folder]]\npath = \"~/.cache/uv\"\nname = \"uv cache\"\nowner = \"uv\"\nwhat = \"x.\"\nkind = \"cache\"\nregrows = \"yes\"\n";
         let cat = crate::known::Catalog::parse(&[list], home).unwrap();
-        let uv = Node { path: "/Users/me/.cache/uv".into(), name: "uv".into(), kind: Kind::Folder, bytes: 1, cleanable: 0, known: None, children: vec![] };
-        let files = Node { path: "/Users/me/.cache/uv".into(), name: "Files".into(), kind: Kind::Files, bytes: 1, cleanable: 0, known: None, children: vec![] };
-        let mut root = Node { path: "/Users/me/.cache".into(), name: ".cache".into(), kind: Kind::Folder, bytes: 2, cleanable: 0, known: None, children: vec![uv, files] };
+        let uv = Node {
+            path: "/Users/me/.cache/uv".into(),
+            name: "uv".into(),
+            kind: Kind::Folder,
+            bytes: 1,
+            cleanable: 0,
+            known: None,
+            children: vec![],
+        };
+        let files = Node {
+            path: "/Users/me/.cache/uv".into(),
+            name: "Files".into(),
+            kind: Kind::Files,
+            bytes: 1,
+            cleanable: 0,
+            known: None,
+            children: vec![],
+        };
+        let mut root = Node {
+            path: "/Users/me/.cache".into(),
+            name: ".cache".into(),
+            kind: Kind::Folder,
+            bytes: 2,
+            cleanable: 0,
+            known: None,
+            children: vec![uv, files],
+        };
         label(&mut root, &cat);
         assert!(root.known.is_none());
         assert_eq!(root.children[0].known.as_ref().unwrap().name, "uv cache");
-        assert!(root.children[1].known.is_none(), "loose files aren't the folder");
+        assert!(
+            root.children[1].known.is_none(),
+            "loose files aren't the folder"
+        );
     }
 
     #[test]
     fn data_volume_shows_as_root() {
-        let leaf = Node { path: "/System/Volumes/Data/Users/me/x".into(), name: "x".into(), kind: Kind::Folder, bytes: 1, cleanable: 0, known: None, children: vec![] };
-        let mut n = Node { path: DATA_VOLUME.into(), name: DATA_VOLUME.into(), kind: Kind::Folder, bytes: 1, cleanable: 0, known: None, children: vec![leaf] };
+        let leaf = Node {
+            path: "/System/Volumes/Data/Users/me/x".into(),
+            name: "x".into(),
+            kind: Kind::Folder,
+            bytes: 1,
+            cleanable: 0,
+            known: None,
+            children: vec![],
+        };
+        let mut n = Node {
+            path: DATA_VOLUME.into(),
+            name: DATA_VOLUME.into(),
+            kind: Kind::Folder,
+            bytes: 1,
+            cleanable: 0,
+            known: None,
+            children: vec![leaf],
+        };
         rebase(&mut n);
         assert_eq!(n.path, PathBuf::from("/"));
         assert_eq!(n.name, "/");
@@ -324,8 +486,18 @@ mod tests {
     #[test]
     fn personal_folders_found_through_the_data_volume() {
         let home = Path::new("/Users/me");
-        assert_eq!(kind_of(Path::new("/System/Volumes/Data/Users/me/Documents"), "Documents", home), Kind::Personal);
-        assert_eq!(kind_of(Path::new("/Users/me/Documents"), "Documents", home), Kind::Personal);
+        assert_eq!(
+            kind_of(
+                Path::new("/System/Volumes/Data/Users/me/Documents"),
+                "Documents",
+                home
+            ),
+            Kind::Personal
+        );
+        assert_eq!(
+            kind_of(Path::new("/Users/me/Documents"), "Documents", home),
+            Kind::Personal
+        );
     }
 
     #[test]
@@ -339,11 +511,24 @@ mod tests {
     }
 
     fn opts(home: &Path) -> MapOptions {
-        MapOptions { max_depth: 3, min_bytes: 50_000, max_children: 2, home: home.to_path_buf() }
+        MapOptions {
+            max_depth: 3,
+            min_bytes: 50_000,
+            max_children: 2,
+            home: home.to_path_buf(),
+        }
     }
 
     fn find<'a>(n: &'a Node, name: &str) -> &'a Node {
-        n.children.iter().find(|c| c.name == name).unwrap_or_else(|| panic!("no {name} in {:?}", n.children.iter().map(|c| &c.name).collect::<Vec<_>>()))
+        n.children
+            .iter()
+            .find(|c| c.name == name)
+            .unwrap_or_else(|| {
+                panic!(
+                    "no {name} in {:?}",
+                    n.children.iter().map(|c| &c.name).collect::<Vec<_>>()
+                )
+            })
     }
 
     fn finding(path: &Path, bytes: u64) -> Finding {
@@ -388,7 +573,14 @@ mod tests {
         assert_eq!(root.cleanable, 400_000);
         let mid = find(code, "mid");
         assert!(mid.bytes < 300_000, "hard link counted once: {}", mid.bytes);
-        assert_eq!(code.children.iter().filter(|c| c.kind == Kind::Folder).count(), 2, "max_children");
+        assert_eq!(
+            code.children
+                .iter()
+                .filter(|c| c.kind == Kind::Folder)
+                .count(),
+            2,
+            "max_children"
+        );
         let files = find(code, "Files here");
         assert_eq!(files.kind, Kind::Files);
         assert!(find(code, "Smaller items").bytes > 0);
@@ -398,8 +590,14 @@ mod tests {
         let app = find(root, "Tool.app");
         assert_eq!(app.kind, Kind::Bundle);
         assert!(app.children.is_empty() && app.bytes >= 300_000);
-        assert_eq!(kind_of(&h.join("Documents"), "Documents", h), Kind::Personal);
-        assert_eq!(kind_of(&h.join("x/Photos.photoslibrary"), "Photos.photoslibrary", h), Kind::Personal);
+        assert_eq!(
+            kind_of(&h.join("Documents"), "Documents", h),
+            Kind::Personal
+        );
+        assert_eq!(
+            kind_of(&h.join("x/Photos.photoslibrary"), "Photos.photoslibrary", h),
+            Kind::Personal
+        );
     }
 
     #[test]
