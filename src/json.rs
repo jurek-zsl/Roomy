@@ -125,6 +125,7 @@ mod tests {
             },
             checks: vec![],
             command_only: false,
+            auto: false,
         }
     }
 

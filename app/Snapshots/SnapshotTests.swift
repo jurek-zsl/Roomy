@@ -206,3 +206,14 @@ struct SnapAdvisor: FolderAdvisor {
     f.swap = 2_150_000_000
     try Snap.render("system-data", SystemDataView(bytes: 41_700_000_000, facts: f), size: CGSize(width: 560, height: 640))
 }
+
+@MainActor @Test func snapshotAutoCleanAndReport() async throws {
+    let store = try await scannedStore()
+    try Snap.render("settings", SettingsView().environment(store), size: CGSize(width: 480, height: 900))
+    await store.loadMap()
+    let folders = try #require(store.diskMap).unexplained(min: 300_000_000, limit: 25)
+    try Snap.render("report", UnknownReportView(folders: folders), size: CGSize(width: 560, height: 560))
+    for dark in [false, true] {
+        try Snap.render("map", SpaceMapView().environment(store), size: CGSize(width: 900, height: 760), dark: dark)
+    }
+}

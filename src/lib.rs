@@ -130,6 +130,16 @@ fn finder_candidates(opts: &ScanOptions, repos: &[PathBuf], env: &Env) -> Vec<sc
                     None => Vec::new(),
                 }
             }
+            rules::FinderKind::AppCaches => {
+                let catalog = known::Catalog::standard(&opts.home);
+                app_caches(
+                    &opts.home.join("Library/Caches"),
+                    &claimed_caches(&opts.rules, i),
+                    &catalog,
+                    env,
+                    min_mb * MB,
+                )
+            }
             _ => Vec::new(),
         };
         out.extend(found.into_iter().map(|f| scan::Candidate {
@@ -141,8 +151,25 @@ fn finder_candidates(opts: &ScanOptions, repos: &[PathBuf], env: &Env) -> Vec<sc
     out
 }
 
+/// Folders in ~/Library/Caches other rules take care of, as name patterns:
+/// `~/Library/Caches/Homebrew/downloads` claims `Homebrew`.
+pub fn claimed_caches(rules: &[Rule], except: usize) -> Vec<glob::Pattern> {
+    rules
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| *i != except)
+        .filter_map(|(_, r)| match &r.target {
+            rules::Target::Paths { patterns, .. } => Some(patterns),
+            _ => None,
+        })
+        .flatten()
+        .filter_map(|p| p.strip_prefix("~/Library/Caches/")?.split('/').next())
+        .filter_map(|first| glob::Pattern::new(first).ok())
+        .collect()
+}
+
 /// The first line a tool prints, if it's installed and succeeds.
-pub(crate) fn tool_output(program: &str, args: &[&str]) -> Option<String> {
+pub fn tool_output(program: &str, args: &[&str]) -> Option<String> {
     let out = std::process::Command::new(program)
         .args(args)
         .stderr(std::process::Stdio::null())
@@ -329,6 +356,39 @@ fn shell_quote(p: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn other_rules_claim_their_cache_folders() {
+        let rules = rules::parse_rules(
+            r#"
+[[rule]]
+id = "brew"
+category = "c"
+risk = "safe"
+explain = "e"
+match = { path = "~/Library/Caches/Homebrew/downloads" }
+
+[[rule]]
+id = "updaters"
+category = "c"
+risk = "safe"
+explain = "e"
+match = { path = ["~/Library/Caches/*-updater", "~/.npm/_cacache"] }
+
+[[rule]]
+id = "caches"
+category = "c"
+risk = "safe"
+explain = "e"
+match = { finder = "app-caches", min_mb = 1 }
+"#,
+        )
+        .unwrap();
+        let c = claimed_caches(&rules, 2);
+        let hit = |n: &str| c.iter().any(|p| p.matches(n));
+        assert!(hit("Homebrew") && hit("notion-updater"));
+        assert!(!hit("com.spotify.client") && !hit(".npm"));
+    }
 
     #[test]
     fn path_gets_the_usual_tool_folders() {

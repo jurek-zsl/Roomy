@@ -194,6 +194,12 @@ private struct MapBrowser: View {
     @Binding var trail: [MapNode]
     @Binding var inspected: MapNode?
     @State private var showSystem = false
+    @State private var showReport = false
+
+    /// What the report offers: big folders Roomy has no real entry for.
+    private var reportable: [MapNode] {
+        map.unexplained(min: 300_000_000, limit: 25).filter { $0.known == nil || $0.known?.isGeneral == true }
+    }
 
     private var unexplained: Set<String> { Set(map.unexplained(limit: 50).map(\.id)) }
 
@@ -214,7 +220,16 @@ private struct MapBrowser: View {
                             .contextMenu { finder(node) }
                         }
                     } header: {
-                        sectionHeader("Worth a look", "Big folders no rule explains. Click one to see what it is.")
+                        HStack(alignment: .center) {
+                            sectionHeader("Worth a look", "Big folders no rule explains. Click one to see what it is.")
+                            Spacer()
+                            if !reportable.isEmpty {
+                                Button("Tell Roomy About These…") { showReport = true }
+                                    .controlSize(.small)
+                                    .help("Send these folders' names and sizes so a later update can explain them")
+                            }
+                        }
+                        .sheet(isPresented: $showReport) { UnknownReportView(folders: reportable) }
                     }
                 }
                 SwiftUI.Section {

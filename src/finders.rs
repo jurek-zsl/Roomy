@@ -863,9 +863,242 @@ pub fn unused_tools(
     out
 }
 
+/// Apps that are open, by bundle id (lowercased) and name.
+#[derive(Debug, Default)]
+pub struct OpenApps {
+    pub ids: Vec<(String, String)>,
+}
+
+impl OpenApps {
+    /// From the command lines of running processes: each one inside an
+    /// `.app` belongs to the outermost app (helpers count for their app).
+    pub fn capture(env: &Env) -> OpenApps {
+        let mut apps: Vec<PathBuf> = env
+            .args
+            .iter()
+            .filter_map(|a| a.find(".app/").map(|i| PathBuf::from(&a[..i + 4])))
+            .collect();
+        apps.sort();
+        apps.dedup();
+        let ids = apps
+            .par_iter()
+            .filter_map(|app| {
+                let id = crate::uninstall::info(app, "CFBundleIdentifier")?.to_lowercase();
+                Some((id, app.file_stem()?.to_string_lossy().into_owned()))
+            })
+            .collect();
+        OpenApps { ids }
+    }
+
+    /// The open app a folder in Caches belongs to: by bundle id
+    /// (`com.x.app`, `com.x.app.helper`), or a process named like it.
+    pub fn owner_of(&self, folder: &str, env: &Env) -> Option<String> {
+        if let Some((_, name)) = self
+            .ids
+            .iter()
+            .find(|(id, _)| crate::uninstall::named_after(folder, id))
+        {
+            return Some(name.clone());
+        }
+        // A company's shared folder ("Adobe") is in use while any of its apps is.
+        let low = folder.to_lowercase();
+        if !low.contains('.')
+            && let Some((_, name)) = self
+                .ids
+                .iter()
+                .find(|(id, _)| id.split('.').nth(1) == Some(low.as_str()))
+        {
+            return Some(name.clone());
+        }
+        env.is_running(folder).then(|| folder.to_string())
+    }
+}
+
+/// The installed app with this bundle id, by name ("Spotify"), from Spotlight.
+fn app_named(bundle_id: &str) -> Option<String> {
+    if !bundle_id.contains('.') || bundle_id.contains(['\'', '"', '\\']) {
+        return None;
+    }
+    let query = format!(
+        "kMDItemContentType == 'com.apple.application-bundle' && kMDItemCFBundleIdentifier == '{bundle_id}'c"
+    );
+    let out = Command::new("/usr/bin/mdfind")
+        .args(["-0", &query])
+        .stderr(Stdio::null())
+        .output()
+        .ok()?;
+    let first = String::from_utf8_lossy(&out.stdout)
+        .split('\0')
+        .find(|p| !p.is_empty())?
+        .to_string();
+    Path::new(&first)
+        .file_stem()
+        .map(|s| s.to_string_lossy().into_owned())
+}
+
+/// Caches that hold more than a cache: downloads still in progress,
+/// iCloud and account state, or Roomy's own.
+const KEEP_CACHES: &[&str] = &[
+    "com.apple.nsurlsessiond",
+    "com.apple.bird",
+    "com.apple.cloudd",
+    "cloudkit",
+    "com.apple.akd",
+    "familycircle",
+    "com.apple.containermanagerd",
+    "com.apple.homed",
+    "com.apple.icloudhelper",
+    "com.apple.appstore",
+    "com.apple.appstoreagent",
+    "com.apple.softwareupdate",
+    "com.apple.findmy",
+    "com.apple.passd",
+    "com.apple.amsaccountsd",
+    "metadata",
+    "dev.roomy",
+];
+
+/// Every app's own folder in ~/Library/Caches. Apps make them again, so
+/// they're safe to remove once the app is closed. Skips folders another
+/// rule handles (`claimed`, by name), folders Roomy knows hold more than a
+/// cache, and ones smaller than `min_bytes`.
+pub fn app_caches(
+    dir: &Path,
+    claimed: &[glob::Pattern],
+    catalog: &crate::known::Catalog,
+    env: &Env,
+    min_bytes: u64,
+) -> Vec<Found> {
+    let Ok(rd) = fs::read_dir(dir) else {
+        return Vec::new();
+    };
+    let entries: Vec<(String, PathBuf)> = rd
+        .flatten()
+        .filter(|e| e.file_type().is_ok_and(|t| t.is_dir()))
+        .map(|e| (e.file_name().to_string_lossy().into_owned(), e.path()))
+        .filter(|(name, _)| {
+            let low = name.to_lowercase();
+            !KEEP_CACHES
+                .iter()
+                .any(|k| low == *k || low.starts_with(&format!("{k}.")))
+        })
+        .filter(|(name, _)| !claimed.iter().any(|c| c.matches(name)))
+        .filter(|(_, path)| !catalog.holds_more_than_cache(path))
+        .collect();
+    let mut out: Vec<Found> = entries
+        .par_iter()
+        .filter_map(|(name, path)| {
+            let bytes = crate::size::measure(path).on_disk;
+            if bytes < min_bytes.max(1) {
+                return None;
+            }
+            let owner = env.open_owner(name);
+            Some(Found {
+                path: path.clone(),
+                label: catalog
+                    .lookup_named(path)
+                    .map(|k| k.name)
+                    .or_else(|| owner.clone())
+                    .or_else(|| app_named(name))
+                    .or_else(|| Some(name.clone())),
+                bytes: Some(bytes),
+                blocked: owner.map(|o| format!("{o} is open")),
+                ..Found::default()
+            })
+        })
+        .collect();
+    out.sort_by(|a, b| a.path.cmp(&b.path));
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sweeps_app_caches_but_not_what_others_cover() {
+        let home = tempfile::tempdir().unwrap();
+        let caches = home.path().join("Library/Caches");
+        let put = |rel: &str, bytes: usize| {
+            let f = caches.join(rel);
+            fs::create_dir_all(f.parent().unwrap()).unwrap();
+            fs::write(f, vec![1u8; bytes]).unwrap();
+        };
+        put("com.spotify.client/Data/a", 3_000_000);
+        put("com.tinyspeck.slackmacgap/b", 3_000_000);
+        put("Homebrew/api/c", 3_000_000);
+        put("pypoetry/virtualenvs/x/d", 3_000_000);
+        put("com.apple.nsurlsessiond/e", 3_000_000);
+        put("Blender/f", 3_000_000);
+        put("tiny.app.cache/g", 10);
+        let list = r#"
+[[folder]]
+path = "~/Library/Caches/pypoetry/virtualenvs"
+name = "Poetry environments"
+owner = "Poetry"
+what = "Environments."
+kind = "buildOutput"
+regrows = "yes"
+"#;
+        let catalog = crate::known::Catalog::parse(&[list], home.path()).unwrap();
+        let claimed = vec![glob::Pattern::new("Homebrew").unwrap()];
+        let env = Env::from_parts(&["blender"], &[]);
+        env.open
+            .set(OpenApps {
+                ids: vec![("com.tinyspeck.slackmacgap".into(), "Slack".into())],
+            })
+            .unwrap();
+        let found = app_caches(&caches, &claimed, &catalog, &env, 1_000_000);
+        let names: Vec<_> = found
+            .iter()
+            .map(|f| f.path.file_name().unwrap().to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(
+            names,
+            ["Blender", "com.spotify.client", "com.tinyspeck.slackmacgap"]
+        );
+        let slack = &found[2];
+        assert_eq!(slack.blocked.as_deref(), Some("Slack is open"));
+        assert_eq!(found[0].blocked.as_deref(), Some("Blender is open"));
+        assert!(found[1].blocked.is_none());
+        assert!(found[1].bytes.unwrap() >= 3_000_000);
+    }
+
+    #[test]
+    fn finds_open_apps_from_their_command_lines() {
+        let dir = tempfile::tempdir().unwrap();
+        let app = dir.path().join("Slack.app");
+        fs::create_dir_all(app.join("Contents")).unwrap();
+        fs::write(app.join("Contents/Info.plist"), r#"<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0"><dict><key>CFBundleIdentifier</key><string>com.tinyspeck.slackmacgap</string></dict></plist>"#).unwrap();
+        let line = format!(
+            "{}/Contents/Frameworks/Slack Helper.app/Contents/MacOS/Slack Helper --type=gpu",
+            app.display()
+        );
+        let env = Env::from_parts(&[], &[&line, "/usr/bin/login -f"]);
+        let open = OpenApps::capture(&env);
+        assert_eq!(
+            open.ids,
+            [("com.tinyspeck.slackmacgap".to_string(), "Slack".to_string())]
+        );
+        assert_eq!(
+            open.owner_of("com.tinyspeck.slackmacgap.ShipIt", &env),
+            Some("Slack".to_string())
+        );
+        assert_eq!(open.owner_of("com.tinyspeck.slack", &env), None);
+        let adobe = OpenApps {
+            ids: vec![(
+                "com.adobe.aftereffects.application".into(),
+                "Adobe After Effects 2026".into(),
+            )],
+        };
+        assert_eq!(
+            adobe.owner_of("Adobe", &env).as_deref(),
+            Some("Adobe After Effects 2026"),
+            "the company's shared folder"
+        );
+        assert_eq!(adobe.owner_of("com", &env), None);
+    }
 
     fn days_ago(now: SystemTime, d: u64) -> SystemTime {
         now - Duration::from_secs(d * DAY)

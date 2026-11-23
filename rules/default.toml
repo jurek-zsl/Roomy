@@ -24,6 +24,8 @@
 # clean:  the command to run. {path}, {parent} and a finder's {id} are filled in.
 # command_only = true: always use the command, never delete or trash it
 #   (for a .git folder or a simulator runtime).
+# auto = true: cheap to make again (caches, logs), so automatic cleaning
+#   (`roomy clean --auto`) may remove it while its app is closed.
 
 # ---------------------------------------------------------------------------
 # A. Package manager caches
@@ -34,6 +36,7 @@ id = "homebrew-cache"
 name = "Homebrew downloads"
 category = "package-cache"
 risk = "safe"
+auto = true
 explain = "Downloaded Homebrew bottles and old versions."
 # Only downloads/: brew cleanup keeps api/ (the formula index) and bootsnap/,
 # so measuring the whole folder showed 46 MB that never goes away.
@@ -46,6 +49,7 @@ id = "npm-cache"
 name = "npm cache"
 category = "package-cache"
 risk = "safe"
+auto = true
 explain = "npm download cache. Re-downloads when needed."
 match = { path = "~/.npm/_cacache" }
 verify = ["not-running:npm"]
@@ -76,6 +80,7 @@ id = "uv-cache"
 name = "uv Python cache"
 category = "package-cache"
 risk = "safe"
+auto = true
 explain = "uv Python package cache."
 match = { path = "~/.cache/uv" }
 verify = ["lock-free:~/.cache/uv/.lock"]
@@ -86,6 +91,7 @@ id = "pip-cache"
 name = "pip cache"
 category = "package-cache"
 risk = "safe"
+auto = true
 explain = "pip download cache."
 match = { path = "~/Library/Caches/pip" }
 verify = ["not-running:pip", "not-running:pip3"]
@@ -97,6 +103,7 @@ id = "bun-cache"
 name = "Bun cache"
 category = "package-cache"
 risk = "safe"
+auto = true
 explain = "Bun package cache."
 match = { path = "~/.bun/install/cache" }
 verify = ["not-running:bun"]
@@ -107,10 +114,31 @@ id = "yarn-cache"
 name = "Yarn cache"
 category = "package-cache"
 risk = "safe"
+auto = true
 explain = "Yarn package cache."
 match = { path = "~/Library/Caches/Yarn" }
 verify = ["not-running:yarn"]
 clean = "yarn cache clean"
+
+[[rule]]
+id = "cargo-registry-cache"
+name = "Rust package downloads"
+category = "package-cache"
+risk = "safe"
+explain = "Crates Cargo downloaded. It downloads them again when a project needs them."
+match = { path = "~/.cargo/registry/cache" }
+verify = ["not-running:cargo"]
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "bundler-cache"
+name = "Ruby gem downloads"
+category = "package-cache"
+risk = "safe"
+explain = "Gems and gem lists Bundler downloaded. It fetches them again when needed."
+match = { path = "~/.bundle/cache" }
+verify = ["not-running:bundle"]
+clean = "rm -rf {path}"
 
 [[rule]]
 id = "cargo-registry-src"
@@ -381,6 +409,7 @@ id = "shipit-update"
 name = "Leftover app update"
 category = "leftover"
 risk = "safe"
+auto = true
 explain = "App update download that was already installed (Squirrel/ShipIt updater)."
 match = { path = "~/Library/Caches/*.ShipIt" }
 clean = "rm -rf {path}"
@@ -390,6 +419,7 @@ id = "updater-cache"
 name = "App updater download"
 category = "leftover"
 risk = "safe"
+auto = true
 explain = "App updater download cache."
 match = { path = "~/Library/Caches/*-updater" }
 clean = "rm -rf {path}"
@@ -449,6 +479,7 @@ id = "electron-cache"
 name = "web cache"
 category = "app-cache"
 risk = "safe"
+auto = true
 explain = "Web caches of apps built on Electron or Chromium (Claude, Notion, Obsidian, ...). The app downloads them again when needed. Only cache folders: never Local Storage, IndexedDB or settings."
 match = { path = [
   "~/Library/Application Support/*/Cache/Cache_Data",
@@ -456,6 +487,11 @@ match = { path = [
   "~/Library/Application Support/*/GPUCache",
   "~/Library/Application Support/*/DawnGraphiteCache",
   "~/Library/Application Support/*/DawnWebGPUCache",
+  "~/Library/Application Support/*/GraphiteDawnCache",
+  "~/Library/Application Support/*/component_crx_cache",
+  "~/Library/Application Support/*/Default/GPUCache",
+  "~/Library/Application Support/*/Default/DawnGraphiteCache",
+  "~/Library/Application Support/*/Default/DawnWebGPUCache",
   "~/Library/Application Support/*/Service Worker/CacheStorage",
   "~/Library/Application Support/*/Partitions/*/Cache/Cache_Data",
   "~/Library/Application Support/*/Partitions/*/Code Cache",
@@ -465,10 +501,102 @@ verify = ["app-not-running"]
 clean = "rm -rf {path}"
 
 [[rule]]
+id = "app-cache"
+name = "App cache"
+category = "app-cache"
+risk = "safe"
+auto = true
+explain = "Files an app keeps in ~/Library/Caches to start and load faster: thumbnails, downloaded images, map tiles, search indexes. macOS lets apps rebuild them at any time, and the app makes them again when it needs them. Nothing you made is here."
+match = { finder = "app-caches", min_mb = 1 }
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "app-logs"
+name = "App logs"
+category = "app-cache"
+risk = "safe"
+auto = true
+explain = "Logs apps wrote to ~/Library/Logs more than a week ago. They only help when you report a problem to the app's maker."
+match = { path = "~/Library/Logs/*", older_than_days = 7 }
+verify = ["app-not-running"]
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "video-render-files"
+name = "Video render files"
+category = "app-cache"
+risk = "safe"
+explain = "Previews Final Cut Pro or iMovie rendered so playback is smooth. They're made again when you play or export that part of the timeline. Your footage and edits stay."
+match = { path = [
+  "~/Movies/*.fcpbundle/*/Render Files",
+  "~/Movies/*.imovielibrary/*/Render Files",
+] }
+verify = ["not-running:Final Cut Pro", "not-running:iMovie"]
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "video-generated-media"
+name = "Video proxies and optimized media"
+category = "app-cache"
+risk = "review"
+explain = "Proxy and optimized copies of your clips that Final Cut Pro made from the originals. Final Cut can make them again, but only while the original clips are still there, and it takes a while. Use File > Delete Generated Library Files if you're not sure."
+match = { path = [
+  "~/Movies/*.fcpbundle/*/Transcoded Media",
+  "~/Movies/*.fcpbundle/*/Analysis Files",
+] }
+verify = ["not-running:Final Cut Pro"]
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "final-cut-backups"
+name = "Final Cut library backups"
+category = "app-cache"
+risk = "review"
+explain = "Automatic backups of your Final Cut Pro libraries' edits (not the footage). Keep the recent ones if you might want to undo a project's changes."
+match = { path = "~/Movies/Final Cut Backups/*", older_than_days = 30 }
+verify = ["not-running:Final Cut Pro"]
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "resolve-render-cache"
+name = "DaVinci Resolve render cache"
+category = "app-cache"
+risk = "safe"
+explain = "Clips DaVinci Resolve rendered ahead of time so playback is smooth. Resolve renders them again when needed. Your projects and footage are elsewhere."
+match = { path = "~/Movies/CacheClip" }
+verify = ["not-running:Resolve"]
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "adobe-media-cache"
+name = "Adobe media cache"
+category = "app-cache"
+risk = "safe"
+explain = "Audio waveforms and decoded video Premiere Pro, After Effects, Audition and Media Encoder keep so your projects open fast. They're made again when you open a project."
+match = { path = [
+  "~/Library/Application Support/Adobe/Common/Media Cache Files",
+  "~/Library/Application Support/Adobe/Common/Media Cache",
+  "~/Library/Application Support/Adobe/Common/Peak Files",
+] }
+verify = ["app-not-running"]
+clean = "rm -rf {path}"
+
+[[rule]]
+id = "lightroom-previews"
+name = "Lightroom previews"
+category = "app-cache"
+risk = "review"
+explain = "Preview images Lightroom Classic made for your catalog. Your photos and edits stay; Lightroom makes the previews again as you browse, which is slow for big catalogs."
+match = { path = ["~/Pictures/Lightroom/*Previews.lrdata", "~/Pictures/Lightroom/*/*Previews.lrdata"] }
+verify = ["not-running:Adobe Lightroom Classic"]
+clean = "rm -rf {path}"
+
+[[rule]]
 id = "crash-reports"
 name = "sent crash reports"
 category = "app-cache"
 risk = "safe"
+auto = true
 explain = "Crash reports the app already sent. Nothing reads them again."
 match = { path = "~/Library/Application Support/*/Crashpad/completed" }
 verify = ["app-not-running"]
@@ -498,10 +626,26 @@ verify = ["not-running:Xcode"]
 clean = "rm -rf {path}"
 
 [[rule]]
+id = "simulator-device-caches"
+name = "Simulator device caches"
+category = "xcode"
+risk = "safe"
+explain = "Caches, downloaded system assets and logs inside each simulator. The simulator downloads or makes them again when it needs them; apps and their data stay."
+match = { path = [
+  "~/Library/Developer/CoreSimulator/Devices/*/data/Library/Caches",
+  "~/Library/Developer/CoreSimulator/Devices/*/data/private/var/MobileAsset/AssetsV2",
+  "~/Library/Developer/CoreSimulator/Devices/*/data/var/db/diagnostics",
+  "~/Library/Developer/CoreSimulator/Devices/*/data/var/db/uuidtext",
+] }
+verify = ["not-running:Simulator", "not-running:launchd_sim"]
+clean = "rm -rf {path}"
+
+[[rule]]
 id = "simulator-caches"
 name = "Simulator caches"
 category = "developer"
 risk = "safe"
+auto = true
 explain = "Caches of the iOS Simulator. It makes them again."
 match = { path = "~/Library/Developer/CoreSimulator/Caches/*" }
 verify = ["not-running:Simulator"]
@@ -650,6 +794,7 @@ id = "chrome-cache"
 name = "Chrome web cache"
 category = "browser"
 risk = "safe"
+auto = true
 explain = "Copies of web pages and images Chrome keeps to load sites faster. Chrome refills it as you browse. Logins, history and tabs are not here."
 match = { path = ["~/Library/Caches/Google/Chrome/*/Cache", "~/Library/Caches/Google/Chrome/*/Code Cache"] }
 verify = ["not-running:Google Chrome"]
@@ -660,6 +805,7 @@ id = "brave-cache"
 name = "Brave web cache"
 category = "browser"
 risk = "safe"
+auto = true
 explain = "Copies of web pages and images Brave keeps to load sites faster. Brave refills it as you browse. Logins, history and tabs are not here."
 match = { path = ["~/Library/Caches/BraveSoftware/Brave-Browser/*/Cache", "~/Library/Caches/BraveSoftware/Brave-Browser/*/Code Cache"] }
 verify = ["not-running:Brave Browser"]
@@ -670,6 +816,7 @@ id = "edge-cache"
 name = "Edge web cache"
 category = "browser"
 risk = "safe"
+auto = true
 explain = "Copies of web pages and images Edge keeps to load sites faster. Edge refills it as you browse. Logins, history and tabs are not here."
 match = { path = ["~/Library/Caches/Microsoft Edge/*/Cache", "~/Library/Caches/Microsoft Edge/*/Code Cache"] }
 verify = ["not-running:Microsoft Edge"]
@@ -680,6 +827,7 @@ id = "arc-cache"
 name = "Arc web cache"
 category = "browser"
 risk = "safe"
+auto = true
 explain = "Copies of web pages and images Arc keeps to load sites faster. Arc refills it as you browse. Logins, history and tabs are not here."
 match = { path = ["~/Library/Caches/Arc/User Data/*/Cache", "~/Library/Caches/Arc/User Data/*/Code Cache"] }
 verify = ["not-running:Arc"]
@@ -690,6 +838,7 @@ id = "vivaldi-cache"
 name = "Vivaldi web cache"
 category = "browser"
 risk = "safe"
+auto = true
 explain = "Copies of web pages and images Vivaldi keeps to load sites faster. Vivaldi refills it as you browse. Logins, history and tabs are not here."
 match = { path = ["~/Library/Caches/Vivaldi/*/Cache", "~/Library/Caches/Vivaldi/*/Code Cache"] }
 verify = ["not-running:Vivaldi"]
@@ -700,6 +849,7 @@ id = "firefox-cache"
 name = "Firefox web cache"
 category = "browser"
 risk = "safe"
+auto = true
 explain = "Copies of web pages and images Firefox keeps to load sites faster. Firefox refills it as you browse. Logins, history and tabs are not here."
 match = { path = "~/Library/Caches/Firefox/Profiles/*/cache2" }
 verify = ["not-running:firefox"]

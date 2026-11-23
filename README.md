@@ -50,6 +50,10 @@ Everything Roomy finds lands in one of three groups:
 
 Click Clean, confirm, and Roomy cleans item by item, re-checking each one at that moment. It then shows a summary of the space freed and scans again, because freeing one thing can make another freeable.
 
+### Clean automatically
+
+Turn on **Settings > Automatic cleaning** and Roomy keeps caches down by itself, every day, week or month, even when Roomy isn't open. A small background agent inside Roomy.app runs `roomy clean --auto`, which only takes rules marked as cheap to make again: app caches in `~/Library/Caches`, browser and web caches, package-manager download caches, sent crash reports and logs older than a week. Caches of apps that are open are skipped. Build folders, downloads, simulators, video renders and everything under Review first are never cleaned automatically. Settings shows when it last ran and how much it freed.
+
 ### Space Map
 
 <p align="center">
@@ -168,15 +172,16 @@ Click **macOS & system data** at the bottom of the Space Map to see what it hold
 
 ## What it finds
 
-65 rules ship with Roomy, plus built-in **finders** for things a path pattern can't describe.
+76 rules ship with Roomy, plus built-in **finders** for things a path pattern can't describe.
 
 | Area | Examples |
 |---|---|
 | **Package managers** | npm, pnpm, Yarn, Bun, uv, pip, Cargo, Go, Gradle, CocoaPods, Deno, Homebrew, Playwright browsers |
 | **Build output** | `node_modules`, `target`, `.next`, `.venv`, `dist`, `build`, `.build`, `Pods`, `.godot`… in every project under your home folder |
-| **App caches** | Web caches of Electron and Chromium apps (Slack, Notion, Discord, VS Code…), sent crash reports |
+| **App caches** | Every app's folder in `~/Library/Caches` (skipped while that app is open), web caches of Electron and Chromium apps (Slack, Notion, Discord, VS Code…), logs older than a week, sent crash reports |
+| **Video and photo** | Final Cut Pro and iMovie render files, DaVinci Resolve's render cache, Premiere and After Effects media cache; Final Cut proxies, old library backups and Lightroom previews under Review |
 | **Browsers** | Chrome, Brave, Edge, Arc, Vivaldi and Firefox page caches (never history, logins or tabs) |
-| **Xcode** | DerivedData, old device support files, archives, simulator caches, **unused Simulator runtimes** (5–10 GB each), **a beta runtime once its final release is installed**, broken simulators |
+| **Xcode** | DerivedData, old device support files, archives, simulator caches and the caches and downloaded assets inside each simulator, **unused Simulator runtimes** (5–10 GB each), **a beta runtime once its final release is installed**, broken simulators |
 | **Old projects** | Whole git projects untouched for 6 months, but only when every file is committed and every commit is pushed |
 | **Git** | Unpacked objects that `git gc` packs together |
 | **Unused apps** | Apps not opened in 4 months, using the last-opened date macOS keeps |
@@ -318,7 +323,11 @@ The `Snapshots` scheme renders every screen, light and dark, to `app/build/snaps
 
 ## Teach Roomy new folders
 
-Roomy knows the folders on the Macs it was tested on. Every Mac has different apps, so the best way to fill the gaps is to let an AI agent look at yours and send what it finds back. Paste this into Claude Code, Codex, Gemini or any agent that can run commands:
+Roomy knows the folders on the Macs it was tested on. Every Mac has different apps, so the gaps get filled by people sending what Roomy doesn't know yet.
+
+**Without an AI agent:** open the Space tab, and under *Worth a look* click **Tell Roomy About These…**. Roomy lists the big folders it can't explain, with their sizes and the biggest things inside, and you untick anything private and add what made them if you know ("I edit video in DaVinci Resolve"). **Send on GitHub** opens a new issue with the report filled in (a free GitHub account is needed), or **Copy Report** to send it another way. Paths start at `~`, so your user name isn't in it. Folders reported this way are added to the list in the next update, which Roomy installs by itself.
+
+**With an AI agent:** let it look at your Mac and add the folders itself. Paste this into Claude Code, Codex, Gemini or any agent that can run commands:
 
 ```text
 You're helping improve Roomy, a Mac cleaner whose code is on GitHub (https://github.com/jurek-zsl/Roomy).

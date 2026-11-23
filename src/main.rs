@@ -507,6 +507,15 @@ struct CleanArgs {
     /// Clean everything in "Safe to clean now".
     #[arg(long)]
     safe: bool,
+    /// Clean only the caches and logs marked for automatic cleaning (closed
+    /// apps only), without asking, and note it in Roomy's history. This is
+    /// what the background agent runs.
+    #[arg(long)]
+    auto: bool,
+    /// With --auto: only if the last automatic run is older than the app's
+    /// "how often" setting (every 7 days unless set).
+    #[arg(long, requires = "auto")]
+    if_due: bool,
     /// Move everything to the Trash instead of deleting (you can get it back;
     /// space is freed when you empty the Trash).
     #[arg(long)]
@@ -727,16 +736,16 @@ struct Prepared {
 
 /// Load rules, scan, and pick what to clean.
 fn prepare_clean(a: &CleanArgs, home: &std::path::Path) -> Result<Prepared, String> {
-    if a.targets.is_empty() && !a.safe {
+    if a.targets.is_empty() && !a.safe && !a.auto {
         return Err("Say what to clean: rule ids or paths from `roomy scan`, or --safe for everything safe.".into());
     }
     let rules = load_rules(a.rules.as_ref())?;
     let ids: Vec<&str> = rules.iter().map(|r| r.id.as_str()).collect();
     // Only rule ids given: scan just those rules, it's faster.
-    let only_ids = !a.safe && a.targets.iter().all(|t| ids.contains(&t.as_str()));
+    let only_ids = !a.safe && !a.auto && a.targets.iter().all(|t| ids.contains(&t.as_str()));
     let scan_rules: Vec<rules::Rule> = rules
         .iter()
-        .filter(|r| !only_ids || a.targets.contains(&r.id))
+        .filter(|r| (!only_ids || a.targets.contains(&r.id)) && (!a.auto || r.auto))
         .cloned()
         .collect();
     eprintln!("Scanning...");
@@ -747,7 +756,7 @@ fn prepare_clean(a: &CleanArgs, home: &std::path::Path) -> Result<Prepared, Stri
         apps_dir: apps_dir(),
     });
     let cwd = std::env::current_dir().unwrap_or_else(|_| home.to_path_buf());
-    let plan = clean::select(&findings, &ids, &a.targets, a.safe, home, &cwd);
+    let plan = clean::select(&findings, &ids, &a.targets, a.safe || a.auto, home, &cwd);
     Ok(Prepared {
         rules,
         findings,
@@ -893,7 +902,92 @@ fn run_clean_json(a: CleanArgs, home: &std::path::Path) -> ExitCode {
     }
 }
 
+/// Where automatic cleaning notes each run, one JSON line per run.
+fn auto_history(home: &std::path::Path) -> PathBuf {
+    home.join("Library/Application Support/Roomy/auto-clean.jsonl")
+}
+
+/// `clean --auto`: the background agent's run. Cleans what's marked for it,
+/// skips what's in use, and adds one line to the history the app shows.
+fn run_auto(a: CleanArgs, home: &std::path::Path) -> ExitCode {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    if a.if_due {
+        let every = roomy::tool_output(
+            "/usr/bin/defaults",
+            &["read", "dev.roomy.app", "autoCleanDays"],
+        )
+        .and_then(|d| d.parse().ok())
+        .unwrap_or(7);
+        let last = std::fs::read_to_string(auto_history(home))
+            .ok()
+            .and_then(|h| roomy::clean::last_auto_run(&h));
+        if !roomy::clean::auto_is_due(last, now, every) {
+            println!("Not due yet.");
+            return ExitCode::SUCCESS;
+        }
+    }
+    let p = match prepare_clean(&a, home) {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("error: {e}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let opts = clean_options(&a, home);
+    let log = log_path(home);
+    let (mut freed, mut cleaned, mut skipped, mut failed) = (0u64, 0usize, 0usize, 0usize);
+    for item in &p.plan.items {
+        let f = &p.findings[item.index];
+        if item.pick != Pick::Act {
+            skipped += 1;
+            continue;
+        }
+        let rule = p
+            .rules
+            .iter()
+            .find(|r| r.id == f.rule)
+            .expect("finding from a known rule");
+        match clean_and_log(f, rule, &opts, &log) {
+            Outcome::Cleaned { .. } => {
+                cleaned += 1;
+                freed += f.bytes_freed;
+            }
+            Outcome::Skipped { .. } => skipped += 1,
+            Outcome::Failed { .. } => failed += 1,
+        }
+    }
+    let line = serde_json::json!({ "at": now, "freed": freed, "cleaned": cleaned, "skipped": skipped, "failed": failed });
+    let path = auto_history(home);
+    let mut lines: Vec<String> = std::fs::read_to_string(&path)
+        .unwrap_or_default()
+        .lines()
+        .map(String::from)
+        .collect();
+    lines.push(line.to_string());
+    let keep = lines.len().saturating_sub(200);
+    if let Some(dir) = path.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    let _ = std::fs::write(&path, lines[keep..].join("\n") + "\n");
+    println!(
+        "Cleaned {cleaned} item{} ({}), skipped {skipped} in use.",
+        if cleaned == 1 { "" } else { "s" },
+        human_bytes(freed)
+    );
+    if failed > 0 {
+        ExitCode::FAILURE
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
 fn run_clean(a: CleanArgs, home: &std::path::Path) -> ExitCode {
+    if a.auto {
+        return run_auto(a, home);
+    }
     if a.json {
         return run_clean_json(a, home);
     }

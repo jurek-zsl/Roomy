@@ -100,6 +100,8 @@ pub enum FinderKind {
     UnusedNpmTools,
     UnusedUvTools,
     UnusedPipxTools,
+    /// Every app's own folder in ~/Library/Caches, at least `min_mb`.
+    AppCaches,
 }
 
 impl FinderKind {
@@ -114,6 +116,7 @@ impl FinderKind {
             "unused-npm-tools" => FinderKind::UnusedNpmTools,
             "unused-uv-tools" => FinderKind::UnusedUvTools,
             "unused-pipx-tools" => FinderKind::UnusedPipxTools,
+            "app-caches" => FinderKind::AppCaches,
             _ => return None,
         })
     }
@@ -133,6 +136,8 @@ pub struct Rule {
     /// Review items normally go to the Trash. With this, they use the clean
     /// command instead (for things the Trash can't hold, like simulator runtimes).
     pub command_only: bool,
+    /// Cheap to make again (caches, logs): automatic cleaning may remove it.
+    pub auto: bool,
 }
 
 #[derive(Deserialize)]
@@ -158,6 +163,8 @@ struct RawRule {
     verify: Vec<String>,
     #[serde(default)]
     command_only: bool,
+    #[serde(default)]
+    auto: bool,
 }
 
 #[derive(Deserialize)]
@@ -270,6 +277,7 @@ pub fn parse_rules(text: &str) -> Result<Vec<Rule>, String> {
                 target,
                 checks,
                 command_only: r.command_only,
+                auto: r.auto,
             })
         })
         .collect()
@@ -351,6 +359,43 @@ match = { finder = "git-garbage", min_mb = 50 }
         assert!(parse_rules(&bad).unwrap_err().contains("unknown finder"));
         let mixed = ok.replace("min_mb = 50", "min_mb = 50, path = \"~/x\"");
         assert!(parse_rules(&mixed).is_err());
+    }
+
+    #[test]
+    fn automatic_cleaning_only_takes_safe_caches() {
+        let rules = parse_rules(DEFAULT_RULES).unwrap();
+        let auto: Vec<&Rule> = rules.iter().filter(|r| r.auto).collect();
+        assert!(
+            auto.iter().any(|r| r.id == "app-cache") && auto.iter().any(|r| r.id == "chrome-cache")
+        );
+        for r in auto {
+            assert_eq!(r.risk, Risk::Safe, "{}", r.id);
+            assert!(!r.command_only, "{}", r.id);
+            assert!(
+                [
+                    "app-cache",
+                    "package-cache",
+                    "browser",
+                    "leftover",
+                    "developer"
+                ]
+                .contains(&r.category.as_str()),
+                "{}: {}",
+                r.id,
+                r.category
+            );
+        }
+        for id in [
+            "xcode-derived-data",
+            "video-render-files",
+            "node-modules",
+            "simulator-device-caches",
+        ] {
+            assert!(
+                !rules.iter().find(|r| r.id == id).unwrap().auto,
+                "{id} is slow to make again"
+            );
+        }
     }
 
     #[test]

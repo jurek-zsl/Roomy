@@ -216,6 +216,37 @@ impl Catalog {
         (!inside_tool).then_some(self.patterns[i].1)
     }
 
+    /// The entry naming exactly this folder, not a wildcard one like
+    /// `~/Library/Caches/*` that fits any app.
+    pub fn lookup_named(&self, path: &Path) -> Option<Known> {
+        let name = path.file_name()?.to_string_lossy();
+        let hits = self.by_name.get(name.as_ref())?;
+        let i = hits
+            .iter()
+            .copied()
+            .filter(|&i| !self.patterns[i].2 && self.patterns[i].0.matches_path_with(path, OPTS))
+            .min()?;
+        Some(self.entries[self.patterns[i].1].clone())
+    }
+
+    /// Is something in this folder, or the folder itself, known as more
+    /// than a cache (a tool, your files, models)? Then it isn't swept as one.
+    pub fn holds_more_than_cache(&self, path: &Path) -> bool {
+        let sweepable = |i: usize| {
+            matches!(
+                self.entries[i].kind.as_str(),
+                "cache" | "logs" | "installers"
+            )
+        };
+        if self.find(path, false).is_some_and(|i| !sweepable(i)) {
+            return true;
+        }
+        let inside = format!("{}/", path.to_string_lossy());
+        self.patterns
+            .iter()
+            .any(|(p, i, project)| !project && p.as_str().starts_with(&inside) && !sweepable(*i))
+    }
+
     /// The entry for this folder, or for the nearest known folder it's in.
     pub fn lookup_within(&self, path: &Path) -> Option<Known> {
         if let Some(k) = self.lookup(path) {
@@ -234,6 +265,67 @@ impl Catalog {
 mod tests {
     use super::*;
     use std::collections::HashSet;
+
+    #[test]
+    fn tells_a_plain_cache_from_one_holding_more() {
+        let list = r#"
+[[folder]]
+path = "~/Library/Caches/pypoetry"
+name = "Poetry cache"
+owner = "Poetry"
+what = "Downloads."
+kind = "cache"
+regrows = "yes"
+
+[[folder]]
+path = "~/Library/Caches/pypoetry/virtualenvs"
+name = "Poetry environments"
+owner = "Poetry"
+what = "Project environments."
+kind = "buildOutput"
+regrows = "yes"
+
+[[folder]]
+path = "~/Library/Caches/fvm"
+name = "Flutter versions"
+owner = "fvm"
+what = "Installed Flutter versions."
+kind = "toolchain"
+regrows = "no"
+
+[[folder]]
+path = "~/Library/Caches/ollama"
+name = "Ollama updates"
+owner = "Ollama"
+what = "Update downloads."
+kind = "installers"
+regrows = "yes"
+"#;
+        let c = Catalog::parse(&[list], Path::new("/h")).unwrap();
+        assert!(
+            c.holds_more_than_cache(Path::new("/h/Library/Caches/pypoetry")),
+            "environments inside"
+        );
+        assert!(c.holds_more_than_cache(Path::new("/h/Library/Caches/fvm")));
+        assert!(!c.holds_more_than_cache(Path::new("/h/Library/Caches/ollama")));
+        assert!(!c.holds_more_than_cache(Path::new("/h/Library/Caches/com.example.app")));
+        assert_eq!(
+            c.lookup_named(Path::new("/h/Library/Caches/ollama"))
+                .unwrap()
+                .name,
+            "Ollama updates"
+        );
+        let wild = Catalog::parse(
+            &[&list.replace("~/Library/Caches/ollama", "~/Library/Caches/*")],
+            Path::new("/h"),
+        )
+        .unwrap();
+        assert!(wild.lookup(Path::new("/h/Library/Caches/x")).is_some());
+        assert!(
+            wild.lookup_named(Path::new("/h/Library/Caches/x"))
+                .is_none()
+        );
+    }
 
     const LIST: &str = r#"
 [[folder]]

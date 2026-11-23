@@ -159,3 +159,51 @@ fn map_uses_extra_rules() {
         v["cleanable_bytes"]
     );
 }
+
+#[test]
+fn auto_clean_takes_only_caches_and_notes_the_run() {
+    let home = tempfile::tempdir().unwrap();
+    let h = home.path().to_str().unwrap();
+    let put = |rel: &str| {
+        let f = home.path().join(rel);
+        std::fs::create_dir_all(f.parent().unwrap()).unwrap();
+        std::fs::write(f, vec![7u8; 2_000_000]).unwrap();
+    };
+    put("Library/Caches/com.example.viewer/thumbs.db");
+    put("code/app/node_modules/x/index.js");
+    std::fs::write(home.path().join("code/app/package.json"), "{}").unwrap();
+    let out = Command::new(env!("CARGO_BIN_EXE_roomy"))
+        .args(["clean", "--auto", "--root", h])
+        .env("HOME", h)
+        .env("TMPDIR", h)
+        .env("ROOMY_APPS_DIR", format!("{h}/Applications"))
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "exit {:?}: {}",
+        out.status,
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(
+        !home
+            .path()
+            .join("Library/Caches/com.example.viewer")
+            .exists(),
+        "the app cache is gone"
+    );
+    assert!(
+        home.path()
+            .join("code/app/node_modules/x/index.js")
+            .exists(),
+        "build output is never automatic"
+    );
+    let history = std::fs::read_to_string(
+        home.path()
+            .join("Library/Application Support/Roomy/auto-clean.jsonl"),
+    )
+    .unwrap();
+    let run: serde_json::Value = serde_json::from_str(history.lines().last().unwrap()).unwrap();
+    assert_eq!(run["cleaned"], 1);
+    assert!(run["freed"].as_u64().unwrap() >= 2_000_000);
+}

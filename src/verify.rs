@@ -52,6 +52,8 @@ pub struct Env {
     names: HashSet<String>,
     /// Full command lines.
     pub args: Vec<String>,
+    /// Open apps by bundle id, read the first time they're needed.
+    pub open: std::sync::OnceLock<crate::finders::OpenApps>,
 }
 
 impl Env {
@@ -77,6 +79,7 @@ impl Env {
         Env {
             names,
             args: run("args="),
+            open: Default::default(),
         }
     }
 
@@ -84,7 +87,15 @@ impl Env {
         Env {
             names: names.iter().map(|s| s.to_lowercase()).collect(),
             args: args.iter().map(|s| s.to_string()).collect(),
+            open: Default::default(),
         }
+    }
+
+    /// The open app a folder named `folder` (a bundle id or an app name) belongs to.
+    pub fn open_owner(&self, folder: &str) -> Option<String> {
+        self.open
+            .get_or_init(|| crate::finders::OpenApps::capture(self))
+            .owner_of(folder, self)
     }
 
     pub fn is_running(&self, name: &str) -> bool {
@@ -116,6 +127,9 @@ pub fn verify(checks: &[Check], path: &Path, env: &Env, home: &Path) -> Verdict 
                         || env.args.iter().any(|a| a.to_lowercase().contains(&bundle))
                     {
                         return Verdict::blocked(format!("{app} is running"));
+                    }
+                    if let Some(open) = env.open_owner(&app) {
+                        return Verdict::blocked(format!("{open} is running"));
                     }
                 }
                 None => {
@@ -223,7 +237,7 @@ pub fn app_owner(path: &Path) -> Option<String> {
     let mut parts = path
         .components()
         .map(|c| c.as_os_str().to_string_lossy().into_owned());
-    parts.find(|p| p == "Application Support")?;
+    parts.find(|p| matches!(p.as_str(), "Application Support" | "Caches" | "Logs"))?;
     parts.next()
 }
 
@@ -457,6 +471,24 @@ mod tests {
         );
         let idle = Env::from_parts(&["finder"], &["/System/Finder.app/Contents/MacOS/Finder"]);
         assert_eq!(verify(&c, p, &idle, Path::new("/h")).status, Status::Ready);
+        let helium = Path::new("/h/Library/Application Support/net.imput.helium/Default/GPUCache");
+        let open = Env::from_parts(&["helium"], &[]);
+        open.open
+            .set(crate::finders::OpenApps {
+                ids: vec![("net.imput.helium".into(), "Helium".into())],
+            })
+            .unwrap();
+        assert_eq!(
+            verify(&c, helium, &open, Path::new("/h")).reason.as_deref(),
+            Some("Helium is running"),
+            "by bundle id"
+        );
+        let log = Path::new("/h/Library/Logs/Notion");
+        assert_eq!(
+            verify(&c, log, &by_name, Path::new("/h")).status,
+            Status::Blocked,
+            "logs have owners too"
+        );
         // No app folder in the path: can't tell, so the user decides.
         assert_eq!(
             verify(&c, Path::new("/h/x/Cache"), &idle, Path::new("/h")).status,

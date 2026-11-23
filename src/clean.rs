@@ -601,9 +601,37 @@ pub fn append_log(log: &Path, entry: &LogEntry) -> io::Result<()> {
     writeln!(f, "{line}")
 }
 
+/// When automatic cleaning last ran, from its history (one JSON line per run).
+pub fn last_auto_run(history: &str) -> Option<u64> {
+    history
+        .lines()
+        .rev()
+        .find_map(|l| serde_json::from_str::<serde_json::Value>(l).ok()?["at"].as_u64())
+}
+
+/// Is a run due? An hour early counts, so a daily run doesn't slip later each day.
+pub fn auto_is_due(last: Option<u64>, now: u64, every_days: u64) -> bool {
+    last.is_none_or(|l| now + 3600 >= l + every_days.max(1) * 86400)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn automatic_runs_come_when_due() {
+        let history = "{\"at\":100,\"freed\":1}\n{\"at\":1000000,\"freed\":2}\n";
+        assert_eq!(last_auto_run(history), Some(1_000_000));
+        assert_eq!(last_auto_run(""), None);
+        assert!(auto_is_due(None, 5, 7), "never ran");
+        let day = 86400;
+        assert!(!auto_is_due(Some(1_000_000), 1_000_000 + 6 * day, 7));
+        assert!(
+            auto_is_due(Some(1_000_000), 1_000_000 + 7 * day - 600, 7),
+            "a little early is fine"
+        );
+        assert!(auto_is_due(Some(1_000_000), 1_000_000 + day, 1));
+    }
     use crate::rules::{Check, Risk, Target};
     use std::os::unix::fs::symlink;
 
@@ -640,6 +668,7 @@ mod tests {
             },
             checks,
             command_only: false,
+            auto: false,
         }
     }
 

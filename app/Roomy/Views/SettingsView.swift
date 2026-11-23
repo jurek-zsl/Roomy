@@ -17,6 +17,9 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            SwiftUI.Section("Automatic cleaning") {
+                AutoCleanView()
+            }
             SwiftUI.Section("Disk access") {
                 DiskAccessView()
             }

@@ -26,7 +26,13 @@ targets:
     platform: macOS
     sources:
       - path: Roomy
-        excludes: ["AppIcon.icon"]
+        excludes: ["AppIcon.icon", "LaunchAgents"]
+      # The background agent for automatic cleaning (SMAppService.agent).
+      - path: Roomy/LaunchAgents/dev.roomy.autoclean.plist
+        buildPhase:
+          copyFiles:
+            destination: wrapper
+            subpath: Contents/Library/LaunchAgents
       # Icon Composer icon: light, dark, clear (glass) and tinted, with
       # older-macOS images made from it at build time.
       - path: Roomy/AppIcon.icon

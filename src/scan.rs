@@ -66,7 +66,7 @@ pub fn path_candidates_in(rules: &[Rule], home: &Path, user_tmp: Option<&Path>) 
                 let Ok(md) = fs::symlink_metadata(&p) else {
                     continue;
                 };
-                if md.file_type().is_symlink() {
+                if md.file_type().is_symlink() || is_roomys_own(&p, home) {
                     continue;
                 }
                 let modified = md.modified().unwrap_or(SystemTime::UNIX_EPOCH);
@@ -83,6 +83,17 @@ pub fn path_candidates_in(rules: &[Rule], home: &Path, user_tmp: Option<&Path>) 
         out.extend(found.into_iter().map(|(path, _)| Candidate::new(i, path)));
     }
     out
+}
+
+/// Roomy's own logs (the record of what it cleaned), settings and cache.
+pub fn is_roomys_own(path: &Path, home: &Path) -> bool {
+    [
+        "Library/Logs/Roomy",
+        "Library/Application Support/Roomy",
+        "Library/Caches/dev.roomy.app",
+    ]
+    .iter()
+    .any(|own| path.starts_with(home.join(own)))
 }
 
 pub struct WalkOptions {
@@ -375,6 +386,30 @@ match = { path = "$USERTMP/C/clang/ModuleCache" }
         assert_eq!(c.len(), 1);
         assert_eq!(c[0].path, tmp.path().join("C/clang/ModuleCache"));
         assert!(path_candidates_in(&rules, home.path(), None).is_empty());
+    }
+
+    #[test]
+    fn never_offers_roomys_own_folders() {
+        let home = tempfile::tempdir().unwrap();
+        for d in ["Library/Logs/Roomy", "Library/Logs/Other"] {
+            mk(&home.path().join(d));
+        }
+        let rules = parse_rules(
+            r#"
+[[rule]]
+id = "logs"
+category = "c"
+risk = "safe"
+explain = "e"
+match = { path = "~/Library/Logs/*" }
+"#,
+        )
+        .unwrap();
+        let found: Vec<_> = path_candidates_in(&rules, home.path(), None)
+            .into_iter()
+            .map(|c| c.path)
+            .collect();
+        assert_eq!(found, [home.path().join("Library/Logs/Other")]);
     }
 
     #[test]
