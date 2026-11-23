@@ -1,6 +1,6 @@
 [package]
 name = "roomy"
-version = "0.7.1"
+version = "0.8.0"
 license = "MIT"
 description = "Find space you can free on your Mac, and clean it safely."
 edition = "2024"
